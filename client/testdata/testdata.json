@@ -1,0 +1,559 @@
+{
+  "villages": [
+    {
+      "name": "Testbyn1",
+      "id": "testbyn1",
+      "num_participants": 56,
+      "ScoutGroups": [
+        {
+          "name": "Röd",
+          "id": "rod",
+          "num_participants": 20,
+          "stats": [
+            {
+              "name": "Matpreferens",
+              "values": {
+                "vegetarian": {
+                  "name": "Vegetarian",
+                  "count": 290
+                },
+                "vegan": {
+                  "name": "Vegan",
+                  "count": 2
+                },
+                "pescetarian": {
+                  "name": "Pescetarian",
+                  "count": 1552
+                },
+                "omnivore": {
+                  "name": "Omnivore",
+                  "count": 1
+                }
+              }
+            },
+            {
+              "name": "Kön",
+              "values": {
+                "kvinna": {
+                  "name": "Kvinna",
+                  "count": 1234
+                },
+                "man": {
+                  "name": "Man",
+                  "count": 611
+                }
+              }
+            },
+            {
+              "name": "Årsgrupp",
+              "values": {
+                "tracker": {
+                  "name": "Spårare",
+                  "count": 500
+                },
+                "discoverer": {
+                  "name": "Upptäckare",
+                  "count": 800
+                },
+                "adventurer": {
+                  "name": "Äventyrare",
+                  "count": 300
+                },
+                "challenger": {
+                  "name": "Utmanare",
+                  "count": 150
+                },
+                "leader": {
+                  "name": "Ledare",
+                  "count": 95
+                }
+              }
+            },
+            {
+              "name": "Allergier",
+              "values": {
+                "gluten": {
+                  "name": "Gluten",
+                  "count": 50
+                },
+                "laktos": {
+                  "name": "Laktos",
+                  "count": 30
+                },
+                "jordnötter": {
+                  "name": "Jordnötter",
+                  "count": 20
+                },
+                "inget": {
+                  "name": "Inget",
+                  "count": 1700
+                },
+                "annat": {
+                  "name": "Annat",
+                  "count": 10,
+                  "free_text_answers": [
+                    {
+                      "text": "Ägg",
+                      "num_answers": 3
+                    },
+                    {
+                      "text": "Fisk",
+                      "num_answers": 2
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Orange",
+          "id": "orange",
+          "num_participants": 20,
+          "stats": [
+            {
+              "name": "Matpreferens",
+              "values": {
+                "vegetarian": {
+                  "name": "Vegetarian",
+                  "count": 290
+                },
+                "vegan": {
+                  "name": "Vegan",
+                  "count": 2
+                },
+                "pescetarian": {
+                  "name": "Pescetarian",
+                  "count": 1552
+                },
+                "omnivore": {
+                  "name": "Omnivore",
+                  "count": 1
+                }
+              }
+            },
+            {
+              "name": "Kön",
+              "values": {
+                "kvinna": {
+                  "name": "Kvinna",
+                  "count": 1234
+                },
+                "man": {
+                  "name": "Man",
+                  "count": 611
+                }
+              }
+            },
+            {
+              "name": "Årsgrupp",
+              "values": {
+                "tracker": {
+                  "name": "Spårare",
+                  "count": 500
+                },
+                "discoverer": {
+                  "name": "Upptäckare",
+                  "count": 800
+                },
+                "adventurer": {
+                  "name": "Äventyrare",
+                  "count": 300
+                },
+                "challenger": {
+                  "name": "Utmanare",
+                  "count": 150
+                },
+                "leader": {
+                  "name": "Ledare",
+                  "count": 95
+                }
+              }
+            },
+            {
+              "name": "Allergier",
+              "values": {
+                "gluten": {
+                  "name": "Gluten",
+                  "count": 50
+                },
+                "laktos": {
+                  "name": "Laktos",
+                  "count": 30
+                },
+                "jordnötter": {
+                  "name": "Jordnötter",
+                  "count": 20
+                },
+                "inget": {
+                  "name": "Inget",
+                  "count": 1700
+                },
+                "annat": {
+                  "name": "Annat",
+                  "count": 10,
+                  "free_text_answers": [
+                    {
+                      "text": "Ägg",
+                      "num_answers": 3
+                    },
+                    {
+                      "text": "Fisk",
+                      "num_answers": 2
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Testbyn2",
+      "id": "testbyn2",
+      "num_participants": 56,
+      "ScoutGroups": [
+        {
+          "name": "Grön",
+          "id": "gron",
+          "num_participants": 20,
+          "stats": [
+            {
+              "name": "Matpreferens",
+              "values": {
+                "vegetarian": {
+                  "name": "Vegetarian",
+                  "count": 290
+                },
+                "vegan": {
+                  "name": "Vegan",
+                  "count": 2
+                },
+                "pescetarian": {
+                  "name": "Pescetarian",
+                  "count": 1552
+                },
+                "omnivore": {
+                  "name": "Omnivore",
+                  "count": 1
+                }
+              }
+            },
+            {
+              "name": "Kön",
+              "values": {
+                "kvinna": {
+                  "name": "Kvinna",
+                  "count": 1234
+                },
+                "man": {
+                  "name": "Man",
+                  "count": 611
+                }
+              }
+            },
+            {
+              "name": "Årsgrupp",
+              "values": {
+                "tracker": {
+                  "name": "Spårare",
+                  "count": 500
+                },
+                "discoverer": {
+                  "name": "Upptäckare",
+                  "count": 800
+                },
+                "adventurer": {
+                  "name": "Äventyrare",
+                  "count": 300
+                },
+                "challenger": {
+                  "name": "Utmanare",
+                  "count": 150
+                },
+                "leader": {
+                  "name": "Ledare",
+                  "count": 95
+                }
+              }
+            },
+            {
+              "name": "Allergier",
+              "values": {
+                "gluten": {
+                  "name": "Gluten",
+                  "count": 50
+                },
+                "laktos": {
+                  "name": "Laktos",
+                  "count": 30
+                },
+                "jordnötter": {
+                  "name": "Jordnötter",
+                  "count": 20
+                },
+                "inget": {
+                  "name": "Inget",
+                  "count": 1700
+                },
+                "annat": {
+                  "name": "Annat",
+                  "count": 10,
+                  "free_text_answers": [
+                    {
+                      "text": "Ägg",
+                      "num_answers": 3
+                    },
+                    {
+                      "text": "Fisk",
+                      "num_answers": 2
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Testbyn3 med ett väldigt långt namn för att se att det funkar",
+      "id": "testbyn3",
+      "num_participants": 56,
+      "ScoutGroups": [
+        {
+          "name": "Lila kåren med ett väldigt långt namn för att se att det funkar",
+          "id": "lila",
+          "num_participants": 20,
+          "stats": [
+            {
+              "name": "Matpreferens",
+              "values": {
+                "vegetarian": {
+                  "name": "Vegetarian",
+                  "count": 290
+                },
+                "vegan": {
+                  "name": "Vegan",
+                  "count": 2
+                },
+                "pescetarian": {
+                  "name": "Pescetarian",
+                  "count": 1552
+                },
+                "omnivore": {
+                  "name": "Omnivore",
+                  "count": 1
+                }
+              }
+            },
+            {
+              "name": "Kön",
+              "values": {
+                "kvinna": {
+                  "name": "Kvinna",
+                  "count": 1234
+                },
+                "man": {
+                  "name": "Man",
+                  "count": 611
+                }
+              }
+            },
+            {
+              "name": "Årsgrupp",
+              "values": {
+                "tracker": {
+                  "name": "Spårare",
+                  "count": 500
+                },
+                "discoverer": {
+                  "name": "Upptäckare",
+                  "count": 800
+                },
+                "adventurer": {
+                  "name": "Äventyrare",
+                  "count": 300
+                },
+                "challenger": {
+                  "name": "Utmanare",
+                  "count": 150
+                },
+                "leader": {
+                  "name": "Ledare",
+                  "count": 95
+                }
+              }
+            },
+            {
+              "name": "Allergier",
+              "values": {
+                "gluten": {
+                  "name": "Gluten",
+                  "count": 50
+                },
+                "laktos": {
+                  "name": "Laktos",
+                  "count": 30
+                },
+                "jordnötter": {
+                  "name": "Jordnötter",
+                  "count": 20
+                },
+                "inget": {
+                  "name": "Inget",
+                  "count": 1700
+                },
+                "annat": {
+                  "name": "Annat",
+                  "count": 10,
+                  "free_text_answers": [
+                    {
+                      "text": "Ägg",
+                      "num_answers": 3
+                    },
+                    {
+                      "text": "Fisk",
+                      "num_answers": 2
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Testbyn4",
+      "id": "testbyn4",
+      "num_participants": 56,
+      "ScoutGroups": [
+        {
+          "name": "Råsa",
+          "id": "råsa",
+          "num_participants": 20,
+          "stats": []
+        }
+      ]
+    },
+    {
+      "name": "Testbyn5",
+      "id": "testbyn5",
+      "num_participants": 56,
+      "ScoutGroups": [
+        {
+          "name": "Lejon",
+          "id": "lejon",
+          "num_participants": 20,
+          "stats": []
+        }
+      ]
+    },
+    {
+      "name": "Testbyn6",
+      "id": "testbyn6",
+      "num_participants": 56,
+      "ScoutGroups": [
+        {
+          "name": "Kapris",
+          "id": "kapris",
+          "num_participants": 20,
+          "stats": []
+        }
+      ]
+    },
+    {
+      "name": "Testbyn7",
+      "id": "testbyn7",
+      "num_participants": 56,
+      "ScoutGroups": [
+        {
+          "name": "Anka",
+          "id": "anka",
+          "num_participants": 20,
+          "stats": []
+        }
+      ]
+    },
+    {
+      "name": "Testbyn8",
+      "id": "testbyn8",
+      "num_participants": 56,
+      "ScoutGroups": [
+        {
+          "name": "Bäver",
+          "id": "baver",
+          "num_participants": 20,
+          "stats": []
+        }
+      ]
+    },
+    {
+      "name": "Testbyn9",
+      "id": "testbyn9",
+      "num_participants": 56,
+      "ScoutGroups": [
+        {
+          "name": "Uttern",
+          "id": "uttern",
+          "num_participants": 20,
+          "stats": []
+        }
+      ]
+    },
+    {
+      "name": "Testbyn10",
+      "id": "testbyn10",
+      "num_participants": 56,
+      "ScoutGroups": [
+        {
+          "name": "Hajen",
+          "id": "hajen",
+          "num_participants": 20,
+          "stats": []
+        }
+      ]
+    },
+    {
+      "name": "Testbyn11",
+      "id": "testbyn11",
+      "num_participants": 56,
+      "ScoutGroups": [
+        {
+          "name": "Delfinen",
+          "id": "delfinen",
+          "num_participants": 20,
+          "stats": []
+        }
+      ]
+    },
+    {
+      "name": "Testbyn12medettvåordträngtnamnhejmenvfdjknvsdvklamkvklfmvklfmvkdlsmvkldsmvklsdml",
+      "id": "testbyn12",
+      "num_participants": 56,
+      "ScoutGroups": [
+        {
+          "name": "Ekorren",
+          "id": "ekorren",
+          "num_participants": 20,
+          "stats": []
+        }
+      ]
+    },
+    {
+      "name": "🐲🫅🫰🍎🌳🌲",
+      "id": "testbyn13",
+      "num_participants": 56,
+      "ScoutGroups": [
+        {
+          "name": "Ekorren",
+          "id": "ekorren",
+          "num_participants": 20,
+          "stats": []
+        }
+      ]
+    }
+  ]
+}
