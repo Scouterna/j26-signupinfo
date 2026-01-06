@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import useScoutGroupData from './useScoutGroupData';
 
 // This is a custom hook that encapsulates all the sidebar's logic.
 export default function useScoutGroupSelector(jsonData) {
@@ -6,6 +7,11 @@ export default function useScoutGroupSelector(jsonData) {
     const [selectedScoutGroupIds, setSelectedScoutGroupIds] = useState(new Set());
     const [expandedVillageIds, setExpandedVillageIds] = useState(new Set());
     const [searchTerm, setSearchTerm] = useState('');
+    const [isCollapsed, setIsCollapsed] = useState(false);
+
+    const { statistics, totalParticipants } = useScoutGroupData(jsonData, selectedScoutGroupIds);
+
+    const [selectedStatistics, setSelectedStatistics] = useState([]);
 
     /**
      * Memoized list of villages filtered by the search term.
@@ -75,6 +81,11 @@ export default function useScoutGroupSelector(jsonData) {
      */
     const clearSelection = () => setSelectedScoutGroupIds(new Set());
 
+    /**
+     * Toggles the collapsed state of the selector panel.
+     */
+    const toggleCollapse = () => setIsCollapsed(prev => !prev);
+
     // The hook returns all the necessary values and functions for the sidebar to use
     return {
         selectedScoutGroupIds,
@@ -84,6 +95,12 @@ export default function useScoutGroupSelector(jsonData) {
         filteredVillages,
         handleSelection,
         toggleVillageExpansion,
-        clearSelection
+        clearSelection,
+        isCollapsed,
+        toggleCollapse,
+        totalParticipants,
+        statistics,
+        selectedStatistics,
+        setSelectedStatistics
     };
 }

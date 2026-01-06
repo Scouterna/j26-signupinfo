@@ -5,10 +5,9 @@ import {
   ListItemText,
   Collapse,
   Checkbox,
-  IconButton,
   List,
 } from "@mui/material";
-import { ExpandLess, ExpandMore } from "@mui/icons-material";
+import ExpandCollapseButton from "./ExpandCollapseButton";
 import ScoutGroupListItem from "./ScoutGroupListItem";
 
 export default function VillageListItem({
@@ -56,9 +55,7 @@ export default function VillageListItem({
               overflowWrap: "anywhere",
             }}
           />
-          <IconButton edge="end">
-            {isExpanded ? <ExpandLess /> : <ExpandMore />}
-          </IconButton>
+          <ExpandCollapseButton isExpanded={isExpanded} />
         </ListItemButton>
       </ListItem>
       <Collapse in={isExpanded}>

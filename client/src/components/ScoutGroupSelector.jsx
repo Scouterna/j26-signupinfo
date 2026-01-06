@@ -1,4 +1,5 @@
 import { List, Typography, Button, Paper } from "@mui/material";
+import ExpandCollapseButton from "./ExpandCollapseButton.jsx";
 import SearchField from "./SearchField.jsx";
 import VillageListItem from "./VillageListItem.jsx";
 
@@ -11,7 +12,15 @@ export default function ScoutGroupSelector({
   handleSelection = () => {},
   toggleVillageExpansion = () => {},
   clearSelection = () => {},
+  isCollapsed = false,
+  toggleCollapse = () => {},
 }) {
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+    if (value && isCollapsed) {
+      toggleCollapse();
+    }
+  };
   return (
     <Paper
       elevation={3}
@@ -20,8 +29,8 @@ export default function ScoutGroupSelector({
         display: "flex",
         flexDirection: "column",
         borderRadius: "16px",
-        height: "100%", // fill parent
-        minHeight: 0, // allow flex children to shrink
+        height: isCollapsed ? "auto" : "100%",
+        minHeight: 0,
       }}
     >
       <div
@@ -32,9 +41,15 @@ export default function ScoutGroupSelector({
           marginBottom: "16px",
         }}
       >
-        <Typography variant="h5" component="h2" fontWeight="600">
-          Byar och kårer
-        </Typography>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <Typography variant="h5" component="h2" fontWeight="600">
+            Byar och kårer
+          </Typography>
+          <ExpandCollapseButton
+            onClick={toggleCollapse}
+            isExpanded={!isCollapsed}
+          />
+        </div>
         <Button
           onClick={clearSelection}
           disabled={selectedScoutGroupIds.size === 0}
@@ -46,36 +61,38 @@ export default function ScoutGroupSelector({
       <SearchField
         placeholder="Sök efter by eller kår..."
         searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
+        setSearchTerm={handleSearchChange}
       />
 
-      <List sx={{ flexGrow: 1, overflowY: "auto", pr: 1, minHeight: 0 }}>
-        {filteredVillages.map((village) => {
-          const ScoutGroupsInVillage = village.ScoutGroups.map((t) => t.id);
-          const selectedInVillage = ScoutGroupsInVillage.filter((id) =>
-            selectedScoutGroupIds.has(id)
-          );
-          const isAllSelected =
-            ScoutGroupsInVillage.length > 0 &&
-            selectedInVillage.length === ScoutGroupsInVillage.length;
-          const isPartiallySelected =
-            selectedInVillage.length > 0 && !isAllSelected;
-          const isExpanded = expandedVillageIds.has(village.id);
+      {!isCollapsed && (
+        <List sx={{ flexGrow: 1, overflowY: "auto", pr: 1, minHeight: 0 }}>
+          {filteredVillages.map((village) => {
+            const ScoutGroupsInVillage = village.ScoutGroups.map((t) => t.id);
+            const selectedInVillage = ScoutGroupsInVillage.filter((id) =>
+              selectedScoutGroupIds.has(id)
+            );
+            const isAllSelected =
+              ScoutGroupsInVillage.length > 0 &&
+              selectedInVillage.length === ScoutGroupsInVillage.length;
+            const isPartiallySelected =
+              selectedInVillage.length > 0 && !isAllSelected;
+            const isExpanded = expandedVillageIds.has(village.id);
 
-          return (
-            <VillageListItem
-              key={village.id}
-              village={village}
-              isAllSelected={isAllSelected}
-              isPartiallySelected={isPartiallySelected}
-              isExpanded={isExpanded}
-              toggleVillageExpansion={toggleVillageExpansion}
-              handleSelection={handleSelection}
-              selectedScoutGroupIds={selectedScoutGroupIds}
-            />
-          );
-        })}
-      </List>
+            return (
+              <VillageListItem
+                key={village.id}
+                village={village}
+                isAllSelected={isAllSelected}
+                isPartiallySelected={isPartiallySelected}
+                isExpanded={isExpanded}
+                toggleVillageExpansion={toggleVillageExpansion}
+                handleSelection={handleSelection}
+                selectedScoutGroupIds={selectedScoutGroupIds}
+              />
+            );
+          })}
+        </List>
+      )}
     </Paper>
   );
 }
