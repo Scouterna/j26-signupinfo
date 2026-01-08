@@ -9,7 +9,7 @@ export default function useScoutGroupSelector(jsonData) {
     const [searchTerm, setSearchTerm] = useState('');
     const [isCollapsed, setIsCollapsed] = useState(false);
 
-    const { statistics, totalParticipants } = useScoutGroupData(jsonData, selectedScoutGroupIds);
+    const { statistics, totalParticipants, getStatisticData } = useScoutGroupData(jsonData, selectedScoutGroupIds);
 
     const [selectedStatistics, setSelectedStatistics] = useState([]);
 
@@ -101,6 +101,7 @@ export default function useScoutGroupSelector(jsonData) {
         totalParticipants,
         statistics,
         selectedStatistics,
-        setSelectedStatistics
+        setSelectedStatistics,
+        getStatisticData
     };
 }

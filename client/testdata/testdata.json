@@ -3,7 +3,7 @@
     {
       "name": "Testbyn1",
       "id": "testbyn1",
-      "num_participants": 56,
+      "num_participants": 40,
       "ScoutGroups": [
         {
           "name": "Röd",
@@ -15,19 +15,19 @@
               "values": {
                 "vegetarian": {
                   "name": "Vegetarian",
-                  "count": 290
+                  "count": 3
                 },
                 "vegan": {
                   "name": "Vegan",
-                  "count": 2
+                  "count": 1
                 },
                 "pescetarian": {
                   "name": "Pescetarian",
-                  "count": 1552
+                  "count": 1
                 },
                 "omnivore": {
                   "name": "Omnivore",
-                  "count": 1
+                  "count": 15
                 }
               }
             },
@@ -36,11 +36,11 @@
               "values": {
                 "kvinna": {
                   "name": "Kvinna",
-                  "count": 1234
+                  "count": 12
                 },
                 "man": {
                   "name": "Man",
-                  "count": 611
+                  "count": 8
                 }
               }
             },
@@ -49,23 +49,23 @@
               "values": {
                 "tracker": {
                   "name": "Spårare",
-                  "count": 500
+                  "count": 4
                 },
                 "discoverer": {
                   "name": "Upptäckare",
-                  "count": 800
+                  "count": 8
                 },
                 "adventurer": {
                   "name": "Äventyrare",
-                  "count": 300
+                  "count": 5
                 },
                 "challenger": {
                   "name": "Utmanare",
-                  "count": 150
+                  "count": 2
                 },
                 "leader": {
                   "name": "Ledare",
-                  "count": 95
+                  "count": 1
                 }
               }
             },
@@ -74,33 +74,37 @@
               "values": {
                 "gluten": {
                   "name": "Gluten",
-                  "count": 50
+                  "count": 1
                 },
                 "laktos": {
                   "name": "Laktos",
-                  "count": 30
+                  "count": 2
                 },
                 "jordnötter": {
                   "name": "Jordnötter",
-                  "count": 20
+                  "count": 1
                 },
                 "inget": {
                   "name": "Inget",
-                  "count": 1700
+                  "count": 15
                 },
                 "annat": {
                   "name": "Annat",
-                  "count": 10,
+                  "count": 1,
                   "free_text_answers": [
                     {
                       "text": "Ägg",
-                      "num_answers": 3
-                    },
-                    {
-                      "text": "Fisk",
-                      "num_answers": 2
+                      "num_answers": 1
                     }
                   ]
+                }
+              }
+            },
+            {
+              "name": "Transsportsätt för deltagare",
+              "values": {
+                "Charterbuss": {
+                  "name": "Charterbuss"
                 }
               }
             }
@@ -116,19 +120,19 @@
               "values": {
                 "vegetarian": {
                   "name": "Vegetarian",
-                  "count": 290
+                  "count": 2
                 },
                 "vegan": {
                   "name": "Vegan",
-                  "count": 2
+                  "count": 1
                 },
                 "pescetarian": {
                   "name": "Pescetarian",
-                  "count": 1552
+                  "count": 2
                 },
                 "omnivore": {
                   "name": "Omnivore",
-                  "count": 1
+                  "count": 15
                 }
               }
             },
@@ -137,11 +141,11 @@
               "values": {
                 "kvinna": {
                   "name": "Kvinna",
-                  "count": 1234
+                  "count": 11
                 },
                 "man": {
                   "name": "Man",
-                  "count": 611
+                  "count": 9
                 }
               }
             },
@@ -150,23 +154,23 @@
               "values": {
                 "tracker": {
                   "name": "Spårare",
-                  "count": 500
+                  "count": 5
                 },
                 "discoverer": {
                   "name": "Upptäckare",
-                  "count": 800
+                  "count": 7
                 },
                 "adventurer": {
                   "name": "Äventyrare",
-                  "count": 300
+                  "count": 4
                 },
                 "challenger": {
                   "name": "Utmanare",
-                  "count": 150
+                  "count": 3
                 },
                 "leader": {
                   "name": "Ledare",
-                  "count": 95
+                  "count": 1
                 }
               }
             },
@@ -175,33 +179,41 @@
               "values": {
                 "gluten": {
                   "name": "Gluten",
-                  "count": 50
+                  "count": 2
                 },
                 "laktos": {
                   "name": "Laktos",
-                  "count": 30
+                  "count": 1
                 },
                 "jordnötter": {
                   "name": "Jordnötter",
-                  "count": 20
+                  "count": 1
                 },
                 "inget": {
                   "name": "Inget",
-                  "count": 1700
+                  "count": 14
                 },
                 "annat": {
                   "name": "Annat",
-                  "count": 10,
+                  "count": 2,
                   "free_text_answers": [
                     {
                       "text": "Ägg",
-                      "num_answers": 3
+                      "num_answers": 1
                     },
                     {
                       "text": "Fisk",
-                      "num_answers": 2
+                      "num_answers": 1
                     }
                   ]
+                }
+              }
+            },
+            {
+              "name": "Transsportsätt för deltagare",
+              "values": {
+                "Egen bil": {
+                  "name": "Egen bil"
                 }
               }
             }
@@ -224,7 +236,7 @@
               "values": {
                 "vegetarian": {
                   "name": "Vegetarian",
-                  "count": 290
+                  "count": 6
                 },
                 "vegan": {
                   "name": "Vegan",
@@ -232,11 +244,11 @@
                 },
                 "pescetarian": {
                   "name": "Pescetarian",
-                  "count": 1552
+                  "count": 3
                 },
                 "omnivore": {
                   "name": "Omnivore",
-                  "count": 1
+                  "count": 33
                 }
               }
             },
@@ -245,11 +257,11 @@
               "values": {
                 "kvinna": {
                   "name": "Kvinna",
-                  "count": 1234
+                  "count": 25
                 },
                 "man": {
                   "name": "Man",
-                  "count": 611
+                  "count": 19
                 }
               }
             },
@@ -258,23 +270,23 @@
               "values": {
                 "tracker": {
                   "name": "Spårare",
-                  "count": 500
+                  "count": 10
                 },
                 "discoverer": {
                   "name": "Upptäckare",
-                  "count": 800
+                  "count": 16
                 },
                 "adventurer": {
                   "name": "Äventyrare",
-                  "count": 300
+                  "count": 9
                 },
                 "challenger": {
                   "name": "Utmanare",
-                  "count": 150
+                  "count": 6
                 },
                 "leader": {
                   "name": "Ledare",
-                  "count": 95
+                  "count": 3
                 }
               }
             },
@@ -283,33 +295,41 @@
               "values": {
                 "gluten": {
                   "name": "Gluten",
-                  "count": 50
+                  "count": 3
                 },
                 "laktos": {
                   "name": "Laktos",
-                  "count": 30
+                  "count": 2
                 },
                 "jordnötter": {
                   "name": "Jordnötter",
-                  "count": 20
+                  "count": 1
                 },
                 "inget": {
                   "name": "Inget",
-                  "count": 1700
+                  "count": 36
                 },
                 "annat": {
                   "name": "Annat",
-                  "count": 10,
+                  "count": 2,
                   "free_text_answers": [
                     {
                       "text": "Ägg",
-                      "num_answers": 3
+                      "num_answers": 1
                     },
                     {
-                      "text": "Fisk",
-                      "num_answers": 2
+                      "text": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFisk",
+                      "num_answers": 1
                     }
                   ]
+                }
+              }
+            },
+            {
+              "name": "Transsportsätt för deltagare",
+              "values": {
+                "Kollektivtrafik": {
+                  "name": "Kollektivtrafik"
                 }
               }
             }
@@ -332,19 +352,19 @@
               "values": {
                 "vegetarian": {
                   "name": "Vegetarian",
-                  "count": 290
+                  "count": 4
                 },
                 "vegan": {
                   "name": "Vegan",
-                  "count": 2
+                  "count": 1
                 },
                 "pescetarian": {
                   "name": "Pescetarian",
-                  "count": 1552
+                  "count": 2
                 },
                 "omnivore": {
                   "name": "Omnivore",
-                  "count": 1
+                  "count": 13
                 }
               }
             },
@@ -353,11 +373,11 @@
               "values": {
                 "kvinna": {
                   "name": "Kvinna",
-                  "count": 1234
+                  "count": 13
                 },
                 "man": {
                   "name": "Man",
-                  "count": 611
+                  "count": 7
                 }
               }
             },
@@ -366,23 +386,23 @@
               "values": {
                 "tracker": {
                   "name": "Spårare",
-                  "count": 500
+                  "count": 3
                 },
                 "discoverer": {
                   "name": "Upptäckare",
-                  "count": 800
+                  "count": 6
                 },
                 "adventurer": {
                   "name": "Äventyrare",
-                  "count": 300
+                  "count": 7
                 },
                 "challenger": {
                   "name": "Utmanare",
-                  "count": 150
+                  "count": 3
                 },
                 "leader": {
                   "name": "Ledare",
-                  "count": 95
+                  "count": 1
                 }
               }
             },
@@ -391,31 +411,27 @@
               "values": {
                 "gluten": {
                   "name": "Gluten",
-                  "count": 50
+                  "count": 1
                 },
                 "laktos": {
                   "name": "Laktos",
-                  "count": 30
+                  "count": 1
                 },
                 "jordnötter": {
                   "name": "Jordnötter",
-                  "count": 20
+                  "count": 1
                 },
                 "inget": {
                   "name": "Inget",
-                  "count": 1700
+                  "count": 16
                 },
                 "annat": {
                   "name": "Annat",
-                  "count": 10,
+                  "count": 1,
                   "free_text_answers": [
                     {
                       "text": "Ägg",
-                      "num_answers": 3
-                    },
-                    {
-                      "text": "Fisk",
-                      "num_answers": 2
+                      "num_answers": 1
                     }
                   ]
                 }

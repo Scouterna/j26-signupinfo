@@ -13,6 +13,7 @@ export default function App() {
     statistics,
     selectedStatistics,
     setSelectedStatistics,
+    getStatisticData,
   } = sidebarLogic;
 
   return (
@@ -62,6 +63,7 @@ export default function App() {
             statistics={statistics}
             selectedStatistics={selectedStatistics}
             setSelectedStatistics={setSelectedStatistics}
+            getStatisticData={getStatisticData}
           />
         </Box>
       </Box>

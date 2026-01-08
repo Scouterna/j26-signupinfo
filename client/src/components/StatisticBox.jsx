@@ -16,7 +16,16 @@ export default function StatisticBox({ title, value }) {
       <Typography variant="body2" color="text.secondary" gutterBottom>
         {title}
       </Typography>
-      <Typography variant="h5" component="p" fontWeight="600">
+      <Typography
+        variant="h5"
+        component="p"
+        fontWeight="600"
+        sx={{
+          overflowWrap: "anywhere",
+          wordBreak: "break-word",
+          whiteSpace: "normal",
+        }}
+      >
         {value}
       </Typography>
     </Box>
