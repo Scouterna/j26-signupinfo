@@ -1,6 +1,6 @@
 # --- Stage 1: Build the React client ---
 # Use a Node.js image to build the static files
-FROM node:22-alpine as client-builder
+FROM node:24-alpine AS client-builder
 
 # Set the working directory
 WORKDIR /app/client
@@ -23,8 +23,8 @@ FROM python:3.12-slim
 WORKDIR /app/pyapp
 
 # Set environment variables to prevent Python from writing .pyc files
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 # Install Python dependencies
 COPY pyapp/requirements.txt .
