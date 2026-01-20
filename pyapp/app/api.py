@@ -23,6 +23,19 @@ async def info(request: Request, user: User = Depends(get_active_user)):
         "user": user,
     }
 
+@router.get("/app-config", response_model=dict, response_description="Get application configuration for j26-app")
+async def app_config(request: Request):
+    return {
+        "navigation": [
+            {
+                "type": "page",
+                "id": "page_signupinfo_home",
+                "label": "SignupInfo",
+                "icon": "user-search", # Icon from https://tabler.io/icons
+                "path": "../", # Path is relative to the locaiton of the app-config endpoint
+            }
+        ]
+    }
 
 @router.get("/participants", response_model=Page[Participant])
 async def participants(form: int | None = None, q: int | str | None = None, q_val: int | str | None = None):
