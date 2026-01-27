@@ -1,6 +1,5 @@
-import { Box, Paper, Typography, Chip } from "@mui/material";
-import React from "react";
 import PropTypes from "prop-types";
+import { Box, Paper, Typography, Chip } from "@mui/material";
 
 import StatisticSelector from "./StatisticSelector.jsx";
 

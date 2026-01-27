@@ -1,10 +1,11 @@
+import PropTypes from "prop-types";
 import { TextField, InputAdornment } from "@mui/material";
 import { Search } from "@mui/icons-material";
 
 export default function SearchField({
   placeholder = "",
   searchTerm = "",
-  setSearchTerm = () => {},
+  setSearchTerm,
 }) {
   return (
     <TextField
@@ -26,3 +27,12 @@ export default function SearchField({
     />
   );
 }
+
+SearchField.propTypes = {
+  /** Placeholder text for the search input */
+  placeholder: PropTypes.string,
+  /** Current search term value */
+  searchTerm: PropTypes.string,
+  /** Function to update the search term */
+  setSearchTerm: PropTypes.func.isRequired,
+};
