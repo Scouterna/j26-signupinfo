@@ -35,7 +35,7 @@ export default function ScoutGroupListItem({
 ScoutGroupListItem.propTypes = {
   /** Scout group object with id and name */
   scoutGroup: PropTypes.shape({
-    id: PropTypes.string.isRequired,
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
     name: PropTypes.string.isRequired,
   }).isRequired,
   /** Set of currently selected scout group IDs */

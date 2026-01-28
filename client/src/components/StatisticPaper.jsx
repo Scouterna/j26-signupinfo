@@ -1,9 +1,227 @@
+import { useState } from "react";
 import PropTypes from "prop-types";
 import { Box, Paper, Typography, Chip } from "@mui/material";
 
 import StatisticSelector from "./StatisticSelector.jsx";
-
 import StatisticBox from "./StatisticBox.jsx";
+import ExpandCollapseButton from "./ExpandCollapseButton.jsx";
+
+/**
+ * Renders grouped answer values with expandable scout group lists.
+ * Used for perGroup type subQuestions (single-answer questions).
+ */
+function GroupedAnswerValues({ groupedByAnswer }) {
+  const [expandedAnswers, setExpandedAnswers] = useState({});
+
+  const toggleExpanded = (answerName) => {
+    setExpandedAnswers((prev) => ({
+      ...prev,
+      [answerName]: !prev[answerName],
+    }));
+  };
+
+  // Sort answers by count (descending), then alphabetically
+  const sortedEntries = Object.entries(groupedByAnswer).sort((a, b) => {
+    const countDiff = b[1].count - a[1].count;
+    if (countDiff !== 0) return countDiff;
+    return a[0].localeCompare(b[0], "sv");
+  });
+
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+      {sortedEntries.map(([answerName, { count, scoutGroups }]) => {
+        const isExpanded = expandedAnswers[answerName] || false;
+
+        return (
+          <Box key={answerName}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "4px 8px",
+                backgroundColor: "white",
+                borderRadius: "4px",
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
+                <ExpandCollapseButton
+                  isExpanded={isExpanded}
+                  onClick={() => toggleExpanded(answerName)}
+                  sx={{ marginRight: "4px", marginLeft: "-8px" }}
+                />
+                <Typography
+                  variant="body2"
+                  sx={{
+                    overflowWrap: "anywhere",
+                    wordBreak: "break-word",
+                    whiteSpace: "normal",
+                    flex: 1,
+                    marginRight: "8px",
+                  }}
+                >
+                  {answerName || "(tomt)"}
+                </Typography>
+              </Box>
+              <Typography variant="body2" fontWeight="600" sx={{ flexShrink: 0 }}>
+                {count}
+              </Typography>
+            </Box>
+            {/* Expanded scout group list */}
+            {isExpanded && (
+              <Box sx={{ marginLeft: "32px", marginTop: "4px" }}>
+                {scoutGroups.map((groupName, index) => (
+                  <Box
+                    key={index}
+                    sx={{
+                      padding: "4px 8px",
+                      backgroundColor: "#f0f0f0",
+                      borderRadius: "4px",
+                      marginTop: "2px",
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        overflowWrap: "anywhere",
+                        wordBreak: "break-word",
+                        whiteSpace: "normal",
+                      }}
+                    >
+                      {groupName}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
+
+GroupedAnswerValues.propTypes = {
+  groupedByAnswer: PropTypes.objectOf(
+    PropTypes.shape({
+      count: PropTypes.number.isRequired,
+      scoutGroups: PropTypes.arrayOf(PropTypes.string).isRequired,
+    })
+  ).isRequired,
+};
+
+/**
+ * Renders values for a sub-question section.
+ */
+function SubQuestionValues({ subQuestion }) {
+  const { type, values, groupedByAnswer } = subQuestion;
+  const [expandedFreeText, setExpandedFreeText] = useState({});
+
+  const toggleFreeTextExpanded = (key) => {
+    setExpandedFreeText((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  // For perGroup type with groupedByAnswer, use the grouped view
+  if (type === "perGroup" && groupedByAnswer) {
+    return <GroupedAnswerValues groupedByAnswer={groupedByAnswer} />;
+  }
+
+  // Default rendering for answers type (and legacy perGroup without groupedByAnswer)
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+      {Object.entries(values).map(([key, value]) => {
+        const isPerGroup = type === "perGroup";
+        const leftLabel = isPerGroup ? value.scoutGroupName : value.name;
+        const rightValue = isPerGroup ? value.name : value.count;
+        const hasFreeText = value.freeTextAnswers && value.freeTextAnswers.length > 0;
+        const isFreeTextExpanded = expandedFreeText[key] || false;
+
+        return (
+          <Box key={key}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "4px 8px",
+                backgroundColor: "white",
+                borderRadius: "4px",
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
+                {hasFreeText && (
+                  <ExpandCollapseButton
+                    isExpanded={isFreeTextExpanded}
+                    onClick={() => toggleFreeTextExpanded(key)}
+                    sx={{ marginRight: "4px", marginLeft: "-8px" }}
+                  />
+                )}
+                <Typography
+                  variant="body2"
+                  sx={{
+                    overflowWrap: "anywhere",
+                    wordBreak: "break-word",
+                    whiteSpace: "normal",
+                    flex: 1,
+                    marginRight: "8px",
+                  }}
+                >
+                  {leftLabel}
+                </Typography>
+              </Box>
+              <Typography variant="body2" fontWeight="600" sx={{ flexShrink: 0 }}>
+                {rightValue}
+              </Typography>
+            </Box>
+            {/* Free text answers - collapsible */}
+            {hasFreeText && isFreeTextExpanded && (
+              <Box sx={{ marginLeft: "32px", marginTop: "4px" }}>
+                {value.freeTextAnswers.map((text, index) => (
+                  <Box
+                    key={index}
+                    sx={{
+                      padding: "4px 8px",
+                      backgroundColor: "#f0f0f0",
+                      borderRadius: "4px",
+                      marginTop: "2px",
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        overflowWrap: "anywhere",
+                        wordBreak: "break-word",
+                        whiteSpace: "normal",
+                      }}
+                    >
+                      {text}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
+
+SubQuestionValues.propTypes = {
+  subQuestion: PropTypes.shape({
+    type: PropTypes.oneOf(["answers", "perGroup"]).isRequired,
+    values: PropTypes.object.isRequired,
+    groupedByAnswer: PropTypes.objectOf(
+      PropTypes.shape({
+        count: PropTypes.number.isRequired,
+        scoutGroups: PropTypes.arrayOf(PropTypes.string).isRequired,
+      })
+    ),
+  }).isRequired,
+};
 
 export default function StatisticPaper({
   numScoutGroupsSelected,
@@ -36,6 +254,7 @@ export default function StatisticPaper({
         borderRadius: "16px",
         height: "100%",
         gap: "16px",
+        overflow: "auto",
       }}
     >
       <Typography variant="h5" component="h2" fontWeight="600">
@@ -87,6 +306,21 @@ export default function StatisticPaper({
         >
           {selectedStatistics.map((statName) => {
             const statData = getStatisticData(statName);
+            const { subQuestions } = statData;
+            // Sort sub-questions: those with free text answers go to the bottom
+            const subQuestionEntries = Object.entries(subQuestions || {}).sort(
+              ([, a], [, b]) => {
+                const aHasFreeText = Object.values(a.values || {}).some(
+                  (v) => v.freeTextAnswers && v.freeTextAnswers.length > 0
+                );
+                const bHasFreeText = Object.values(b.values || {}).some(
+                  (v) => v.freeTextAnswers && v.freeTextAnswers.length > 0
+                );
+                // Items without free text come first (false < true)
+                return aHasFreeText - bHasFreeText;
+              }
+            );
+
             return (
               <Box
                 key={statName}
@@ -95,94 +329,47 @@ export default function StatisticPaper({
                   borderRadius: "8px",
                   padding: "12px",
                   backgroundColor: "#fafafa",
-                  minWidth: "200px",
+                  minWidth: "250px",
                   flex: "1 1 auto",
-                  maxWidth: "300px",
+                  maxWidth: "400px",
                 }}
               >
                 <Typography
-                  variant="subtitle2"
+                  variant="subtitle1"
                   fontWeight="600"
-                  sx={{ marginBottom: "8px" }}
+                  sx={{ marginBottom: "12px" }}
                 >
                   {statName}
                 </Typography>
-                <Box
-                  sx={{ display: "flex", flexDirection: "column", gap: "6px" }}
-                >
-                  {Object.entries(statData).map(([key, value]) => {
-                    const hasNumericCount = Number.isFinite(value.count);
-                    const leftLabel = hasNumericCount
-                      ? value.name
-                      : value.scoutGroupName ?? "scoutgroup";
-                    const rightValue = hasNumericCount
-                      ? value.count
-                      : value.name;
-                    return (
-                      <Box key={key}>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            padding: "6px 8px",
-                            backgroundColor: "white",
-                            borderRadius: "4px",
-                          }}
-                        >
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              overflowWrap: "anywhere",
-                              wordBreak: "break-word",
-                              whiteSpace: "normal",
-                            }}
-                          >
-                            {leftLabel}
-                          </Typography>
-                          <Typography variant="body2" fontWeight="600">
-                            {rightValue}
-                          </Typography>
-                        </Box>
-                        {value.free_text_answers &&
-                          value.free_text_answers.length > 0 && (
-                            <Box sx={{ marginLeft: "16px", marginTop: "4px" }}>
-                              {value.free_text_answers.map((answer, index) => (
-                                <Box
-                                  key={index}
-                                  sx={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    padding: "4px 8px",
-                                    backgroundColor: "#f5f5f5",
-                                    borderRadius: "4px",
-                                    marginTop: "2px",
-                                    fontSize: "0.875rem",
-                                  }}
-                                >
-                                  <Typography
-                                    variant="caption"
-                                    sx={{
-                                      overflowWrap: "anywhere",
-                                      wordBreak: "break-word",
-                                      whiteSpace: "normal",
-                                    }}
-                                  >
-                                    {answer.text}
-                                  </Typography>
-                                  <Typography
-                                    variant="caption"
-                                    fontWeight="500"
-                                  >
-                                    {answer.num_answers}
-                                  </Typography>
-                                </Box>
-                              ))}
-                            </Box>
+
+                {subQuestionEntries.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    Ingen data tillgänglig
+                  </Typography>
+                ) : (
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    {subQuestionEntries.map(([subQuestionName, subQuestion]) => {
+                      // "_direct" means direct values without a sub-question header
+                      const showHeader = subQuestionName !== "_direct";
+
+                      return (
+                        <Box key={subQuestionName}>
+                          {showHeader && (
+                            <Typography
+                              variant="body2"
+                              fontWeight="500"
+                              color="text.secondary"
+                              sx={{ marginBottom: "6px" }}
+                            >
+                              {subQuestionName}
+                            </Typography>
                           )}
-                      </Box>
-                    );
-                  })}
-                </Box>
+                          <SubQuestionValues subQuestion={subQuestion} />
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                )}
               </Box>
             );
           })}
