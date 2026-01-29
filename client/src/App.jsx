@@ -10,6 +10,7 @@ export default function App() {
   const {
     isCollapsed,
     selectedScoutGroupIds,
+    selectedScoutGroups,
     totalParticipants,
     statistics,
     selectedStatistics,
@@ -110,6 +111,7 @@ export default function App() {
             selectedStatistics={selectedStatistics}
             setSelectedStatistics={setSelectedStatistics}
             getStatisticData={getStatisticData}
+            selectedScoutGroups={selectedScoutGroups}
           />
         </Box>
       </Box>
