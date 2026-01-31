@@ -1,14 +1,30 @@
-import { CssBaseline, Box, CircularProgress, Typography, Button } from "@mui/material";
+import {
+  CssBaseline,
+  Box,
+  AppBar,
+  Toolbar,
+  Typography,
+  CircularProgress,
+  Button,
+  useMediaQuery,
+  useTheme,
+} from "@mui/material";
 import useScoutGroupSelector from "./hooks/useScoutGroupSelector.js";
 import useApiData from "./hooks/useApiData.js";
-import ScoutGroupSelector from "./components/ScoutGroupSelector.jsx";
-import StatisticPaper from "./components/StatisticPaper.jsx";
+import ScoutGroupSelector, {
+  DrawerToggleButton,
+} from "./components/ScoutGroupSelector.jsx";
+import StatisticsDashboard from "./components/StatisticsDashboard.jsx";
+
+const DRAWER_WIDTH = 340;
 
 export default function App() {
+  const theme = useTheme();
+  const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
   const { data, loading, error, refetch } = useApiData();
-  const sidebarLogic = useScoutGroupSelector(data);
+  const selectorState = useScoutGroupSelector(data);
+
   const {
-    isCollapsed,
     selectedScoutGroupIds,
     selectedScoutGroups,
     totalParticipants,
@@ -16,7 +32,9 @@ export default function App() {
     selectedStatistics,
     setSelectedStatistics,
     getStatisticData,
-  } = sidebarLogic;
+    isDrawerOpen,
+    toggleDrawer,
+  } = selectorState;
 
   // Loading state
   if (loading) {
@@ -64,56 +82,56 @@ export default function App() {
   }
 
   return (
-    <Box sx={{ height: "100vh" }}>
+    <Box sx={{ display: "flex", minHeight: "100vh" }}>
       <CssBaseline />
+
+      {/* Mobile app bar with drawer toggle */}
+      {!isLargeScreen && (
+        <AppBar
+          position="fixed"
+          sx={{
+            bgcolor: "background.paper",
+            color: "text.primary",
+          }}
+          elevation={1}
+        >
+          <Toolbar>
+            <DrawerToggleButton
+              onClick={toggleDrawer}
+              selectedCount={selectedScoutGroupIds.size}
+            />
+            <Typography variant="h6" noWrap component="div">
+              Anmälningsstatistik
+            </Typography>
+          </Toolbar>
+        </AppBar>
+      )}
+
+      {/* Scout group selector drawer */}
+      <ScoutGroupSelector {...selectorState} />
+
+      {/* Main content area */}
       <Box
         component="main"
         sx={{
-          display: "flex",
-          flexDirection: { xs: "column", lg: "row" },
-          padding: { xs: "16px", lg: "32px" },
-          width: "100%",
-          height: "100vh",
+          flexGrow: 1,
+          p: { xs: 2, lg: 4 },
+          width: { lg: `calc(100% - ${DRAWER_WIDTH}px)` },
+          mt: { xs: "64px", lg: 0 },
+          height: { lg: "100vh" },
           boxSizing: "border-box",
-          gap: { xs: "16px", lg: "32px" },
           overflow: "auto",
         }}
       >
-        <Box
-          sx={{
-            flexShrink: 0,
-            height: {
-              xs: isCollapsed ? "fit-content" : "40vh",
-              lg: isCollapsed ? "auto" : "100%",
-            },
-            maxHeight: { xs: "40vh", lg: "100%" },
-            width: {
-              xs: "100%",
-              lg: isCollapsed ? "fit-content" : "340px",
-            },
-            transition: "all 0.3s ease",
-          }}
-        >
-          <ScoutGroupSelector {...sidebarLogic} />
-        </Box>
-        <Box
-          sx={{
-            flex: { xs: "1 1 auto", lg: "1 1 auto" },
-            height: { xs: "auto", lg: "100%" },
-            minHeight: { xs: "200px", lg: "100%" },
-            transition: "all 0.3s ease",
-          }}
-        >
-          <StatisticPaper
-            numScoutGroupsSelected={selectedScoutGroupIds.size}
-            totalParticipants={totalParticipants}
-            statistics={statistics}
-            selectedStatistics={selectedStatistics}
-            setSelectedStatistics={setSelectedStatistics}
-            getStatisticData={getStatisticData}
-            selectedScoutGroups={selectedScoutGroups}
-          />
-        </Box>
+        <StatisticsDashboard
+          numScoutGroupsSelected={selectedScoutGroupIds.size}
+          totalParticipants={totalParticipants}
+          statistics={statistics}
+          selectedStatistics={selectedStatistics}
+          setSelectedStatistics={setSelectedStatistics}
+          getStatisticData={getStatisticData}
+          selectedScoutGroups={selectedScoutGroups}
+        />
       </Box>
     </Box>
   );
