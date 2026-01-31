@@ -1,119 +1,231 @@
-import { useMemo, useCallback } from "react";
-import PropTypes from "prop-types";
-import { Box, List, Typography, Button, Paper } from "@mui/material";
-import ExpandCollapseButton from "./ExpandCollapseButton.jsx";
+import {
+  List,
+  Typography,
+  Button,
+  Drawer,
+  Box,
+  IconButton,
+  useMediaQuery,
+  useTheme,
+} from "@mui/material";
+import MenuIcon from "@mui/icons-material/Menu";
+import CloseIcon from "@mui/icons-material/Close";
 import SearchField from "./SearchField.jsx";
 import VillageListItem from "./VillageListItem.jsx";
+import PropTypes from "prop-types";
 
-export default function ScoutGroupSelector({
-  filteredVillages = [],
+const DRAWER_WIDTH = 340;
+
+/**
+ * Content displayed inside the drawer.
+ * Extracted for reusability and cleaner code.
+ */
+function DrawerContent({
+  filteredVillages,
   selectedScoutGroupIds,
   expandedVillageIds,
-  searchTerm = "",
+  searchTerm,
   setSearchTerm,
   handleSelection,
   toggleVillageExpansion,
   clearSelection,
-  isCollapsed = false,
-  toggleCollapse,
+  onClose,
+  showCloseButton,
 }) {
-  // Memoize the selection state calculations for all villages
-  const villageSelectionStates = useMemo(() => {
-    return filteredVillages.map((village) => {
-      const scoutGroupIds = village.ScoutGroups.map((sg) => sg.id);
-      const selectedCount = scoutGroupIds.filter((id) =>
-        selectedScoutGroupIds.has(id)
-      ).length;
-      const totalCount = scoutGroupIds.length;
-
-      return {
-        villageId: village.id,
-        isAllSelected: totalCount > 0 && selectedCount === totalCount,
-        isPartiallySelected: selectedCount > 0 && selectedCount < totalCount,
-      };
-    });
-  }, [filteredVillages, selectedScoutGroupIds]);
-
-  // Create a lookup map for quick access
-  const selectionStateMap = useMemo(() => {
-    return new Map(villageSelectionStates.map((state) => [state.villageId, state]));
-  }, [villageSelectionStates]);
-
-  const handleSearchChange = useCallback((value) => {
-    setSearchTerm(value);
-    if (value && isCollapsed) {
-      toggleCollapse();
-    }
-  }, [setSearchTerm, isCollapsed, toggleCollapse]);
-
   return (
-    <Paper
-      elevation={3}
+    <Box
       sx={{
-        padding: "24px",
         display: "flex",
         flexDirection: "column",
-        borderRadius: "16px",
-        height: isCollapsed ? "auto" : "100%",
-        minHeight: 0,
+        height: "100%",
+        p: 3,
       }}
     >
+      {/* Header */}
       <Box
         sx={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: "16px",
+          mb: 2,
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <Typography variant="h5" component="h2" fontWeight="600">
-            Byar och kårer
-          </Typography>
-          <ExpandCollapseButton
-            onClick={toggleCollapse}
-            isExpanded={!isCollapsed}
-          />
+        <Typography variant="h5" component="h2" fontWeight="600">
+          Byar och kårer
+        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Button
+            size="small"
+            onClick={clearSelection}
+            disabled={selectedScoutGroupIds.size === 0}
+          >
+            Rensa val
+          </Button>
+          {showCloseButton && (
+            <IconButton onClick={onClose} aria-label="Stäng meny">
+              <CloseIcon />
+            </IconButton>
+          )}
         </Box>
-        <Button
-          onClick={clearSelection}
-          disabled={selectedScoutGroupIds.size === 0}
-        >
-          Rensa val
-        </Button>
       </Box>
 
+      {/* Search */}
       <SearchField
         placeholder="Sök efter by eller kår..."
         searchTerm={searchTerm}
-        setSearchTerm={handleSearchChange}
+        setSearchTerm={setSearchTerm}
       />
 
-      {!isCollapsed && (
-        <List sx={{ flexGrow: 1, overflowY: "auto", pr: 1, minHeight: 0 }}>
-          {filteredVillages.map((village) => {
-            const selectionState = selectionStateMap.get(village.id) || {
-              isAllSelected: false,
-              isPartiallySelected: false,
-            };
-            const isExpanded = expandedVillageIds.has(village.id);
+      {/* Village list */}
+      <List sx={{ flexGrow: 1, overflowY: "auto", pr: 1, minHeight: 0 }}>
+        {filteredVillages.map((village) => {
+          const scoutGroupIds = village.ScoutGroups.map((sg) => sg.id);
+          const selectedInVillage = scoutGroupIds.filter((id) =>
+            selectedScoutGroupIds.has(id)
+          );
+          const isAllSelected =
+            scoutGroupIds.length > 0 &&
+            selectedInVillage.length === scoutGroupIds.length;
+          const isPartiallySelected =
+            selectedInVillage.length > 0 && !isAllSelected;
+          const isExpanded = expandedVillageIds.has(village.id);
 
-            return (
-              <VillageListItem
-                key={village.id}
-                village={village}
-                isAllSelected={selectionState.isAllSelected}
-                isPartiallySelected={selectionState.isPartiallySelected}
-                isExpanded={isExpanded}
-                toggleVillageExpansion={toggleVillageExpansion}
-                handleSelection={handleSelection}
-                selectedScoutGroupIds={selectedScoutGroupIds}
-              />
-            );
-          })}
-        </List>
+          return (
+            <VillageListItem
+              key={village.id}
+              village={village}
+              isAllSelected={isAllSelected}
+              isPartiallySelected={isPartiallySelected}
+              isExpanded={isExpanded}
+              toggleVillageExpansion={toggleVillageExpansion}
+              handleSelection={handleSelection}
+              selectedScoutGroupIds={selectedScoutGroupIds}
+            />
+          );
+        })}
+      </List>
+    </Box>
+  );
+}
+
+/**
+ * Responsive drawer for selecting scout groups.
+ * - Persistent on large screens (lg and up)
+ * - Temporary (overlay) on smaller screens
+ */
+export default function ScoutGroupSelector({
+  filteredVillages = [],
+  selectedScoutGroupIds = new Set(),
+  expandedVillageIds = new Set(),
+  searchTerm = "",
+  setSearchTerm = () => {},
+  handleSelection = () => {},
+  toggleVillageExpansion = () => {},
+  clearSelection = () => {},
+  isDrawerOpen = false,
+  toggleDrawer = () => {},
+}) {
+  const theme = useTheme();
+  const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
+
+  const drawerContent = (
+    <DrawerContent
+      filteredVillages={filteredVillages}
+      selectedScoutGroupIds={selectedScoutGroupIds}
+      expandedVillageIds={expandedVillageIds}
+      searchTerm={searchTerm}
+      setSearchTerm={setSearchTerm}
+      handleSelection={handleSelection}
+      toggleVillageExpansion={toggleVillageExpansion}
+      clearSelection={clearSelection}
+      onClose={toggleDrawer}
+      showCloseButton={!isLargeScreen}
+    />
+  );
+
+  // Persistent drawer for large screens
+  if (isLargeScreen) {
+    return (
+      <Drawer
+        variant="permanent"
+        sx={{
+          width: DRAWER_WIDTH,
+          flexShrink: 0,
+          "& .MuiDrawer-paper": {
+            width: DRAWER_WIDTH,
+            boxSizing: "border-box",
+            position: "relative",
+            borderRadius: 2,
+            border: "none",
+          },
+        }}
+      >
+        {drawerContent}
+      </Drawer>
+    );
+  }
+
+  // Temporary drawer for smaller screens
+  return (
+    <Drawer
+      variant="temporary"
+      open={isDrawerOpen}
+      onClose={toggleDrawer}
+      ModalProps={{ keepMounted: true }}
+      sx={{
+        "& .MuiDrawer-paper": {
+          width: DRAWER_WIDTH,
+          boxSizing: "border-box",
+        },
+      }}
+    >
+      {drawerContent}
+    </Drawer>
+  );
+}
+
+/**
+ * Button to open the drawer on mobile screens.
+ * Should be rendered in the app bar or header on small screens.
+ */
+export function DrawerToggleButton({ onClick, selectedCount = 0 }) {
+  const theme = useTheme();
+  const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
+
+  if (isLargeScreen) {
+    return null;
+  }
+
+  return (
+    <IconButton
+      color="inherit"
+      aria-label="Öppna meny"
+      onClick={onClick}
+      sx={{ mr: 2, position: "relative" }}
+    >
+      <MenuIcon />
+      {selectedCount > 0 && (
+        <Box
+          component="span"
+          sx={{
+            position: "absolute",
+            top: 4,
+            right: 4,
+            bgcolor: "primary.main",
+            color: "primary.contrastText",
+            borderRadius: "50%",
+            width: 18,
+            height: 18,
+            fontSize: 12,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {selectedCount > 9 ? "9+" : selectedCount}
+        </Box>
       )}
-    </Paper>
+    </IconButton>
   );
 }
 
@@ -138,15 +250,15 @@ ScoutGroupSelector.propTypes = {
   /** Current search term */
   searchTerm: PropTypes.string,
   /** Function to update search term */
-  setSearchTerm: PropTypes.func.isRequired,
+  setSearchTerm: PropTypes.func,
   /** Handler for selection changes */
-  handleSelection: PropTypes.func.isRequired,
+  handleSelection: PropTypes.func,
   /** Handler to toggle village expansion */
-  toggleVillageExpansion: PropTypes.func.isRequired,
+  toggleVillageExpansion: PropTypes.func,
   /** Handler to clear all selections */
-  clearSelection: PropTypes.func.isRequired,
-  /** Whether the selector panel is collapsed */
-  isCollapsed: PropTypes.bool,
-  /** Handler to toggle collapse state */
-  toggleCollapse: PropTypes.func.isRequired,
+  clearSelection: PropTypes.func,
+  /** Whether the drawer is open (mobile) */
+  isDrawerOpen: PropTypes.bool,
+  /** Handler to toggle drawer state */
+  toggleDrawer: PropTypes.func,
 };

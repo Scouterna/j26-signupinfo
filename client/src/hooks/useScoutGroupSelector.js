@@ -13,7 +13,7 @@ export default function useScoutGroupSelector(jsonData) {
     const [selectedScoutGroupIds, setSelectedScoutGroupIds] = useState(new Set());
     const [expandedVillageIds, setExpandedVillageIds] = useState(new Set());
     const [searchTerm, setSearchTerm] = useState('');
-    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
     const { statistics, totalParticipants, getStatisticData } = useScoutGroupData(data, selectedScoutGroupIds);
 
@@ -97,9 +97,9 @@ export default function useScoutGroupSelector(jsonData) {
     const clearSelection = () => setSelectedScoutGroupIds(new Set());
 
     /**
-     * Toggles the collapsed state of the selector panel.
+     * Toggles the drawer open/closed state (used for mobile navigation).
      */
-    const toggleCollapse = () => setIsCollapsed(prev => !prev);
+    const toggleDrawer = () => setIsDrawerOpen(prev => !prev);
 
     // The hook returns all the necessary values and functions for the sidebar to use
     return {
@@ -112,8 +112,8 @@ export default function useScoutGroupSelector(jsonData) {
         handleSelection,
         toggleVillageExpansion,
         clearSelection,
-        isCollapsed,
-        toggleCollapse,
+        isDrawerOpen,
+        toggleDrawer,
         totalParticipants,
         statistics,
         selectedStatistics,

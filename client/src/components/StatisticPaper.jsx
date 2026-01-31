@@ -8,12 +8,14 @@ import StatisticSelector from "./StatisticSelector.jsx";
 import StatisticBox from "./StatisticBox.jsx";
 import ExpandCollapseButton from "./ExpandCollapseButton.jsx";
 import ScoutGroupTable from "./ScoutGroupTable.jsx";
+import StatRow from "./StatRow.jsx";
 
 /**
  * Renders grouped answer values with expandable scout group lists.
  * Used for perGroup type subQuestions (single-answer questions).
+ * @param {boolean} useStatRow - When true, use StatRow with percentage bars (no-papers styling)
  */
-function GroupedAnswerValues({ groupedByAnswer }) {
+function GroupedAnswerValues({ groupedByAnswer, useStatRow = false }) {
   const [expandedAnswers, setExpandedAnswers] = useState({});
 
   const toggleExpanded = (answerName) => {
@@ -30,6 +32,8 @@ function GroupedAnswerValues({ groupedByAnswer }) {
     return a[0].localeCompare(b[0], "sv");
   });
 
+  const total = sortedEntries.reduce((sum, [, { count }]) => sum + count, 0);
+
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: "4px" }}>
       {sortedEntries.map(([answerName, { count, scoutGroups }]) => {
@@ -37,39 +41,56 @@ function GroupedAnswerValues({ groupedByAnswer }) {
 
         return (
           <Box key={answerName}>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "4px 8px",
-                backgroundColor: "white",
-                borderRadius: "4px",
-              }}
-            >
-              <Box sx={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
+            {useStatRow ? (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                 <ExpandCollapseButton
                   isExpanded={isExpanded}
                   onClick={() => toggleExpanded(answerName)}
-                  sx={{ marginRight: "4px", marginLeft: "-8px" }}
+                  sx={{ marginRight: "4px", marginLeft: "-8px", flexShrink: 0 }}
                 />
-                <Typography
-                  variant="body2"
-                  sx={{
-                    overflowWrap: "anywhere",
-                    wordBreak: "break-word",
-                    whiteSpace: "normal",
-                    flex: 1,
-                    marginRight: "8px",
-                  }}
-                >
-                  {answerName || "(tomt)"}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <StatRow
+                    label={answerName || "(tomt)"}
+                    value={count}
+                    total={total}
+                  />
+                </Box>
+              </Box>
+            ) : (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "4px 8px",
+                  backgroundColor: "white",
+                  borderRadius: "4px",
+                }}
+              >
+                <Box sx={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
+                  <ExpandCollapseButton
+                    isExpanded={isExpanded}
+                    onClick={() => toggleExpanded(answerName)}
+                    sx={{ marginRight: "4px", marginLeft: "-8px" }}
+                  />
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      overflowWrap: "anywhere",
+                      wordBreak: "break-word",
+                      whiteSpace: "normal",
+                      flex: 1,
+                      marginRight: "8px",
+                    }}
+                  >
+                    {answerName || "(tomt)"}
+                  </Typography>
+                </Box>
+                <Typography variant="body2" fontWeight="600" sx={{ flexShrink: 0 }}>
+                  {count}
                 </Typography>
               </Box>
-              <Typography variant="body2" fontWeight="600" sx={{ flexShrink: 0 }}>
-                {count}
-              </Typography>
-            </Box>
+            )}
             {/* Expanded scout group list */}
             {isExpanded && (
               <Box sx={{ marginLeft: "32px", marginTop: "4px" }}>
@@ -78,7 +99,9 @@ function GroupedAnswerValues({ groupedByAnswer }) {
                     key={index}
                     sx={{
                       padding: "4px 8px",
-                      backgroundColor: "#f0f0f0",
+                      backgroundColor: useStatRow
+                        ? "rgba(0, 0, 0, 0.02)"
+                        : "#f0f0f0",
                       borderRadius: "4px",
                       marginTop: "2px",
                     }}
@@ -115,8 +138,9 @@ GroupedAnswerValues.propTypes = {
 
 /**
  * Renders values for a sub-question section.
+ * @param {boolean} useStatRow - When true, use StatRow with percentage bars (no-papers styling)
  */
-function SubQuestionValues({ subQuestion }) {
+function SubQuestionValues({ subQuestion, useStatRow = false }) {
   const { type, values, groupedByAnswer } = subQuestion;
   const [expandedFreeText, setExpandedFreeText] = useState({});
 
@@ -129,81 +153,136 @@ function SubQuestionValues({ subQuestion }) {
 
   // For perGroup type with groupedByAnswer, use the grouped view
   if (type === "perGroup" && groupedByAnswer) {
-    return <GroupedAnswerValues groupedByAnswer={groupedByAnswer} />;
+    return (
+      <GroupedAnswerValues
+        groupedByAnswer={groupedByAnswer}
+        useStatRow={useStatRow}
+      />
+    );
   }
 
   // Default rendering for answers type (and legacy perGroup without groupedByAnswer)
+  const entries = Object.entries(values);
+  const total = entries.reduce(
+    (sum, [, v]) => sum + (Number.isFinite(v.count) ? v.count : 0),
+    0
+  );
+
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-      {Object.entries(values).map(([key, value]) => {
+      {entries.map(([key, value]) => {
         const isPerGroup = type === "perGroup";
         const leftLabel = isPerGroup ? value.scoutGroupName : value.name;
         const rightValue = isPerGroup ? value.name : value.count;
+        const count = Number.isFinite(value.count) ? value.count : 0;
         const hasFreeText = value.freeTextAnswers && value.freeTextAnswers.length > 0;
         const isFreeTextExpanded = expandedFreeText[key] || false;
 
         return (
           <Box key={key}>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "4px 8px",
-                backgroundColor: "white",
-                borderRadius: "4px",
-              }}
-            >
-              <Box sx={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
+            {useStatRow && !isPerGroup && Number.isFinite(value.count) ? (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                 {hasFreeText && (
                   <ExpandCollapseButton
                     isExpanded={isFreeTextExpanded}
                     onClick={() => toggleFreeTextExpanded(key)}
-                    sx={{ marginRight: "4px", marginLeft: "-8px" }}
+                    sx={{ marginRight: "4px", marginLeft: "-8px", flexShrink: 0 }}
                   />
                 )}
-                <Typography
-                  variant="body2"
-                  sx={{
-                    overflowWrap: "anywhere",
-                    wordBreak: "break-word",
-                    whiteSpace: "normal",
-                    flex: 1,
-                    marginRight: "8px",
-                  }}
-                >
-                  {leftLabel}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <StatRow label={leftLabel} value={count} total={total} />
+                </Box>
+              </Box>
+            ) : (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: useStatRow ? "4px 0" : "4px 8px",
+                  backgroundColor: useStatRow ? "transparent" : "white",
+                  borderRadius: "4px",
+                }}
+              >
+                <Box sx={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
+                  {hasFreeText && (
+                    <ExpandCollapseButton
+                      isExpanded={isFreeTextExpanded}
+                      onClick={() => toggleFreeTextExpanded(key)}
+                      sx={{ marginRight: "4px", marginLeft: "-8px" }}
+                    />
+                  )}
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      overflowWrap: "anywhere",
+                      wordBreak: "break-word",
+                      whiteSpace: "normal",
+                      flex: 1,
+                      marginRight: "8px",
+                    }}
+                  >
+                    {leftLabel}
+                  </Typography>
+                </Box>
+                <Typography variant="body2" fontWeight="600" sx={{ flexShrink: 0 }}>
+                  {rightValue}
                 </Typography>
               </Box>
-              <Typography variant="body2" fontWeight="600" sx={{ flexShrink: 0 }}>
-                {rightValue}
-              </Typography>
-            </Box>
+            )}
             {/* Free text answers - collapsible */}
             {hasFreeText && isFreeTextExpanded && (
               <Box sx={{ marginLeft: "32px", marginTop: "4px" }}>
-                {value.freeTextAnswers.map((text, index) => (
-                  <Box
-                    key={index}
-                    sx={{
-                      padding: "4px 8px",
-                      backgroundColor: "#f0f0f0",
-                      borderRadius: "4px",
-                      marginTop: "2px",
-                    }}
-                  >
-                    <Typography
-                      variant="caption"
+                {value.freeTextAnswers.map((item, index) => {
+                  const text =
+                    typeof item === "string" ? item : item?.text ?? "";
+                  const numAnswers =
+                    typeof item === "object" && item?.num_answers != null
+                      ? item.num_answers
+                      : 1;
+                  return (
+                    <Box
+                      key={index}
                       sx={{
-                        overflowWrap: "anywhere",
-                        wordBreak: "break-word",
-                        whiteSpace: "normal",
+                        padding: "4px 8px",
+                        backgroundColor: "rgba(0, 0, 0, 0.02)",
+                        borderRadius: "6px",
+                        marginTop: "2px",
+                        borderLeft: "3px solid",
+                        borderLeftColor: "primary.light",
                       }}
                     >
-                      {text}
-                    </Typography>
-                  </Box>
-                ))}
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            overflowWrap: "anywhere",
+                            wordBreak: "break-word",
+                            whiteSpace: "normal",
+                            flex: 1,
+                          }}
+                        >
+                          {text}
+                        </Typography>
+                        {numAnswers > 1 && (
+                          <Typography
+                            variant="caption"
+                            fontWeight="600"
+                            sx={{ marginLeft: "12px", color: "text.secondary" }}
+                          >
+                            {numAnswers}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  );
+                })}
               </Box>
             )}
           </Box>
@@ -225,6 +304,8 @@ SubQuestionValues.propTypes = {
     ),
   }).isRequired,
 };
+
+export { SubQuestionValues, GroupedAnswerValues };
 
 export default function StatisticPaper({
   numScoutGroupsSelected,
