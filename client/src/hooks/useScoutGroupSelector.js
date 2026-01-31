@@ -1,17 +1,32 @@
 import { useState, useMemo } from 'react';
-import useScoutGroupData from './useScoutGroupData';
+import useScoutGroupData, { getSelectedScoutGroups } from './useScoutGroupData';
+import { SELECTION_TYPES } from '../constants/selectionTypes';
+
+// Default empty data structure for when data is not yet loaded
+const EMPTY_DATA = { villages: [] };
 
 // This is a custom hook that encapsulates all the sidebar's logic.
 export default function useScoutGroupSelector(jsonData) {
+    const data = jsonData || EMPTY_DATA;
+
     // State management for the sidebar's functionality
     const [selectedScoutGroupIds, setSelectedScoutGroupIds] = useState(new Set());
     const [expandedVillageIds, setExpandedVillageIds] = useState(new Set());
     const [searchTerm, setSearchTerm] = useState('');
     const [isCollapsed, setIsCollapsed] = useState(false);
 
-    const { statistics, totalParticipants, getStatisticData } = useScoutGroupData(jsonData, selectedScoutGroupIds);
+    const { statistics, totalParticipants, getStatisticData } = useScoutGroupData(data, selectedScoutGroupIds);
 
     const [selectedStatistics, setSelectedStatistics] = useState([]);
+
+    /**
+     * Memoized array of selected scout groups with their full data.
+     * Used for the table view which needs access to raw group data.
+     */
+    const selectedScoutGroups = useMemo(
+        () => getSelectedScoutGroups(data.villages, selectedScoutGroupIds),
+        [data.villages, selectedScoutGroupIds]
+    );
 
     /**
      * Memoized list of villages filtered by the search term.
@@ -22,13 +37,13 @@ export default function useScoutGroupSelector(jsonData) {
      * @type {Array<Object>}
      */
     const filteredVillages = useMemo(() => {
-        if (!searchTerm) return jsonData.villages;
+        if (!searchTerm) return data.villages;
         const lowercasedFilter = searchTerm.toLowerCase();
-        return jsonData.villages.filter(village =>
+        return data.villages.filter(village =>
             village.name.toLowerCase().includes(lowercasedFilter) ||
             village.ScoutGroups.some(scoutGroup => scoutGroup.name.toLowerCase().includes(lowercasedFilter))
         );
-    }, [searchTerm, jsonData.villages]);
+    }, [searchTerm, data.villages]);
 
     /**
      * Toggles the expansion state of a village by its ID.
@@ -59,8 +74,8 @@ export default function useScoutGroupSelector(jsonData) {
     const handleSelection = (type, id) => {
         setSelectedScoutGroupIds(prev => {
             const newSet = new Set(prev);
-            if (type === 'village') {
-                const village = jsonData.villages.find(v => v.id === id);
+            if (type === SELECTION_TYPES.VILLAGE) {
+                const village = data.villages.find(v => v.id === id);
                 if (!village) return newSet;
                 const allScoutGroupInVillageSelected = village.ScoutGroups.every(t => newSet.has(t.id));
                 // If all ScoutGroups in the village are selected, deselect them; otherwise, select them. 
@@ -68,7 +83,7 @@ export default function useScoutGroupSelector(jsonData) {
                 village.ScoutGroups.forEach(t => {
                     allScoutGroupInVillageSelected ? newSet.delete(t.id) : newSet.add(t.id);
                 });
-            } else { // type === 'ScoutGroup'
+            } else { // type === SELECTION_TYPES.SCOUT_GROUP
                 newSet.has(id) ? newSet.delete(id) : newSet.add(id);
             }
             return newSet;
@@ -89,6 +104,7 @@ export default function useScoutGroupSelector(jsonData) {
     // The hook returns all the necessary values and functions for the sidebar to use
     return {
         selectedScoutGroupIds,
+        selectedScoutGroups,
         expandedVillageIds,
         searchTerm,
         setSearchTerm,

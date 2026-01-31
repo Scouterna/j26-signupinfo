@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import {
   Box,
   Typography,
@@ -9,8 +10,6 @@ import {
   ListItemText,
   OutlinedInput,
 } from "@mui/material";
-import React from "react";
-import PropTypes from "prop-types";
 
 export default function StatisticSelector({ title, value, options, onChange }) {
   const numSelected = value.length;
@@ -41,7 +40,7 @@ export default function StatisticSelector({ title, value, options, onChange }) {
         >
           {options.map((option) => (
             <MenuItem key={option} value={option}>
-              <Checkbox checked={value.indexOf(option) > -1} />
+              <Checkbox checked={value.includes(option)} />
               <ListItemText primary={option} />
             </MenuItem>
           ))}

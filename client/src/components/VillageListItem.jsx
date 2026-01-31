@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import {
   ListItem,
   ListItemButton,
@@ -9,6 +10,7 @@ import {
 } from "@mui/material";
 import ExpandCollapseButton from "./ExpandCollapseButton";
 import ScoutGroupListItem from "./ScoutGroupListItem";
+import { SELECTION_TYPES } from "../constants/selectionTypes";
 
 export default function VillageListItem({
   village,
@@ -42,7 +44,7 @@ export default function VillageListItem({
               size="small"
               checked={isAllSelected}
               indeterminate={isPartiallySelected}
-              onChange={() => handleSelection("village", village.id)}
+              onChange={() => handleSelection(SELECTION_TYPES.VILLAGE, village.id)}
               onClick={(e) => e.stopPropagation()}
               sx={{ p: 0.5 }}
             />
@@ -60,10 +62,10 @@ export default function VillageListItem({
       </ListItem>
       <Collapse in={isExpanded}>
         <List component="div" disablePadding sx={{ paddingLeft: "32px" }}>
-          {village.ScoutGroups.map((ScoutGroup) => (
+          {village.ScoutGroups.map((scoutGroup) => (
             <ScoutGroupListItem
-              key={ScoutGroup.id}
-              ScoutGroup={ScoutGroup}
+              key={scoutGroup.id}
+              scoutGroup={scoutGroup}
               selectedScoutGroupIds={selectedScoutGroupIds}
               handleSelection={handleSelection}
             />
@@ -73,3 +75,29 @@ export default function VillageListItem({
     </>
   );
 }
+
+VillageListItem.propTypes = {
+  /** Village object with id, name, and ScoutGroups array */
+  village: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    name: PropTypes.string.isRequired,
+    ScoutGroups: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+        name: PropTypes.string.isRequired,
+      })
+    ).isRequired,
+  }).isRequired,
+  /** Whether all scout groups in this village are selected */
+  isAllSelected: PropTypes.bool.isRequired,
+  /** Whether some (but not all) scout groups are selected */
+  isPartiallySelected: PropTypes.bool.isRequired,
+  /** Whether the village list is expanded */
+  isExpanded: PropTypes.bool.isRequired,
+  /** Handler to toggle village expansion */
+  toggleVillageExpansion: PropTypes.func.isRequired,
+  /** Handler for selection changes */
+  handleSelection: PropTypes.func.isRequired,
+  /** Set of currently selected scout group IDs */
+  selectedScoutGroupIds: PropTypes.instanceOf(Set).isRequired,
+};
