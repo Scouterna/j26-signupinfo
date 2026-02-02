@@ -4,24 +4,22 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "ScoutView"
-    scoutnet_base: str = "https://scoutnet.se/api"
-    scoutnet_activity_id: int = 0
-    scoutnet_participants_key: str = ""
-    scoutnet_questions_key: str = ""
-    scoutnet_checkin_key: str = ""
-    scoutview_debug_email: str | None = None
-    scoutview_roles: dict[str, set[str]] | None = {}
-    keycloak_url: str = ""
-    keycloak_realm: str = ""
-    keycloak_client_id: str = ""
+    PARTICIPANT_MEMBER_KEY: str
+    PARTICIPANT_GROUP_KEY: str
+    PARTICIPANT_QUESTION_KEY: str
+    SERVICETEAM_MEMBER_KEY: str
+    SERVICETEAM_QUESTION_KEY: str
+    PARTICIPANT_PROJECT_ID: str = "52710"
+    SERVICETEAM_PROJECT_ID: str = "52716"
+    PROJECT_CACHE_MAX_AGE_H: int = 24  # In hours
+    SESSION_SECRET_KEY: str = "change-me"
+    API_PREFIX: str = "/api"
+    ROOT_PATH: str = ""
+    AUTH_DISABLED: bool = False
 
     model_config = SettingsConfigDict(env_file=".env")
 
 
-# settings = Settings()
-
-
-@lru_cache()
-def get_settings():
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
     return Settings()

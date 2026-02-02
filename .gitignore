@@ -7,6 +7,8 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+__pycache__/
+.dev_cache
 
 # Node modules
 node_modules/
