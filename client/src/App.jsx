@@ -115,8 +115,10 @@ export default function App() {
         component="main"
         sx={{
           flexGrow: 1,
+          flexShrink: 1,
+          minWidth: 0,
           p: { xs: 2, lg: 4 },
-          width: { lg: `calc(100% - ${DRAWER_WIDTH}px)` },
+          width: { xs: "100%", lg: `calc(100% - ${DRAWER_WIDTH}px)` },
           mt: { xs: "64px", lg: 0 },
           height: { lg: "100vh" },
           boxSizing: "border-box",
