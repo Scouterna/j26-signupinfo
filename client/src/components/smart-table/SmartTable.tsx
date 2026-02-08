@@ -1,24 +1,14 @@
-import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
-import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import ClearIcon from "@mui/icons-material/Clear";
-import FilterListIcon from "@mui/icons-material/FilterList";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import {
 	Box,
-	Divider,
 	IconButton,
-	ListItemIcon,
-	ListItemText,
-	Menu,
-	MenuItem,
-	Paper,
 	Table,
 	TableBody,
 	TableCell,
 	TableContainer,
 	TableFooter,
 	TableHead,
+	TablePagination,
 	TableRow,
 	TableSortLabel,
 } from "@mui/material";
@@ -26,24 +16,17 @@ import { visuallyHidden } from "@mui/utils";
 import {
 	flexRender,
 	type Header,
+	type RowData,
 	type Table as TanstackTable,
 } from "@tanstack/react-table";
-import {
-	type ComponentProps,
-	memo,
-	type ReactNode,
-	useMemo,
-	useState,
-} from "react";
-import { MultiselectMenu } from "./MultiselectMenu";
+import { memo, useMemo, useState } from "react";
+import { SmartTableHeaderMenu } from "./SmartTableHeaderMenu";
 
-export type Props<TData> = ComponentProps<typeof Paper> & {
+export type Props<TData> = {
 	table: TanstackTable<TData>;
 };
 
-export function SmartTable<TData>(props: Props<TData>) {
-	const { table, ...otherProps } = props;
-
+export function SmartTable<TData extends RowData>({ table }: Props<TData>) {
 	const [headerMenuAnchorEl, setHeaderMenuAnchorEl] =
 		useState<null | HTMLElement>(null);
 	const [headerMenuHeader, setHeaderMenuHeader] = useState<null | Header<
@@ -69,8 +52,18 @@ export function SmartTable<TData>(props: Props<TData>) {
 	}, [table.getState().columnSizingInfo, table.getState().columnSizing]);
 
 	return (
-		<Paper {...otherProps}>
-			<HeaderMenu
+		<Box
+			sx={{
+				display: "flex",
+				boxSizing: "border-box",
+				flexDirection: "column",
+				position: "relative",
+				pb: "52px",
+				width: "100%",
+				height: "100%",
+			}}
+		>
+			<SmartTableHeaderMenu
 				anchor={headerMenuAnchorEl}
 				header={headerMenuHeader}
 				onClose={() => {
@@ -80,7 +73,11 @@ export function SmartTable<TData>(props: Props<TData>) {
 				}}
 			/>
 
-			<TableContainer>
+			<TableContainer
+				sx={{
+					flex: 1,
+				}}
+			>
 				<Table
 					sx={{
 						...columnSizeVars,
@@ -89,6 +86,7 @@ export function SmartTable<TData>(props: Props<TData>) {
 								? table.getTotalSize()
 								: "100%",
 					}}
+					stickyHeader
 				>
 					<TableHead>
 						{table.getHeaderGroups().map((headerGroup) => (
@@ -97,7 +95,6 @@ export function SmartTable<TData>(props: Props<TData>) {
 									<TableCell
 										key={header.id}
 										sx={{
-											position: "relative",
 											width: `calc(var(--header-${header?.id}-size) * 1px)`,
 										}}
 										sortDirection={header.column.getIsSorted() || undefined}
@@ -164,7 +161,7 @@ export function SmartTable<TData>(props: Props<TData>) {
 					)}
 
 					<TableFooter>
-						{table.getFooterGroups().map((footerGroup) => (
+						{/* {table.getFooterGroups().map((footerGroup) => (
 							<TableRow key={footerGroup.id}>
 								{footerGroup.headers.map((header) => (
 									<TableCell key={header.id}>
@@ -177,11 +174,32 @@ export function SmartTable<TData>(props: Props<TData>) {
 									</TableCell>
 								))}
 							</TableRow>
-						))}
+						))} */}
 					</TableFooter>
 				</Table>
 			</TableContainer>
-		</Paper>
+
+			<TablePagination
+				sx={{
+					borderTop: "1px solid rgba(224, 224, 224, 1)",
+					position: "absolute",
+					width: "100%",
+					bottom: 0,
+					left: 0,
+				}}
+				component="div"
+				rowsPerPageOptions={[5, 10, 25, 50, 100]}
+				count={table.getRowCount()}
+				rowsPerPage={table.getState().pagination.pageSize}
+				page={table.getState().pagination.pageIndex}
+				onPageChange={(_, index) => {
+					table.setPageIndex(index);
+				}}
+				onRowsPerPageChange={(e) => {
+					table.setPageSize(Number(e.target.value));
+				}}
+			/>
+		</Box>
 	);
 }
 
@@ -255,168 +273,6 @@ function ResizeHandle({
 						: "",
 			}}
 		/>
-	);
-}
-
-const options = [
-	{ id: 0, label: "Grön" },
-	{ id: 1, label: "Blå" },
-	{ id: 2, label: "Röd" },
-	{ id: 3, label: "Gul" },
-	{ id: 4, label: "Svart" },
-	{ id: 5, label: "Vit" },
-	{ id: 6, label: "Orange" },
-	{ id: 7, label: "Lila" },
-	{ id: 8, label: "Rosa" },
-	{ id: 9, label: "Brun" },
-	{ id: 10, label: "Grå" },
-	{ id: 11, label: "Cyan" },
-	{ id: 12, label: "Magenta" },
-	{ id: 13, label: "Lime" },
-	{ id: 14, label: "Marinblå" },
-	{ id: 15, label: "Olive" },
-	{ id: 16, label: "Teal" },
-	{ id: 17, label: "Silver" },
-	{ id: 18, label: "Guld" },
-	{ id: 19, label: "Korall" },
-].sort((a, b) => a.label.localeCompare(b.label));
-
-function HeaderMenu({
-	anchor,
-	header,
-	onClose,
-}: {
-	anchor: HTMLElement | null;
-	// biome-ignore lint/suspicious/noExplicitAny: We don't care about the type here
-	header: Header<any, any> | null;
-	onClose?: () => void;
-}) {
-	const [filterMenuAnchorEl, setFilterMenuAnchorEl] =
-		useState<HTMLElement | null>(null);
-
-	const [selected, setSelected] = useState<number[]>([]);
-
-	const open = Boolean(anchor) && Boolean(header);
-
-	const menuSections: ReactNode[] = [];
-
-	if (header) {
-		if (header.column.getCanSort()) {
-			menuSections.push(
-				header.column.getCanSort() &&
-					[
-						header.column.getIsSorted() !== "asc" && (
-							<MenuItem
-								key="sortAsc"
-								onClick={(e) => header.column.toggleSorting(false, e.shiftKey)}
-							>
-								<ListItemIcon>
-									<ArrowUpwardIcon fontSize="small" />
-								</ListItemIcon>
-								<ListItemText>Sortera stigande</ListItemText>
-							</MenuItem>
-						),
-						header.column.getIsSorted() !== "desc" && (
-							<MenuItem
-								key="sortDesc"
-								onClick={(e) => header.column.toggleSorting(true, e.shiftKey)}
-							>
-								<ListItemIcon>
-									<ArrowDownwardIcon fontSize="small" />
-								</ListItemIcon>
-								<ListItemText>Sortera fallande</ListItemText>
-							</MenuItem>
-						),
-						header.column.getIsSorted() && (
-							<MenuItem
-								key="clearSort"
-								onClick={() => header.column.clearSorting()}
-							>
-								<ListItemIcon>
-									<ClearIcon fontSize="small" />
-								</ListItemIcon>
-								<ListItemText>Rensa sortering</ListItemText>
-							</MenuItem>
-						),
-					].filter(Boolean),
-			);
-		}
-
-		if (header.column.getCanFilter()) {
-			menuSections.push(
-				<MenuItem
-					key="filterMenu"
-					onClick={(e) => {
-						setFilterMenuAnchorEl(e.currentTarget);
-					}}
-				>
-					<ListItemIcon>
-						<FilterListIcon fontSize="small" />
-					</ListItemIcon>
-					<ListItemText>
-						{header.column.getIsFiltered() ? "Ta bort filter" : "Filtrera"}
-					</ListItemText>
-					<ListItemIcon sx={{ marginLeft: "auto", minWidth: "0 !important" }}>
-						<ChevronRightIcon fontSize="small" />
-					</ListItemIcon>
-				</MenuItem>,
-			);
-		}
-	}
-
-	return (
-		<>
-			<Menu
-				// id="basic-menu"
-				anchorEl={anchor}
-				open={open}
-				onClose={onClose}
-				// slotProps={{
-				// 	list: {
-				// 		"aria-labelledby": "basic-button",
-				// 	},
-				// }}
-			>
-				{menuSections.map((section, index) => [
-					section,
-					index < menuSections.length - 1 && (
-						// biome-ignore lint/suspicious/noArrayIndexKey: It's a somewhat stable list
-						<Divider key={`divider-${index}`} />
-					),
-				])}
-			</Menu>
-
-			<MultiselectMenu
-				options={options}
-				anchorEl={filterMenuAnchorEl}
-				open={!!filterMenuAnchorEl}
-				onClose={() => {
-					setFilterMenuAnchorEl(null);
-				}}
-				anchorOrigin={{
-					horizontal: "right",
-					vertical: "top",
-				}}
-				sx={{
-					mt: -1,
-				}}
-				slotProps={{
-					paper: {
-						style: {
-							minWidth: "12rem",
-							maxHeight: "25rem",
-						},
-					},
-					list: {
-						"aria-labelledby": "long-button",
-					},
-				}}
-				selected={selected}
-				onChange={(newSelected) => {
-					setSelected(newSelected);
-				}}
-			/>
-		</>
 	);
 }
 
