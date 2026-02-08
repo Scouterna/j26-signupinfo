@@ -4,36 +4,29 @@ import {
 	Divider,
 	ListItemIcon,
 	ListItemText,
-	Menu,
 	MenuItem,
 	TextField,
 	Typography,
 } from "@mui/material";
 import Fuse from "fuse.js";
 
-import {
-	type ComponentProps,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-export type Props<T> = ComponentProps<typeof Menu> & {
+export type Props<T> = {
+	open: boolean;
 	options: {
-		id: T;
+		value: T;
 		label: string;
 	}[];
 	selected: T[];
-	onChange: (selected: T[]) => void;
+	onSelected: (selected: T[]) => void;
 };
 
-export function MultiselectMenu<T extends string | number>({
+export function ChoiceFilter<T extends string | number>({
+	open,
 	options,
 	selected,
-	onChange,
-	open,
-	...rest
+	onSelected,
 }: Props<T>) {
 	const fuse = useMemo(() => {
 		return new Fuse(options, {
@@ -74,18 +67,7 @@ export function MultiselectMenu<T extends string | number>({
 	const someSelected = selected.length > 0 && !allSelected;
 
 	return (
-		<Menu
-			open={open}
-			{...rest}
-			slotProps={{
-				paper: {
-					style: {
-						minWidth: "12rem",
-						maxHeight: "25rem",
-					},
-				},
-			}}
-		>
+		<>
 			<Box
 				sx={{
 					position: "sticky",
@@ -115,9 +97,9 @@ export function MultiselectMenu<T extends string | number>({
 					<MenuItem
 						onClick={() => {
 							if (allSelected) {
-								onChange([]);
+								onSelected([]);
 							} else {
-								onChange(options.map((option) => option.id));
+								onSelected(options.map((option) => option.value));
 							}
 						}}
 					>
@@ -147,15 +129,15 @@ export function MultiselectMenu<T extends string | number>({
 			)}
 
 			{filteredOptions.map((option) => {
-				const isSelected = selected.includes(option.id);
+				const isSelected = selected.includes(option.value);
 				return (
 					<MenuItem
-						key={option.id}
+						key={option.value}
 						onClick={() => {
 							if (isSelected) {
-								onChange(selected.filter((item) => item !== option.id));
+								onSelected(selected.filter((item) => item !== option.value));
 							} else {
-								onChange([...selected, option.id]);
+								onSelected([...selected, option.value]);
 							}
 						}}
 					>
@@ -170,6 +152,6 @@ export function MultiselectMenu<T extends string | number>({
 					</MenuItem>
 				);
 			})}
-		</Menu>
+		</>
 	);
 }
