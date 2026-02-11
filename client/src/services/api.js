@@ -1,107 +1,11 @@
 /**
  * API Service Layer
  * 
- * Handles data fetching with environment-based switching between
- * test data and backend API.
+ * Fetches scout group data from the backend API and wraps it
+ * in the villages structure expected by the frontend.
  */
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
-const USE_TEST_DATA = import.meta.env.VITE_USE_TEST_DATA === 'true';
-
-/**
- * Builds the villages data structure from scout groups and village config.
- * 
- * @param {Object} scoutGroupData - Object with ScoutGroups array
- * @param {Object} villageConfig - Object mapping village names to scout group IDs
- * @returns {Object} Villages data object with structure { villages: [...] }
- */
-function buildVillagesFromData(scoutGroupData, villageConfig) {
-  // Create a map of scout group ID to scout group data for quick lookup
-  const scoutGroupMap = new Map();
-  scoutGroupData.ScoutGroups.forEach(sg => {
-    scoutGroupMap.set(sg.id, sg);
-  });
-
-  // Build villages array from the config
-  const villages = Object.entries(villageConfig).map(([villageName, scoutGroupIds]) => {
-    // Get scout groups for this village, filtering out any IDs not found in data
-    const scoutGroups = scoutGroupIds
-      .map(id => scoutGroupMap.get(id))
-      .filter(sg => sg !== undefined);
-
-    // Calculate total participants for this village
-    const numParticipants = scoutGroups.reduce((sum, sg) => sum + (sg.num_participants || 0), 0);
-
-    return {
-      id: villageName, // Use village name as ID since config doesn't provide separate IDs
-      name: villageName,
-      num_participants: numParticipants,
-      ScoutGroups: scoutGroups,
-    };
-  });
-
-  return { villages };
-}
-
-/**
- * Fetches scout groups data.
- * Uses test data in development or when VITE_USE_TEST_DATA is true.
- * 
- * @returns {Promise<Object>} Scout groups data object
- */
-async function fetchScoutGroupsData() {
-  if (USE_TEST_DATA) {
-    const { default: data } = await import('../../testdata/testdata-deltagare.json');
-    return data;
-  }
-  const response = await fetch(`${API_BASE}/scoutgroups`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch scout groups data: ${response.status} ${response.statusText}`);
-  }
-  return response.json();
-}
-
-/**
- * Fetches village configuration (mapping of village names to scout group IDs).
- * Uses test data in development or when VITE_USE_TEST_DATA is true.
- * 
- * @returns {Promise<Object>} Village config object
- */
-async function fetchVillageConfig() {
-  if (USE_TEST_DATA) {
-    const { default: config } = await import('../../testdata/testdata-names.json');
-    return config;
-  }
-  const response = await fetch(`${API_BASE}/villages/config`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch village config: ${response.status} ${response.statusText}`);
-  }
-  return response.json();
-}
-
-/**
- * Fetches villages data with scout groups and statistics.
- * Combines data from two sources: scout groups data and village configuration.
- * Uses test data in development or when VITE_USE_TEST_DATA is true,
- * otherwise fetches from the backend API.
- * 
- * @returns {Promise<Object>} Villages data object
- * @throws {Error} If the API request fails
- */
-export async function fetchVillagesData() {
-  // Fetch both data sources in parallel
-  const [scoutGroupData, villageConfig] = await Promise.all([
-    fetchScoutGroupsData(),
-    fetchVillageConfig(),
-  ]);
-
-  // Simulate network delay in development for realistic testing
-  if (USE_TEST_DATA) {
-    await new Promise(resolve => setTimeout(resolve, 300));
-  }
-
-  return buildVillagesFromData(scoutGroupData, villageConfig);
-}
 
 /**
  * Generic API fetch helper with error handling
@@ -130,9 +34,42 @@ export async function apiFetch(endpoint, options = {}) {
 }
 
 /**
- * Check if the app is configured to use test data
- * @returns {boolean}
+ * Fetches all scout groups from the backend, handling pagination.
+ * Requests the first page, then fetches any remaining pages in parallel.
+ * 
+ * @returns {Promise<Array>} Array of all scout group objects
+ * @throws {Error} If any API request fails
  */
-export function isUsingTestData() {
-  return USE_TEST_DATA;
+async function fetchAllGroups() {
+  const firstPage = await apiFetch('/stats/groups/all?page=1&size=100');
+  let allItems = [...firstPage.items];
+
+  if (firstPage.pages > 1) {
+    const remaining = Array.from({ length: firstPage.pages - 1 }, (_, i) =>
+      apiFetch(`/stats/groups/all?page=${i + 2}&size=100`)
+    );
+    const pages = await Promise.all(remaining);
+    pages.forEach(p => allItems.push(...p.items));
+  }
+
+  return allItems;
+}
+
+/**
+ * Fetches all scout groups and wraps them in a single-village structure
+ * matching the format expected by the frontend components.
+ * 
+ * @returns {Promise<Object>} Villages data object with structure { villages: [...] }
+ * @throws {Error} If the API request fails
+ */
+export async function fetchVillagesData() {
+  const groups = await fetchAllGroups();
+  return {
+    villages: [{
+      id: 'all',
+      name: 'Alla kårer',
+      num_participants: groups.reduce((sum, g) => sum + (g.num_participants || 0), 0),
+      ScoutGroups: groups,
+    }]
+  };
 }
