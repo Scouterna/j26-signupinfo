@@ -22,6 +22,7 @@ export default function StatisticsDashboard({
   setSelectedStatistics,
   getStatisticData,
   selectedScoutGroups,
+  onReplaceSelection,
 }) {
   const [viewMode, setViewMode] = useState("statistics");
 
@@ -189,6 +190,7 @@ export default function StatisticsDashboard({
                                 <SubQuestionValues
                                   subQuestion={subQuestion}
                                   useStatRow
+                                  onSelectByAnswer={onReplaceSelection}
                                 />
                               </Box>
                             );
@@ -274,4 +276,5 @@ StatisticsDashboard.propTypes = {
       stats: PropTypes.object,
     })
   ).isRequired,
+  onReplaceSelection: PropTypes.func,
 };

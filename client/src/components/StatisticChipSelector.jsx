@@ -68,7 +68,7 @@ export default function StatisticChipSelector({
             label={expanded ? "Visa färre" : `Visa fler (+${hiddenCount})`}
             onClick={() => setExpanded(!expanded)}
             variant="outlined"
-            color="default"
+            color="info"
             icon={expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
             sx={{
               transition: "all 0.2s ease",
@@ -85,7 +85,7 @@ export default function StatisticChipSelector({
             label="Rensa alla"
             onClick={() => onToggle([])}
             variant="outlined"
-            color="default"
+            color="error"
             icon={<ClearIcon />}
             sx={{
               transition: "all 0.2s ease",

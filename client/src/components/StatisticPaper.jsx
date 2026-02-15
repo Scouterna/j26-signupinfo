@@ -1,6 +1,16 @@
 import { useState } from "react";
 import PropTypes from "prop-types";
-import { Box, Paper, Typography, Chip, ToggleButtonGroup, ToggleButton } from "@mui/material";
+import {
+  Box,
+  Paper,
+  Typography,
+  Chip,
+  ToggleButtonGroup,
+  ToggleButton,
+  IconButton,
+  Tooltip,
+} from "@mui/material";
+import FilterListIcon from "@mui/icons-material/FilterList";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import BarChartIcon from "@mui/icons-material/BarChart";
 
@@ -14,8 +24,13 @@ import StatRow from "./StatRow.jsx";
  * Renders grouped answer values with expandable scout group lists.
  * Used for perGroup type subQuestions (single-answer questions).
  * @param {boolean} useStatRow - When true, use StatRow with percentage bars (no-papers styling)
+ * @param {function} onSelectByAnswer - When provided, enables "Välj dessa kårer" for each answer
  */
-function GroupedAnswerValues({ groupedByAnswer, useStatRow = false }) {
+function GroupedAnswerValues({
+  groupedByAnswer,
+  useStatRow = false,
+  onSelectByAnswer,
+}) {
   const [expandedAnswers, setExpandedAnswers] = useState({});
 
   const toggleExpanded = (answerName) => {
@@ -36,8 +51,13 @@ function GroupedAnswerValues({ groupedByAnswer, useStatRow = false }) {
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-      {sortedEntries.map(([answerName, { count, scoutGroups }]) => {
+      {sortedEntries.map(([answerName, { count, scoutGroups, scoutGroupIds }]) => {
         const isExpanded = expandedAnswers[answerName] || false;
+        const canSelectByAnswer =
+          onSelectByAnswer &&
+          scoutGroupIds &&
+          Array.isArray(scoutGroupIds) &&
+          scoutGroupIds.length > 0;
 
         return (
           <Box key={answerName}>
@@ -55,6 +75,18 @@ function GroupedAnswerValues({ groupedByAnswer, useStatRow = false }) {
                     total={total}
                   />
                 </Box>
+                {canSelectByAnswer && (
+                  <Tooltip title="Välj dessa kårer">
+                    <IconButton
+                      size="small"
+                      onClick={() => onSelectByAnswer(scoutGroupIds, answerName)}
+                      aria-label="Välj dessa kårer"
+                      sx={{ flexShrink: 0 }}
+                    >
+                      <FilterListIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
               </Box>
             ) : (
               <Box
@@ -86,9 +118,22 @@ function GroupedAnswerValues({ groupedByAnswer, useStatRow = false }) {
                     {answerName || "(tomt)"}
                   </Typography>
                 </Box>
-                <Typography variant="body2" fontWeight="600" sx={{ flexShrink: 0 }}>
-                  {count}
-                </Typography>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                  <Typography variant="body2" fontWeight="600" sx={{ flexShrink: 0 }}>
+                    {count}
+                  </Typography>
+                  {canSelectByAnswer && (
+                    <Tooltip title="Välj dessa kårer">
+                      <IconButton
+                        size="small"
+                        onClick={() => onSelectByAnswer(scoutGroupIds, answerName)}
+                        aria-label="Välj dessa kårer"
+                      >
+                        <FilterListIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Box>
               </Box>
             )}
             {/* Expanded scout group list */}
@@ -132,15 +177,19 @@ GroupedAnswerValues.propTypes = {
     PropTypes.shape({
       count: PropTypes.number.isRequired,
       scoutGroups: PropTypes.arrayOf(PropTypes.string).isRequired,
+      scoutGroupIds: PropTypes.arrayOf(PropTypes.number),
     })
   ).isRequired,
+  useStatRow: PropTypes.bool,
+  onSelectByAnswer: PropTypes.func,
 };
 
 /**
  * Renders values for a sub-question section.
  * @param {boolean} useStatRow - When true, use StatRow with percentage bars (no-papers styling)
+ * @param {function} onSelectByAnswer - When provided, enables "Välj dessa kårer" for perGroup answers
  */
-function SubQuestionValues({ subQuestion, useStatRow = false }) {
+function SubQuestionValues({ subQuestion, useStatRow = false, onSelectByAnswer }) {
   const { type, values, groupedByAnswer } = subQuestion;
   const [expandedFreeText, setExpandedFreeText] = useState({});
 
@@ -157,6 +206,7 @@ function SubQuestionValues({ subQuestion, useStatRow = false }) {
       <GroupedAnswerValues
         groupedByAnswer={groupedByAnswer}
         useStatRow={useStatRow}
+        onSelectByAnswer={onSelectByAnswer}
       />
     );
   }
@@ -300,9 +350,12 @@ SubQuestionValues.propTypes = {
       PropTypes.shape({
         count: PropTypes.number.isRequired,
         scoutGroups: PropTypes.arrayOf(PropTypes.string).isRequired,
+        scoutGroupIds: PropTypes.arrayOf(PropTypes.number),
       })
     ),
   }).isRequired,
+  useStatRow: PropTypes.bool,
+  onSelectByAnswer: PropTypes.func,
 };
 
 export { SubQuestionValues, GroupedAnswerValues };

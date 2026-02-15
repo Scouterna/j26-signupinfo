@@ -23,12 +23,14 @@ const DRAWER_WIDTH = 340;
 function DrawerContent({
   filteredVillages,
   selectedScoutGroupIds,
+  selectionChoiceLabel,
   expandedVillageIds,
   searchTerm,
   setSearchTerm,
   handleSelection,
   toggleVillageExpansion,
   clearSelection,
+  selectAll,
   onClose,
   showCloseButton,
 }) {
@@ -56,10 +58,9 @@ function DrawerContent({
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Button
             size="small"
-            onClick={clearSelection}
-            disabled={selectedScoutGroupIds.size === 0}
+            onClick={selectedScoutGroupIds.size > 0 ? clearSelection : selectAll}
           >
-            Rensa val
+            {selectedScoutGroupIds.size > 0 ? "Rensa" : "Välj alla"}
           </Button>
           {showCloseButton && (
             <IconButton onClick={onClose} aria-label="Stäng meny">
@@ -68,6 +69,29 @@ function DrawerContent({
           )}
         </Box>
       </Box>
+
+      {/* Selection choice label - discreet, only when filtered by answer */}
+      {selectionChoiceLabel && (() => {
+        const labels = Array.isArray(selectionChoiceLabel)
+          ? selectionChoiceLabel
+          : [selectionChoiceLabel];
+        const displayText = labels.join(" → ");
+        return (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              mb: 1.5,
+              fontStyle: "italic",
+              wordBreak: "break-word",
+              overflowWrap: "anywhere",
+            }}
+            title={`Valt utifrån: ${displayText}`}
+          >
+            Valt utifrån: {displayText}
+          </Typography>
+        );
+      })()}
 
       {/* Search */}
       <SearchField
@@ -116,12 +140,14 @@ function DrawerContent({
 export default function ScoutGroupSelector({
   filteredVillages = [],
   selectedScoutGroupIds = new Set(),
+  selectionChoiceLabel = null,
   expandedVillageIds = new Set(),
   searchTerm = "",
   setSearchTerm = () => {},
   handleSelection = () => {},
   toggleVillageExpansion = () => {},
   clearSelection = () => {},
+  selectAll = () => {},
   isDrawerOpen = false,
   toggleDrawer = () => {},
 }) {
@@ -132,12 +158,14 @@ export default function ScoutGroupSelector({
     <DrawerContent
       filteredVillages={filteredVillages}
       selectedScoutGroupIds={selectedScoutGroupIds}
+      selectionChoiceLabel={selectionChoiceLabel}
       expandedVillageIds={expandedVillageIds}
       searchTerm={searchTerm}
       setSearchTerm={setSearchTerm}
       handleSelection={handleSelection}
       toggleVillageExpansion={toggleVillageExpansion}
       clearSelection={clearSelection}
+      selectAll={selectAll}
       onClose={toggleDrawer}
       showCloseButton={!isLargeScreen}
     />
@@ -245,6 +273,11 @@ ScoutGroupSelector.propTypes = {
   ),
   /** Set of currently selected scout group IDs */
   selectedScoutGroupIds: PropTypes.instanceOf(Set).isRequired,
+  /** Label(s) when selection was narrowed via "Välj dessa kårer" (e.g. "Ja" or ["Charterbuss", "00:00"]) */
+  selectionChoiceLabel: PropTypes.oneOfType([
+    PropTypes.string,
+    PropTypes.arrayOf(PropTypes.string),
+  ]),
   /** Set of currently expanded village IDs */
   expandedVillageIds: PropTypes.instanceOf(Set).isRequired,
   /** Current search term */
@@ -257,6 +290,8 @@ ScoutGroupSelector.propTypes = {
   toggleVillageExpansion: PropTypes.func,
   /** Handler to clear all selections */
   clearSelection: PropTypes.func,
+  /** Handler to select all (filtered) scout groups */
+  selectAll: PropTypes.func,
   /** Whether the drawer is open (mobile) */
   isDrawerOpen: PropTypes.bool,
   /** Handler to toggle drawer state */

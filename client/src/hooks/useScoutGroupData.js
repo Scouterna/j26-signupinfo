@@ -148,12 +148,13 @@ function handleArrayValue(subQuestions, key, value) {
 function computeGroupedByAnswer(subQuestion) {
     const groupedByAnswer = {};
     
-    Object.values(subQuestion.values).forEach(({ name, scoutGroupName }) => {
+    Object.entries(subQuestion.values).forEach(([scoutGroupId, { name, scoutGroupName }]) => {
         if (!groupedByAnswer[name]) {
-            groupedByAnswer[name] = { count: 0, scoutGroups: [] };
+            groupedByAnswer[name] = { count: 0, scoutGroups: [], scoutGroupIds: [] };
         }
         groupedByAnswer[name].count += 1;
         groupedByAnswer[name].scoutGroups.push(scoutGroupName);
+        groupedByAnswer[name].scoutGroupIds.push(Number(scoutGroupId));
     });
     
     // Sort scout groups alphabetically within each answer

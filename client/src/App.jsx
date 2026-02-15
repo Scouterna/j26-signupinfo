@@ -32,6 +32,7 @@ export default function App() {
     selectedStatistics,
     setSelectedStatistics,
     getStatisticData,
+    replaceSelectionWithIds,
     isDrawerOpen,
     toggleDrawer,
   } = selectorState;
@@ -133,6 +134,7 @@ export default function App() {
           setSelectedStatistics={setSelectedStatistics}
           getStatisticData={getStatisticData}
           selectedScoutGroups={selectedScoutGroups}
+          onReplaceSelection={replaceSelectionWithIds}
         />
       </Box>
     </Box>
