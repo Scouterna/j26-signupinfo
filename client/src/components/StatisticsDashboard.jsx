@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Box, Typography, ToggleButtonGroup, ToggleButton } from "@mui/material";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PeopleIcon from "@mui/icons-material/People";
@@ -25,6 +25,46 @@ export default function StatisticsDashboard({
   onReplaceSelection,
 }) {
   const [viewMode, setViewMode] = useState("statistics");
+  const [selectedSubQuestions, setSelectedSubQuestions] = useState({});
+
+  // Build a map of statistic name -> sub-question names, only for stats with >1 sub-question
+  const statisticSubQuestions = useMemo(() => {
+    const map = {};
+    statistics.forEach((statName) => {
+      const { subQuestions } = getStatisticData(statName);
+      const keys = Object.keys(subQuestions || {}).filter((k) => k !== "_direct");
+      if (keys.length > 1) {
+        map[statName] = keys.sort((a, b) => a.localeCompare(b, "sv"));
+      }
+    });
+    return map;
+  }, [statistics, getStatisticData]);
+
+  // undefined = remove entry (deselect), null = all sub-questions, [...] = specific subset
+  const handleSubQuestionToggle = useCallback((statName, subQuestionNames) => {
+    setSelectedSubQuestions((prev) => {
+      const next = { ...prev };
+      if (subQuestionNames === undefined) {
+        delete next[statName];
+      } else {
+        next[statName] = subQuestionNames;
+      }
+      return next;
+    });
+  }, []);
+
+  const handleClearAllSubQuestions = useCallback(() => {
+    setSelectedSubQuestions({});
+  }, []);
+
+  // Combine non-sub stats from selectedStatistics + sub-category stats from selectedSubQuestions
+  const effectiveSelectedStats = useMemo(() => {
+    const nonSubSelected = selectedStatistics.filter(
+      (s) => !(s in statisticSubQuestions)
+    );
+    const subSelected = Object.keys(selectedSubQuestions);
+    return [...nonSubSelected, ...subSelected];
+  }, [selectedStatistics, selectedSubQuestions, statisticSubQuestions]);
 
   const handleViewModeChange = (event, newMode) => {
     if (newMode !== null) {
@@ -110,11 +150,15 @@ export default function StatisticsDashboard({
               options={statistics}
               selectedOptions={selectedStatistics}
               onToggle={setSelectedStatistics}
+              subQuestionMap={statisticSubQuestions}
+              selectedSubQuestions={selectedSubQuestions}
+              onSubQuestionToggle={handleSubQuestionToggle}
+              onClearAllSubQuestions={handleClearAllSubQuestions}
             />
           </Box>
 
           {/* Selected Statistics Cards - StatisticPaper logic, StatisticCard styling */}
-          {selectedStatistics.length > 0 ? (
+          {effectiveSelectedStats.length > 0 ? (
             <Box
               sx={{
                 display: "flex",
@@ -122,10 +166,10 @@ export default function StatisticsDashboard({
                 gap: 2,
               }}
             >
-              {selectedStatistics.map((statName) => {
+              {effectiveSelectedStats.map((statName) => {
                 const statData = getStatisticData(statName);
                 const { subQuestions } = statData;
-                const subQuestionEntries = Object.entries(
+                const allEntries = Object.entries(
                   subQuestions || {}
                 ).sort(([, a], [, b]) => {
                   const aHasFreeText = Object.values(a.values || {}).some(
@@ -138,6 +182,17 @@ export default function StatisticsDashboard({
                   );
                   return aHasFreeText - bHasFreeText;
                 });
+
+                // For sub-category stats, filter by selected sub-questions
+                // null = show all, [...] = show subset, undefined = not in map (non-sub stat, show all)
+                const activeSubQs = selectedSubQuestions[statName];
+                const subQuestionEntries =
+                  Array.isArray(activeSubQs)
+                    ? allEntries.filter(
+                        ([name]) =>
+                          name === "_direct" || activeSubQs.includes(name)
+                      )
+                    : allEntries;
 
                 return (
                   <Box
