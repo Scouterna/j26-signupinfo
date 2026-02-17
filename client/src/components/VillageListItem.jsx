@@ -20,6 +20,7 @@ export default function VillageListItem({
   toggleVillageExpansion,
   handleSelection,
   selectedScoutGroupIds,
+  renderChildrenExternally = false,
 }) {
   return (
     <>
@@ -60,18 +61,20 @@ export default function VillageListItem({
           <ExpandCollapseButton isExpanded={isExpanded} />
         </ListItemButton>
       </ListItem>
-      <Collapse in={isExpanded}>
-        <List component="div" disablePadding sx={{ paddingLeft: "32px" }}>
-          {village.ScoutGroups.map((scoutGroup) => (
-            <ScoutGroupListItem
-              key={scoutGroup.id}
-              scoutGroup={scoutGroup}
-              selectedScoutGroupIds={selectedScoutGroupIds}
-              handleSelection={handleSelection}
-            />
-          ))}
-        </List>
-      </Collapse>
+      {!renderChildrenExternally && (
+        <Collapse in={isExpanded}>
+          <List component="div" disablePadding sx={{ paddingLeft: "32px" }}>
+            {village.ScoutGroups.map((scoutGroup) => (
+              <ScoutGroupListItem
+                key={scoutGroup.id}
+                scoutGroup={scoutGroup}
+                selectedScoutGroupIds={selectedScoutGroupIds}
+                handleSelection={handleSelection}
+              />
+            ))}
+          </List>
+        </Collapse>
+      )}
     </>
   );
 }
@@ -100,4 +103,6 @@ VillageListItem.propTypes = {
   handleSelection: PropTypes.func.isRequired,
   /** Set of currently selected scout group IDs */
   selectedScoutGroupIds: PropTypes.instanceOf(Set).isRequired,
+  /** Whether children are rendered externally (for virtualization) */
+  renderChildrenExternally: PropTypes.bool,
 };
