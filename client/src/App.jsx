@@ -83,7 +83,7 @@ export default function App() {
   }
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh" }}>
+    <Box sx={{ display: "flex", height: "100%" }}>
       <CssBaseline />
 
       {/* Mobile app bar with drawer toggle */}
@@ -115,6 +115,8 @@ export default function App() {
       <Box
         component="main"
         sx={{
+          display: "flex",
+          flexDirection: "column",
           flexGrow: 1,
           flexShrink: 1,
           minWidth: 0,

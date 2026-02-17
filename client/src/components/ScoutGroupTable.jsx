@@ -26,6 +26,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import { SmartTable } from "./smart-table/SmartTable";
 
 // Default columns to show initially (only basic info)
 const DEFAULT_VISIBLE_COLUMNS = new Set(["name"]);
@@ -842,6 +843,7 @@ export default function ScoutGroupTable({ scoutGroups }) {
   return (
     <Box
       sx={{
+        flex: 1,
         display: "flex",
         flexDirection: "column",
         gap: 2,
@@ -876,124 +878,18 @@ export default function ScoutGroupTable({ scoutGroups }) {
         </Select>
       </FormControl>
 
-      {/* Table container */}
-      <div className="scout-table-container">
-        <table className="scout-table">
-          <thead>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th key={header.id} style={{ width: header.getSize() }}>
-                    {header.isPlaceholder ? null : (
-                      <>
-                        <div
-                          className={
-                            header.column.getCanSort()
-                              ? "scout-sortable-header"
-                              : ""
-                          }
-                          onClick={header.column.getToggleSortingHandler()}
-                        >
-                          {flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                          {{
-                            asc: " ▲",
-                            desc: " ▼",
-                          }[header.column.getIsSorted()] ?? null}
-                        </div>
-                        {header.column.getCanFilter() && (
-                          <div className="scout-filter-container">
-                            <Filter column={header.column} columnMeta={columnMeta} />
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <tr key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination controls */}
-      <div className="scout-pagination">
-        <div className="scout-pagination-buttons">
-          <button
-            onClick={() => table.setPageIndex(0)}
-            disabled={!table.getCanPreviousPage()}
-          >
-            {"<<"}
-          </button>
-          <button
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            {"<"}
-          </button>
-          <button
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            {">"}
-          </button>
-          <button
-            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-            disabled={!table.getCanNextPage()}
-          >
-            {">>"}
-          </button>
-        </div>
-        <span className="scout-pagination-info">
-          Sida{" "}
-          <strong>
-            {table.getState().pagination.pageIndex + 1} av {table.getPageCount()}
-          </strong>
-        </span>
-        <span className="scout-pagination-goto">
-          | Gå till sida:
-          <input
-            type="number"
-            min="1"
-            max={table.getPageCount()}
-            defaultValue={table.getState().pagination.pageIndex + 1}
-            onChange={(e) => {
-              const page = e.target.value ? Number(e.target.value) - 1 : 0;
-              table.setPageIndex(page);
-            }}
-            className="scout-pagination-input"
-          />
-        </span>
-        <select
-          value={table.getState().pagination.pageSize}
-          onChange={(e) => {
-            table.setPageSize(Number(e.target.value));
-          }}
-          className="scout-pagination-select"
-        >
-          {[10, 25, 50, 100].map((pageSize) => (
-            <option key={pageSize} value={pageSize}>
-              Visa {pageSize}
-            </option>
-          ))}
-        </select>
-        <span className="scout-pagination-total">
-          {table.getPrePaginationRowModel().rows.length} rader totalt
-        </span>
-      </div>
+      <Box
+        sx={{
+          flex: 1,
+          // border: '1px solid #e0e0e0',
+          border: 1,
+          borderColor: "grey.300",
+          borderRadius: 1,
+          overflow: 'hidden',
+        }}
+      >
+        <SmartTable table={table} />
+      </Box>
     </Box>
   );
 }
