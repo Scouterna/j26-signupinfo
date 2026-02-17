@@ -38,8 +38,8 @@ export default function StatisticsDashboard({
         display: "flex",
         flexDirection: "column",
         gap: 3,
-        height: "100%",
         width: "100%",
+        minHeight: 0, // Fixes overflow issues when a child like ScoutGroupTable tries to use 100% height of parent
       }}
     >
       {/* Page Title + View Toggle */}
@@ -226,36 +226,26 @@ export default function StatisticsDashboard({
 
       {/* Table view */}
       {viewMode === "table" && (
-        <Box
-          sx={{
-            flex: 1,
-            minHeight: 0,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
-        >
-          {selectedScoutGroups.length > 0 ? (
-            <ScoutGroupTable scoutGroups={selectedScoutGroups} />
-          ) : (
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "48px",
-                backgroundColor: "rgba(0, 0, 0, 0.02)",
-                borderRadius: "12px",
-                border: "2px dashed",
-                borderColor: "divider",
-              }}
-            >
-              <Typography variant="body1" color="text.secondary">
-                Välj kårer i sidopanelen för att visa tabellen
-              </Typography>
-            </Box>
-          )}
-        </Box>
+        selectedScoutGroups.length > 0 ? (
+          <ScoutGroupTable scoutGroups={selectedScoutGroups} />
+        ) : (
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "48px",
+              backgroundColor: "rgba(0, 0, 0, 0.02)",
+              borderRadius: "12px",
+              border: "2px dashed",
+              borderColor: "divider",
+            }}
+          >
+            <Typography variant="body1" color="text.secondary">
+              Välj kårer i sidopanelen för att visa tabellen
+            </Typography>
+          </Box>
+        )
       )}
     </Box>
   );

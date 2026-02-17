@@ -41,6 +41,7 @@ function DrawerContent({
         flexDirection: "column",
         height: "100%",
         p: 3,
+        pb: 0
       }}
     >
       {/* Header */}
