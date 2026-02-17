@@ -478,7 +478,7 @@ function createColumns(selectedColumns, hierarchy, columnMeta) {
       header: "Deltagare",
       meta: { filterVariant: "range" },
       filterFn: rangeFilterFn,
-      size: 100,
+      size: 200,
     },
   ];
 
@@ -507,7 +507,7 @@ function createColumns(selectedColumns, hierarchy, columnMeta) {
     const colDef = {
       accessorKey: columnId,
       header: headerName,
-      size: 120,
+      size: 200,
     };
 
     if (isNumeric) {
