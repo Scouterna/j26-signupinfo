@@ -1,3 +1,5 @@
+import { useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   List,
   Typography,
@@ -12,6 +14,7 @@ import MenuIcon from "@mui/icons-material/Menu";
 import CloseIcon from "@mui/icons-material/Close";
 import SearchField from "./SearchField.jsx";
 import VillageListItem from "./VillageListItem.jsx";
+import ScoutGroupListItem from "./ScoutGroupListItem.jsx";
 import PropTypes from "prop-types";
 
 const DRAWER_WIDTH = 340;
@@ -34,6 +37,56 @@ function DrawerContent({
   onClose,
   showCloseButton,
 }) {
+  const parentRef = useRef(null);
+
+  // Flatten villages and their scout groups into a single virtualized list
+  const flattenedItems = [];
+  
+  filteredVillages.forEach((village) => {
+    const scoutGroupIds = village.ScoutGroups.map((sg) => sg.id);
+    const selectedInVillage = scoutGroupIds.filter((id) =>
+      selectedScoutGroupIds.has(id)
+    );
+    const isAllSelected =
+      scoutGroupIds.length > 0 &&
+      selectedInVillage.length === scoutGroupIds.length;
+    const isPartiallySelected =
+      selectedInVillage.length > 0 && !isAllSelected;
+    const isExpanded = expandedVillageIds.has(village.id);
+
+    // Add village header
+    flattenedItems.push({
+      type: 'village',
+      id: `village-${village.id}`,
+      village,
+      isAllSelected,
+      isPartiallySelected,
+      isExpanded,
+    });
+
+    // Add scout groups if expanded
+    if (isExpanded) {
+      village.ScoutGroups.forEach((scoutGroup) => {
+        flattenedItems.push({
+          type: 'scoutGroup',
+          id: `scoutGroup-${scoutGroup.id}`,
+          scoutGroup,
+          villageId: village.id,
+        });
+      });
+    }
+  });
+
+  const rowVirtualizer = useVirtualizer({
+    count: flattenedItems.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: (index) => {
+      // Villages are taller than scout groups
+      return flattenedItems[index].type === 'village' ? 64 : 48;
+    },
+    overscan: 10,
+  });
+
   return (
     <Box
       sx={{
@@ -102,33 +155,64 @@ function DrawerContent({
       />
 
       {/* Village list */}
-      <List sx={{ flexGrow: 1, overflowY: "auto", pr: 1, minHeight: 0 }}>
-        {filteredVillages.map((village) => {
-          const scoutGroupIds = village.ScoutGroups.map((sg) => sg.id);
-          const selectedInVillage = scoutGroupIds.filter((id) =>
-            selectedScoutGroupIds.has(id)
-          );
-          const isAllSelected =
-            scoutGroupIds.length > 0 &&
-            selectedInVillage.length === scoutGroupIds.length;
-          const isPartiallySelected =
-            selectedInVillage.length > 0 && !isAllSelected;
-          const isExpanded = expandedVillageIds.has(village.id);
-
-          return (
-            <VillageListItem
-              key={village.id}
-              village={village}
-              isAllSelected={isAllSelected}
-              isPartiallySelected={isPartiallySelected}
-              isExpanded={isExpanded}
-              toggleVillageExpansion={toggleVillageExpansion}
-              handleSelection={handleSelection}
-              selectedScoutGroupIds={selectedScoutGroupIds}
-            />
-          );
-        })}
-      </List>
+      <Box
+        ref={parentRef}
+        sx={{ 
+          flexGrow: 1, 
+          overflowY: "auto", 
+          pr: 1, 
+          minHeight: 0,
+          position: "relative"
+        }}
+      >
+        <div
+          style={{
+            height: `${rowVirtualizer.getTotalSize()}px`,
+            width: "100%",
+            position: "relative",
+          }}
+        >
+          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+            const item = flattenedItems[virtualRow.index];
+            
+            return (
+              <div
+                key={item.id}
+                data-index={virtualRow.index}
+                ref={rowVirtualizer.measureElement}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                {item.type === 'village' ? (
+                  <VillageListItem
+                    village={item.village}
+                    isAllSelected={item.isAllSelected}
+                    isPartiallySelected={item.isPartiallySelected}
+                    isExpanded={item.isExpanded}
+                    toggleVillageExpansion={toggleVillageExpansion}
+                    handleSelection={handleSelection}
+                    selectedScoutGroupIds={selectedScoutGroupIds}
+                    renderChildrenExternally={true}
+                  />
+                ) : (
+                  <div style={{ paddingLeft: "32px" }}>
+                    <ScoutGroupListItem
+                      scoutGroup={item.scoutGroup}
+                      selectedScoutGroupIds={selectedScoutGroupIds}
+                      handleSelection={handleSelection}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </Box>
     </Box>
   );
 }

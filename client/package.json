@@ -15,10 +15,10 @@
     "@mui/icons-material": "^7.3.4",
     "@mui/material": "^7.3.4",
     "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-virtual": "^3.13.18",
+    "fuse.js": "^7.1.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "@tanstack/react-table": "^8.21.3",
-		"fuse.js": "^7.1.0"
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
