@@ -19,9 +19,8 @@ export default function StatisticCard({ title, data }) {
         borderRadius: "12px",
         border: "1px solid",
         borderColor: "divider",
-        minWidth: "280px",
-        flex: "1 1 300px",
-        maxWidth: "400px",
+        breakInside: "avoid",
+        marginBottom: "16px",
       }}
     >
       <Typography

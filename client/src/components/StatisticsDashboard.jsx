@@ -161,9 +161,8 @@ export default function StatisticsDashboard({
           {effectiveSelectedStats.length > 0 ? (
             <Box
               sx={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 2,
+                columnWidth: "300px",
+                columnGap: "16px",
               }}
             >
               {effectiveSelectedStats.map((statName) => {
@@ -202,9 +201,8 @@ export default function StatisticsDashboard({
                       borderRadius: "12px",
                       border: "1px solid",
                       borderColor: "divider",
-                      minWidth: "280px",
-                      flex: "1 1 300px",
-                      maxWidth: "400px",
+                      breakInside: "avoid",
+                      marginBottom: "16px",
                     }}
                   >
                     <Typography
