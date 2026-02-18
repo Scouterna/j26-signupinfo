@@ -6,13 +6,12 @@ import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import NamedTuple
 
 import httpx
 from fastapi import APIRouter, Depends, status
 
 from .authenctication import AuthUser, require_auth_user
-from .config import get_settings
+from .config import ProjectConfig, get_settings
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -23,16 +22,49 @@ logging.getLogger("asyncio").setLevel(logging.ERROR)
 PROJECT_API = "https://www.scoutnet.se/api/project/get"
 CACHE_DIR = Path(".dev_cache")
 
-# --- Data class ---
+# --- Data classes ---
+
+
+@dataclass
+class ScoutnetProjectData:
+    """Raw data fetched from Scoutnet for one project."""
+
+    project_id: int
+    project_name: str
+    groups: dict  # Empty dict if project has no group_key
+    participants: dict
+    questions: dict  # Combined: {"sections": {...}, "questions": {...}}
+
+
+@dataclass
+class CachedGroup:
+    """Decoded data for a single group within a project."""
+
+    id: int
+    name: str
+    num_participants: int = 0
+    aggregated: dict = field(default_factory=dict)  # section_title -> {question_key: counts/values}
+    individual_answers: dict = field(default_factory=dict)  # member_no -> {question_key: value}
+    group_answers: dict = field(default_factory=dict)  # question_key -> raw value
+    contact: dict | None = None
+
+
+@dataclass
+class CachedProject:
+    """Decoded data for a single Scoutnet project."""
+
+    project_id: int
+    project_name: str
+    participants: dict = field(default_factory=dict)  # member_no -> {name, born, ...}
+    questions: dict = field(default_factory=dict)  # decoded questions dict from Scoutnet
+    groups: dict = field(default_factory=dict)  # group_id -> CachedGroup
 
 
 @dataclass
 class ProjectCache:
-    """Global cache for Scoutnet project data."""
+    """Global cache for decoded Scoutnet project data."""
 
-    groups: dict = field(default_factory=dict)
-    participants: dict = field(default_factory=dict)
-    serviceteam: dict = field(default_factory=dict)
+    projects: dict = field(default_factory=dict)  # project_id -> CachedProject
     updated_at: float = 0  # 0 = never updated
 
     def mark_updated(self):
@@ -51,21 +83,9 @@ class ProjectCache:
         return (time.time() - self.updated_at) > settings.PROJECT_CACHE_MAX_AGE_H * 3600
 
 
-class ProjectData(NamedTuple):
-    group_response: dict
-    participant_response: dict
-    participant_group_questions: dict
-    serviceteam_response: dict
-    serviceteam_questions: dict
-
-
 # --- Project cache ---
 
 _project_cache = ProjectCache()
-
-
-def _get_project_cache() -> ProjectCache:
-    return _project_cache
 
 
 # --- Init function ---
@@ -82,13 +102,13 @@ async def scoutnet_init() -> None:
 def require_fresh_cache(func):
     """Decorator that ensures project cache is fresh before calling the function.
 
-    If the cache is stale (older than PROJECT_CACHE_MAX_AGE), it will be
+    If the cache is stale (older than PROJECT_CACHE_MAX_AGE_H), it will be
     refreshed automatically before the decorated function runs.
     """
 
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
-        if _get_project_cache().is_stale:
+        if _project_cache.is_stale:
             logger.debug("Project cache is stale, refreshing...")
             await _update_project_cache()
         return await func(*args, **kwargs)
@@ -124,10 +144,10 @@ def dev_cache(func):
 # --- Scoutnet retrieve functions ---
 
 
-# @dev_cache
+@dev_cache
 async def _scoutnet_get(url) -> dict:
     try:
-        async with httpx.AsyncClient(timeout=10.0) as http_client:
+        async with httpx.AsyncClient(timeout=20.0) as http_client:
             response = await http_client.get(url)
             response.raise_for_status()
             return response.json()
@@ -136,27 +156,26 @@ async def _scoutnet_get(url) -> dict:
         raise RuntimeError
 
 
-async def _get_all_projectdata_from_scoutnet() -> ProjectData:
+async def _get_all_projectdata_from_scoutnet() -> list[ScoutnetProjectData]:
     """
-    Retrieves all project data from Scoutnet with parallel requests.
-    Forms questions for a project are combined into only one dict.
+    Retrieves project data from Scoutnet for all configured projects.
+    Each project's form questions are combined into one dict.
 
-    :return: All project data from Scoutnet
-    :rtype: ProjectData
+    :return: List of project data, one per configured project
     """
 
-    async def get_project_data(id, group_key, member_key, question_key) -> tuple[dict, dict, dict]:
+    async def fetch_project(project: ProjectConfig) -> ScoutnetProjectData:
         # Start questions request first - we need its response to discover form URLs
-        questions_url = f"{PROJECT_API}/questions?id={id}&key={question_key}"
+        questions_url = f"{PROJECT_API}/questions?id={project.id}&key={project.question_key}"
         questions_task = asyncio.create_task(_scoutnet_get(questions_url))
 
         # Start other requests in parallel
         groups_task = None
-        if group_key:
-            url = f"{PROJECT_API}/groups?flat=true&id={id}&key={group_key}"
+        if project.group_key:
+            url = f"{PROJECT_API}/groups?flat=true&id={project.id}&key={project.group_key}"
             groups_task = asyncio.create_task(_scoutnet_get(url))
 
-        participants_url = f"{PROJECT_API}/participants?id={id}&key={member_key}"
+        participants_url = f"{PROJECT_API}/participants?id={project.id}&key={project.member_key}"
         participants_task = asyncio.create_task(_scoutnet_get(participants_url))
 
         # Wait for questions first (usually fast), then immediately start form fetches
@@ -174,31 +193,17 @@ async def _get_all_projectdata_from_scoutnet() -> ProjectData:
             questions["sections"][forms_data["form"]["type"]] = forms_data["sections"]
             questions["questions"].update(forms_data["questions"])
 
-        return groups, participants, questions
+        return ScoutnetProjectData(
+            project_id=project.id,
+            project_name=project.name,
+            groups=groups,
+            participants=participants,
+            questions=questions,
+        )
 
-    # Fetch both projects in parallel
-    participant_task = get_project_data(
-        settings.PARTICIPANT_PROJECT_ID,
-        settings.PARTICIPANT_GROUP_KEY,
-        settings.PARTICIPANT_MEMBER_KEY,
-        settings.PARTICIPANT_QUESTION_KEY,
-    )
-    serviceteam_task = get_project_data(
-        settings.SERVICETEAM_PROJECT_ID,
-        None,
-        settings.SERVICETEAM_MEMBER_KEY,
-        settings.SERVICETEAM_QUESTION_KEY,
-    )
-
-    (gr, pr, pgq), (_, sr, sq) = await asyncio.gather(participant_task, serviceteam_task)
-
-    return ProjectData(
-        group_response=gr,
-        participant_response=pr,
-        participant_group_questions=pgq,
-        serviceteam_response=sr,
-        serviceteam_questions=sq,
-    )
+    # Fetch all configured projects in parallel
+    results = await asyncio.gather(*[fetch_project(p) for p in settings.SCOUTNET_PROJECTS])
+    return list(results)
 
 
 # --- External (and local) functions ---
@@ -208,33 +213,127 @@ async def _update_project_cache() -> None:
     from .scoutnet_forms import scoutnet_forms_decoder
 
     logger.info("Start cache update")
-    project_data = await _get_all_projectdata_from_scoutnet()
-    cache = _get_project_cache()
-
-    scoutnet_forms_decoder(project_data, cache)
-
-    del project_data  # Force garbage collection
+    all_data = await _get_all_projectdata_from_scoutnet()
+    scoutnet_forms_decoder(all_data, _project_cache)
+    del all_data  # Force garbage collection (I think)
     logger.info("Finish cache update")
     return
 
 
 @require_fresh_cache
-async def get_all_groups() -> list:
-    cache = _get_project_cache()
-    group_list = sorted(cache.groups.values(), key=lambda g: g["name"])
-    return group_list
+async def get_project(project_id: int) -> CachedProject | None:
+    """Return all cached data for a project."""
+    return _project_cache.projects.get(project_id)
 
 
 @require_fresh_cache
-async def get_group(gid: int) -> dict | None:
-    cache = _get_project_cache()
-    return cache.groups.get(gid)
+async def get_project_group(project_id: int, group_id: int) -> CachedProject | None:
+    """Return all cached data for a group."""
+    return _project_cache.projects.get(project_id).get(group_id)
 
 
 @require_fresh_cache
-async def get_serviceteam() -> dict | None:
-    cache = _get_project_cache()
-    return cache.serviceteam
+async def get_projects_info() -> dict[int, str]:
+    """Return infor about valid projects"""
+    project_info = {proj.project_id: proj.project_name for proj in _project_cache.projects.values()}
+    return project_info
+
+
+@require_fresh_cache
+async def get_project_questions(project_id: int) -> dict | None:
+    """Return project questions"""
+    if not (project := _project_cache.projects.get(project_id)):
+        return None
+    return project.questions
+
+
+@require_fresh_cache
+async def get_project_groups(project_id: int) -> dict | None:
+    """Return project groups"""
+    if not (project := _project_cache.projects.get(project_id)):
+        return None
+    groups = {p.name: p.id for p in sorted(project.groups.values(), key=lambda g: g.name.lower())}
+    return groups
+
+
+@require_fresh_cache
+async def get_group_responses(project_id: int, group_id: int | list[int] | None) -> list | None:
+    """
+    Return one or more group data indictated by the group_id (single id or a list id id's).
+    """
+    if not (project := _project_cache.projects.get(project_id)):
+        return None
+
+    if group_id is None:  # Return alla groups
+        group_id = list(project.groups.keys())
+
+    if type(group_id) is int:
+        group_id = [group_id]  # Convert single group request
+
+    if not all(gid in project.groups for gid in group_id):
+        return None  # Some requested gorups are missing
+
+    data = [
+        {
+            "id": gdata.id,
+            "name": gdata.name,
+            "num_participants": gdata.num_participants,
+            "stats": gdata.aggregated,
+        }
+        for gid, gdata in project.groups.items()
+        if gid in group_id
+    ]
+
+    return data
+
+
+async def get_individual_responses(project_id: int, member_id: int) -> dict | None:
+    """
+    Returns an individuals response to questions.
+    """
+    if not (project := _project_cache.projects.get(project_id)):
+        return None  # Project not found
+    if not (participant := project.participants.get(member_id)):
+        return None  # Participant not found
+    if (
+        not (group_id := participant.get("registration_group"))
+        or not (group := project.groups.get(group_id))
+        or not (response := group.individual_answers.get(member_id))
+    ):
+        logger.error("Data integrity error in scoutnet_forms")
+        return None  # Data integrity error in scoutnet_forms
+
+    return response
+
+
+@require_fresh_cache
+async def find_members(project_id: int, name: str, born: str, troop: str) -> list[dict] | None:
+    if not (project := _project_cache.projects.get(project_id)):
+        return None
+
+    # Pre-resolve group_id -> name for troop matching and result display
+    group_names = {gid: g.name for gid, g in project.groups.items()}
+    troop_lower = troop.lower()
+    name_lower = name.lower()
+
+    results = []
+    for member_no, p in project.participants.items():
+        if name_lower and name_lower not in p["name"].lower():
+            continue
+        if born and not p["born"].startswith(born):
+            continue
+        if troop_lower:
+            gid = p.get("registration_group") or p.get("member_group", 0)
+            if troop_lower not in group_names.get(gid, "").lower():
+                continue
+        result = {"member_no": member_no, **p}
+        if "member_group" in result:
+            result["member_group"] = group_names.get(result["member_group"], result["member_group"])
+        if "registration_group" in result:
+            result["registration_group"] = group_names.get(result["registration_group"], result["registration_group"])
+        results.append(result)
+
+    return results
 
 
 # --- API functions ---

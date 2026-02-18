@@ -1,38 +1,32 @@
 import logging
 
-from .scoutnet import ProjectCache, ProjectData
+from .scoutnet import CachedGroup, CachedProject, ProjectCache, ScoutnetProjectData
 
 logger = logging.getLogger(__name__)
 
 
-# --- The long (but fast) Scoutnet forms decoder ---
+# --- Grouped project decoder (has group_member + group sections) ---
 
 
-def scoutnet_forms_decoder(project_data: ProjectData, cache: ProjectCache) -> None:
-    scout_groups = {}
+def _decode_project(project: ScoutnetProjectData) -> CachedProject:
     participants = {}
+    questions = {}
+    groups: dict[int, CachedGroup] = {}
+    qdata = project.questions["questions"]
+    sex_values = project.participants["labels"]["sex"]
+    fee_values = project.participants["labels"]["project_fee"]
+    grouped_project = bool("group_member" in project.questions["sections"])
 
-    # Start with participant data. Service team comes further down
-    qdata = project_data.participant_group_questions["questions"]  #  All group and participants questions
-    sex_values = project_data.participant_response["labels"]["sex"]
+    # Build section id -> title mapping for group_member sections
+    sections = {s["id"]: s["title"] for qs in project.questions["sections"].values() for s in qs.values()}
 
-    # Loop through all participants answers, create and append answers accordning to question type
-    sections = {
-        s["id"]: s["title"] for s in project_data.participant_group_questions["sections"]["group_member"].values()
-    }
-    pdata = project_data.participant_response["participants"]
-    logger.debug("Processing %s participants", len(pdata))
+    pdata = project.participants["participants"]
+    logger.debug("Processing %s participants for project %s", len(pdata), project.project_name)
+
     for p in pdata.values():
-        if not p["confirmed"]:  # Only grab confirmed participants
+        if not p["confirmed"]:
             continue
-        group_id = p["group_registration_info"]["group_id"]
-        if group_id not in scout_groups:  # Create an empty group record
-            scout_groups[group_id] = {
-                "id": group_id,
-                "name": p["group_registration_info"]["group_name"],
-                "num_participants": 0,
-                "stats": {"Kön": {}},
-            }
+        group_id = p["group_registration_info"]["group_id"] if grouped_project else 0
 
         participants[p["member_no"]] = {  # Add responder participants list
             "name": f"{p['first_name']} {p['last_name']}",
@@ -44,189 +38,168 @@ def scoutnet_forms_decoder(project_data: ProjectData, cache: ProjectCache) -> No
             participants[p["member_no"]].update(
                 {"email": p["primary_email"], "mobile": p["contact_info"].get("1") if p["contact_info"] else None}
             )
-        # Start adding up information
-        group = scout_groups[group_id]
-        group["num_participants"] += 1
-        sex = sex_values[p["sex"]]
-        if sex not in group["stats"]["Kön"]:
-            group["stats"]["Kön"][sex] = 0
-        group["stats"]["Kön"][sex] += 1
 
-        if p["questions"]:  # We have a response
-            for qnum, qval in p["questions"].items():  # Loop through all responses
-                q = qdata[qnum]
-                qtext = q["question"]
-                section = sections[q["section_id"]]
-                if section not in group["stats"]:
-                    group["stats"][section] = {}
-                group_section = group["stats"][section]
-
-                if q["type"] == "boolean":
-                    if q["choices"][qval]["option"] == "checked":
-                        if qtext not in group_section:
-                            group_section[qtext] = 0
-                        group_section[qtext] += 1
-
-                elif q["type"] == "choice":
-                    if qtext not in group_section:
-                        group_section[qtext] = {}
-                    if qval not in q["choices"]:
-                        continue  # If nothing is selected?
-                    seltext = q["choices"][qval]["option"]
-                    if seltext not in group_section[qtext]:
-                        group_section[qtext][seltext] = 0
-                    group_section[qtext][seltext] += 1
-
-                elif q["type"] == "text":
-                    if (
-                        not section == "Hälsa"
-                        and qval
-                        and qval.lower() not in ["no", "none", "n/a", "na", "n/a`", "ingen", "-"]
-                    ):
-                        if qtext not in group_section:
-                            group_section[qtext] = []
-                        group_section[qtext].append(qval)
-
-                else:
-                    logger.info("Unhandled question type: %s", q["type"])
-
-    # Loop throgh all group answers and update group information
-    sections = {s["id"]: s["title"] for s in project_data.participant_group_questions["sections"]["group"].values()}
-    gdata = project_data.group_response
-    logger.debug("Processing %s groups", len(gdata))
-    for group_id, g in gdata.items():
-        group_id = int(group_id)
-        if group_id not in scout_groups:  # A group response without any participant responses?
-            scout_groups[group_id] = {"id": group_id, "name": g["name"], "num_participants": 0, "stats": {}}
-
-        group = scout_groups[group_id]
-        if g["questions"]:
-            for qnum, qval in g["questions"].items():
-                q = qdata[qnum]
-                qtext = q["question"]
-                section = sections[q["section_id"]]
-                if section not in group["stats"]:
-                    group["stats"][section] = {}
-                group_section = group["stats"][section]
-
-                if q["type"] == "boolean":
-                    group_section[qtext] = "Ja" if q["choices"][qval]["option"] == "checked" else "Nej"
-
-                elif q["type"] == "choice":
-                    if qval not in q["choices"]:
-                        continue  # Nothing is selected?
-                    seltext = q["choices"][qval]["option"]
-                    group_section[qtext] = seltext
-
-                elif q["type"] == "text":
-                    group_section[qtext] = qval
-
-                else:
-                    # print(f"Unhandled question type: {q['type']}")
-                    group_section[qtext] = qval
-
-    # Add decoded group contact if available
-    for g in scout_groups.values():
-        contact = g["stats"].get("Ansvariga från kåren", {}).get("Ansvarig ledare på plats")
-        if contact and int(contact) in participants:
-            g["contact"] = participants[int(contact)]
-
-    # Time for the service team data
-    qdata = project_data.serviceteam_questions["questions"]  #  All service team questions
-    sections = {s["id"]: s["title"] for s in project_data.serviceteam_questions["sections"]["individual"].values()}
-    funk_group = {
-        "id": 0,
-        "name": "Funktionärer",
-        "num_participants": 0,
-        "stats": {"Kön": {}},
-    }  # Same header as participant groups
-    pdata = project_data.serviceteam_response["participants"]
-    logger.debug("Processing %s service team responses", len(pdata))
-    sex_values = project_data.serviceteam_response["labels"]["sex"]
-    pass
-
-    for p in pdata.values():
-        if not p["confirmed"]:  # Only grab confirmed participants
-            continue
-        participants[p["member_no"]] = {  # Add responder participants list
-            "name": f"{p['first_name']} {p['last_name']}",
-            "born": p["date_of_birth"],
-            "member_group": p["primary_membership_info"]["group_id"] if p["primary_membership_info"] else 0,
-            # "registration_group": group_id,
-        }
-        if p["date_of_birth"] < "2008-07-25":  # Over 18, also add contact info
-            participants[p["member_no"]].update(
-                {"email": p["primary_email"], "mobile": p["contact_info"].get("1") if p["contact_info"] else None}
+        if group_id not in groups:  # Create new group structure if group doesn't exist
+            groups[group_id] = CachedGroup(
+                id=group_id,
+                name=p["group_registration_info"]["group_name"] if grouped_project else project.project_name,
+                aggregated={"Kön": {}, "Avgift": {}},
             )
+        group = groups[group_id]
 
-        funk_group["num_participants"] += 1
+        group.num_participants += 1
+
+        # Aggregate sex
         sex = sex_values[p["sex"]]
-        if sex not in funk_group["stats"]["Kön"]:
-            funk_group["stats"]["Kön"][sex] = 0
-        funk_group["stats"]["Kön"][sex] += 1
+        if sex not in group.aggregated["Kön"]:
+            group.aggregated["Kön"][sex] = 0
+        group.aggregated["Kön"][sex] += 1
 
+        # Aggregate fee values
+        fee = fee_values.get(str(p["fee_id"]), "Okänd")  # Fee key is a string the values?
+        if fee not in group.aggregated["Avgift"]:
+            group.aggregated["Avgift"][fee] = 0
+        group.aggregated["Avgift"][fee] += 1
+
+        # Aggregate question responses
         if p["questions"]:
+            group.individual_answers[p["member_no"]] = p["questions"]  # Store raw individual responses
             for qnum, qval in p["questions"].items():
-                if not qval:
-                    continue
-
                 q = qdata[qnum]
-                qtext = q["question"]
-                section = sections[q["section_id"]]
-                if section not in funk_group["stats"]:
-                    funk_group["stats"][section] = {}
-                group_section = funk_group["stats"][section]
+                qnum = int(qnum)
+                section_id = q["section_id"]
+
+                if section_id not in questions:
+                    questions[section_id] = {"text": sections[section_id], "questions": {}}
+                secq = questions[section_id]["questions"]
+                if qnum not in secq:  # Save questions
+                    secq[qnum] = {"text": q["question"], "type": q["type"]}
+                    # if choices := q.get("choices"):
+                    if q["type"] == "choice":
+                        secq[qnum]["choices"] = {c["value"]: c["option"] for c in q.get("choices", {}).values()}
+
+                if section_id not in group.aggregated:
+                    group.aggregated[section_id] = {}
+                group_section = group.aggregated[section_id]
 
                 if q["type"] == "boolean":
                     if q["choices"][qval]["option"] == "checked":
-                        if qtext not in group_section:
-                            group_section[qtext] = 0
-                        group_section[qtext] += 1
+                        if qnum not in group_section:
+                            group_section[qnum] = 0
+                        group_section[qnum] += 1
 
                 elif q["type"] == "choice":
-                    if qtext not in group_section:
-                        group_section[qtext] = {}
+                    if qnum not in group_section:
+                        group_section[qnum] = {}
                     if type(qval) is not list:
                         qval = [qval]
                     for qsel in qval:
                         if qsel not in q["choices"]:
-                            continue  # If nothing is selected?
-                        seltext = q["choices"][qsel]["option"]
-                        if seltext not in group_section[qtext]:
-                            group_section[qtext][seltext] = 0
-                        group_section[qtext][seltext] += 1
+                            continue
+                        if qsel not in group_section[qnum]:
+                            group_section[qnum][qsel] = 0
+                        group_section[qnum][qsel] += 1
 
                 elif q["type"] == "text":
                     if (
-                        section != "Hälsa"
-                        and qtext
+                        sections[section_id] != "Hälsa"
+                        and q["question"]
                         not in [
                             "Övriga önskemål på arbetsuppgifter",
                             "Önskemål om personer att jobba tillsammans med:",
                             "Om du har varit i kontakt med oss innan och förbokat vad du ska jobba med i Jamboreen, vem har du varit i kontakt med och inom vilket område ska du jobba?",
                             "Vad är namnet på den nationella scoutorganisation som du tillhör?",
                         ]
+                        and qval
                         and qval.lower() not in ["no", "none", "n/a", "na", "n/a`", "ingen", "-"]
                     ):
-                        if qtext not in group_section:
-                            group_section[qtext] = []
-                        group_section[qtext].append(qval)
+                        if qnum not in group_section:
+                            group_section[qnum] = []
+                        group_section[qnum].append(qval)
 
                 elif q["type"] == "number":
-                    if qtext not in group_section:
-                        group_section[qtext] = 0
-                    if float(qval) > 100:
-                        pass
-                    group_section[qtext] += float(qval)
+                    if qval:
+                        if qnum not in group_section:
+                            group_section[qnum] = 0
+                        # if float(qval) > 100:
+                        #     pass
+                        group_section[qnum] += float(qval)
 
+                elif q["type"] == "other_unsupported_by_api":
+                    pass
+                    # logger.info('Unhandled question "%s" of type: %s', qtext, q["type"])
                 else:
-                    if q["type"] != "other_unsupported_by_api":
-                        logger.info('Unhandled question "%s" of type: %s', qtext, q["type"])
+                    logger.info("Unhandled question type: %s", q["type"])
 
-    # Save in cache
-    cache.groups = scout_groups
-    cache.participants = participants
-    cache.serviceteam = funk_group
-    cache.mark_updated()  # Explicit timestamp update
+    # Process group-level answers
+    if grouped_project:
+        gdata = project.groups
+        logger.debug("Processing %s group responses for project %s", len(gdata), project.project_name)
 
-    return
+        for gid_str, g in gdata.items():
+            gid = int(gid_str)
+            if gid not in groups:
+                groups[gid] = CachedGroup(id=gid, name=g["name"])
+
+            group = groups[gid]
+            if g["questions"]:
+                # Store raw group answers
+                group.group_answers = g["questions"]
+
+                # Also compute aggregated group-level answers
+                for qnum, qval in g["questions"].items():
+                    q = qdata[qnum]
+                    # qtext = q["question"]
+
+                    section_id = q["section_id"]
+                    if section_id not in questions:
+                        questions[section_id] = {"text": sections[section_id], "questions": {}}
+                    secq = questions[section_id]["questions"]
+                    if qnum not in secq:  # Save questions
+                        secq[qnum] = {"text": q["question"], "type": q["type"]}
+                        # if choices := q.get("choices"):
+                        if q["type"] == "choice":
+                            secq[qnum]["choices"] = {c["value"]: c["option"] for c in q.get("choices", {}).values()}
+
+                    # section = sections[q["section_id"]]
+                    if section_id not in group.aggregated:
+                        group.aggregated[section_id] = {}
+                    group_section = group.aggregated[section_id]
+
+                    if q["type"] == "boolean":
+                        group_section[qnum] = "Ja" if q["choices"][qval]["option"] == "checked" else "Nej"
+                    elif q["type"] == "choice":
+                        if qval not in q["choices"]:
+                            continue
+                        group_section[qnum] = q["choices"][qval]["option"]
+                    elif q["type"] == "text":
+                        group_section[qnum] = qval
+                    else:
+                        group_section[qnum] = qval
+
+    # Resolve group contacts
+    for g in groups.values():
+        contact = g.aggregated.get("Ansvariga från kåren", {}).get("Ansvarig ledare på plats")
+        if contact and int(contact) in participants:
+            g.contact = participants[int(contact)]
+
+    return CachedProject(
+        project_id=project.project_id,
+        project_name=project.project_name,
+        participants=participants,
+        questions=questions,
+        groups=dict(sorted(groups.items())),
+    )
+
+
+# --- Main decoder ---
+
+
+def scoutnet_forms_decoder(all_project_data: list[ScoutnetProjectData], cache: ProjectCache) -> None:
+    projects: dict[str, CachedProject] = {}
+
+    for project in all_project_data:
+        projects[project.project_id] = _decode_project(project)
+
+    cache.projects = projects
+    cache.mark_updated()
