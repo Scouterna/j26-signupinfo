@@ -65,6 +65,7 @@ class ProjectCache:
     """Global cache for decoded Scoutnet project data."""
 
     projects: dict = field(default_factory=dict)  # project_id -> CachedProject
+    group_map: dict[int, str] = field(default_factory=dict)
     updated_at: float = 0  # 0 = never updated
 
     def mark_updated(self):
@@ -83,7 +84,7 @@ class ProjectCache:
         return (time.time() - self.updated_at) > settings.PROJECT_CACHE_MAX_AGE_H * 3600
 
 
-# --- Project cache ---
+# --- Project cache global ---
 
 _project_cache = ProjectCache()
 
@@ -92,6 +93,7 @@ _project_cache = ProjectCache()
 
 
 async def scoutnet_init() -> None:
+    await _load_initial_group_map()  # Retrive an initial group map
     await _update_project_cache()  # Fill cache at start
     return
 
@@ -206,7 +208,7 @@ async def _get_all_projectdata_from_scoutnet() -> list[ScoutnetProjectData]:
     return list(results)
 
 
-# --- External (and local) functions ---
+# --- Local functions ---
 
 
 async def _update_project_cache() -> None:
@@ -218,6 +220,30 @@ async def _update_project_cache() -> None:
     del all_data  # Force garbage collection (I think)
     logger.info("Finish cache update")
     return
+
+
+async def _load_initial_group_map() -> None:
+    group_map = {}
+    if settings.SCOUTNET_BODYLIST_KEY:  # Fetch map from Scoutnet
+        try:
+            url = f"https://scoutnet.se/api/body_key_list?id={settings.SCOUTNET_BODYLIST_ID}&key={settings.SCOUTNET_BODYLIST_KEY}"
+            raw_map = await _scoutnet_get(url)
+            group_map = {g["body_id"]: g["body_name"] for g in raw_map.values() if g.get("body_type") == "group"}
+        except Exception:
+            logger.warning("Failed to fetch group_map from Scoutnet, falling back to local file")
+    if not group_map:
+        try:  # Check local file instead
+            map_file = Path(__file__).resolve().parent.parent / "group_map.json"
+            raw = json.loads(map_file.read_text(encoding="utf-8"))
+            group_map = {int(k): v for k, v in raw.items()}
+        except Exception:
+            logger.warning("Failed to load group_map from local file, using empty initial map")
+
+    _project_cache.group_map = group_map
+    logger.info("Loaded group_map with %d entries", len(_project_cache.group_map))
+
+
+# --- Functions called from the API handlers in stats.py ---
 
 
 @require_fresh_cache
@@ -287,6 +313,7 @@ async def get_group_responses(project_id: int, group_id: int | list[int] | None)
     return data
 
 
+@require_fresh_cache
 async def get_individual_responses(project_id: int, member_id: int) -> dict | None:
     """
     Returns an individuals response to questions.
@@ -307,14 +334,16 @@ async def get_individual_responses(project_id: int, member_id: int) -> dict | No
 
 
 @require_fresh_cache
-async def find_members(project_id: int, name: str, born: str, troop: str) -> list[dict] | None:
+async def find_members(project_id: int, name: str, born: str, group: str) -> list[dict] | None:
+    """
+    Find and return a list of participants that match the provided criteria.
+    """
     if not (project := _project_cache.projects.get(project_id)):
         return None
 
-    # Pre-resolve group_id -> name for troop matching and result display
-    group_names = {gid: g.name for gid, g in project.groups.items()}
-    troop_lower = troop.lower()
+    group_lower = group.lower()
     name_lower = name.lower()
+    group_names = _project_cache.group_map
 
     results = []
     for member_no, p in project.participants.items():
@@ -322,21 +351,21 @@ async def find_members(project_id: int, name: str, born: str, troop: str) -> lis
             continue
         if born and not p["born"].startswith(born):
             continue
-        if troop_lower:
-            gid = p.get("registration_group") or p.get("member_group", 0)
-            if troop_lower not in group_names.get(gid, "").lower():
+        if group_lower:
+            if group_lower not in group_names.get(p.get("registration_group", 0), "").lower() and (
+                p.get("member_group") == p.get("registration_group")
+                or group_lower not in group_names.get(p.get("member_group", 0), "").lower()
+            ):
                 continue
         result = {"member_no": member_no, **p}
-        if "member_group" in result:
-            result["member_group"] = group_names.get(result["member_group"], result["member_group"])
-        if "registration_group" in result:
-            result["registration_group"] = group_names.get(result["registration_group"], result["registration_group"])
+        result["member_group"] = group_names.get(result["member_group"], result["member_group"])
+        result["registration_group"] = group_names.get(result["registration_group"], result["registration_group"])
         results.append(result)
 
     return results
 
 
-# --- API functions ---
+# --- API routes ---
 
 scoutnet_router = APIRouter(prefix="/scoutnet", tags=["Scoutnet"])
 

@@ -25,28 +25,31 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
 
     for p in pdata.values():
         if not p["confirmed"]:
-            continue
+            continue  # Only handle confirmed participatns
+
         group_id = p["group_registration_info"]["group_id"] if grouped_project else 0
 
-        participants[p["member_no"]] = {  # Add responder participants list
+        # Add responder to participants list
+        participants[p["member_no"]] = {
             "name": f"{p['first_name']} {p['last_name']}",
             "born": p["date_of_birth"],
-            "member_group": p["primary_membership_info"]["group_id"] if p["primary_membership_info"] else group_id,
             "registration_group": group_id,
+            "member_group": p["primary_membership_info"]["group_id"] if p["primary_membership_info"] else group_id,
         }
         if p["date_of_birth"] < "2008-07-25":  # Over 18, also add contact info
             participants[p["member_no"]].update(
                 {"email": p["primary_email"], "mobile": p["contact_info"].get("1") if p["contact_info"] else None}
             )
 
-        if group_id not in groups:  # Create new group structure if group doesn't exist
+        # Create new group structure if group doesn't exist
+        if group_id not in groups:
             groups[group_id] = CachedGroup(
                 id=group_id,
                 name=p["group_registration_info"]["group_name"] if grouped_project else project.project_name,
                 aggregated={"Kön": {}, "Avgift": {}},
             )
-        group = groups[group_id]
 
+        group = groups[group_id]
         group.num_participants += 1
 
         # Aggregate sex
@@ -69,19 +72,21 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
                 qnum = int(qnum)
                 section_id = q["section_id"]
 
+                # Save all questions separately
                 if section_id not in questions:
                     questions[section_id] = {"text": sections[section_id], "questions": {}}
                 secq = questions[section_id]["questions"]
-                if qnum not in secq:  # Save questions
+                if qnum not in secq:
                     secq[qnum] = {"text": q["question"], "type": q["type"]}
-                    # if choices := q.get("choices"):
                     if q["type"] == "choice":
                         secq[qnum]["choices"] = {c["value"]: c["option"] for c in q.get("choices", {}).values()}
 
+                # Add response section to group
                 if section_id not in group.aggregated:
                     group.aggregated[section_id] = {}
                 group_section = group.aggregated[section_id]
 
+                # Check question type and handle response accordingly
                 if q["type"] == "boolean":
                     if q["choices"][qval]["option"] == "checked":
                         if qnum not in group_section:
@@ -196,10 +201,14 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
 
 
 def scoutnet_forms_decoder(all_project_data: list[ScoutnetProjectData], cache: ProjectCache) -> None:
-    projects: dict[str, CachedProject] = {}
+    projects: dict[int, CachedProject] = {}
 
     for project in all_project_data:
         projects[project.project_id] = _decode_project(project)
+        cache.group_map |= {
+            gid: g.name for gid, g in projects[project.project_id].groups.items()
+        }  # Merge project group map with existing cache
+        pass
 
     cache.projects = projects
     cache.mark_updated()

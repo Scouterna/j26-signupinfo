@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI):
 # --- Initialize FastAPI app with the lifespan manager and session middleware ---
 app = FastAPI(
     title="j26-signupinfo-api",
-    version="0.1.0",
+    version="0.3.0",
     lifespan=lifespan,
     root_path=settings.ROOT_PATH,
     openapi_url=None,

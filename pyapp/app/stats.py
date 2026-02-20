@@ -169,24 +169,25 @@ async def individual_responses(project_id: int, member_id: int, user: AuthUser =
 )
 async def search_member(
     project_id: int,
-    name: str | None = Query(default=""),
-    born: str | None = Query(default=""),
-    troop: str | None = Query(default=""),
+    name: str = Query(default=""),
+    born: str = Query(default=""),
+    group: str = Query(default=""),
+    max_hits: int = Query(default=10, ge=1, le=50, description="Maximum returned hits"),
     user: AuthUser = Depends(require_auth_user),
 ):
     """
     Search for a member according to the search critera.
-    If more then 10 hits, nothing is returned.
+    If more then "max_hits" participants matches, an error is returned.
     """
-    responses = await find_members(project_id, name, born, troop)
+    responses = await find_members(project_id, name, born, group)
     if not responses:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Incorrect project or no members found that match the criteria.",
         )
-    if len(responses) > 10:
+    if len(responses) > max_hits:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="More then ten members that match the criteria.",
+            detail=f"More then {max_hits} participants match the criteria.",
         )
     return responses
