@@ -170,6 +170,55 @@ function getAllColumnIdsFromHierarchy(hierarchy) {
 }
 
 /**
+ * Gets column IDs that match the chip selector selection.
+ * - selectedStatistics: array of stat names (simple stats, no sub-questions)
+ * - selectedSubQuestions: { statName: null | string[] } - null = all sub-questions, array = subset
+ * - statisticSubQuestions: { statName: string[] } - which stats have sub-questions
+ */
+function getColumnIdsFromChipSelection(
+  hierarchy,
+  selectedStatistics,
+  selectedSubQuestions,
+  statisticSubQuestions
+) {
+  const ids = new Set(["name", "num_participants"]);
+  const hasSubQuestions = (statName) => statName in statisticSubQuestions;
+
+  hierarchy.forEach((category) => {
+    const statName = category.name;
+    const isSimpleStat =
+      selectedStatistics.includes(statName) && !hasSubQuestions(statName);
+    const isSubStat = statName in selectedSubQuestions;
+
+    if (!isSimpleStat && !isSubStat) return;
+
+    if (isSimpleStat) {
+      getAllLeafIds(category).forEach((id) => ids.add(id));
+      return;
+    }
+
+    // Stat with sub-questions: filter by selected sub-questions
+    const activeSubQs = selectedSubQuestions[statName];
+    const includeChild = (subName) =>
+      activeSubQs === null ||
+      (Array.isArray(activeSubQs) &&
+        (subName === "_direct" || activeSubQs.includes(subName)));
+
+    category.children.forEach((child) => {
+      if (child.type === "leaf") {
+        if (includeChild("_direct")) ids.add(child.columnId);
+      } else if (child.type === "branch") {
+        if (includeChild(child.name)) {
+          getAllLeafIds(child).forEach((id) => ids.add(id));
+        }
+      }
+    });
+  });
+
+  return ids;
+}
+
+/**
  * For each stat column, determines type (number vs string) and unique string values.
  * Used so string columns get select filter with checklist of options.
  */
@@ -462,9 +511,16 @@ function multiSelectFilterFn(row, columnId, filterValue) {
 }
 
 /**
+ * Resolves an ID to display text using the provided maps.
+ */
+function getDisplayName(id, sectionIdToText, questionIdToText) {
+  return sectionIdToText?.[id] ?? questionIdToText?.[id] ?? id;
+}
+
+/**
  * Creates column definitions for TanStack Table.
  */
-function createColumns(selectedColumns, hierarchy, columnMeta) {
+function createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, questionIdToText) {
   const columns = [
     {
       accessorKey: "name",
@@ -482,15 +538,17 @@ function createColumns(selectedColumns, hierarchy, columnMeta) {
     },
   ];
 
-  // Build a map of columnId to leaf name for headers
+  // Build a map of columnId to display name for headers (resolve IDs via display maps)
   const columnIdToName = new Map();
   hierarchy.forEach((category) => {
     category.children.forEach((child) => {
       if (child.type === "leaf") {
-        columnIdToName.set(child.columnId, child.name);
+        const displayName = getDisplayName(child.name, sectionIdToText, questionIdToText);
+        columnIdToName.set(child.columnId, displayName);
       } else if (child.type === "branch") {
         child.children.forEach((leaf) => {
-          columnIdToName.set(leaf.columnId, leaf.name);
+          const displayName = getDisplayName(leaf.name, sectionIdToText, questionIdToText);
+          columnIdToName.set(leaf.columnId, displayName);
         });
       }
     });
@@ -500,7 +558,7 @@ function createColumns(selectedColumns, hierarchy, columnMeta) {
   selectedColumns.forEach((columnId) => {
     if (columnId === "name" || columnId === "num_participants") return;
 
-    const headerName = columnIdToName.get(columnId) || columnId;
+    const headerName = columnIdToName.get(columnId) ?? getDisplayName(columnId.split(PATH_SEPARATOR).pop(), sectionIdToText, questionIdToText) ?? columnId;
     const meta = columnMeta.get(columnId);
     const isNumeric = meta?.type === "number";
 
@@ -533,7 +591,11 @@ function HierarchicalColumnSelector({
   hierarchy,
   selectedColumns,
   onSelectionChange,
+  sectionIdToText = {},
+  questionIdToText = {},
 }) {
+  const getDisplayName = (id) =>
+    sectionIdToText[id] ?? questionIdToText[id] ?? id;
   const [expandedCategory, setExpandedCategory] = useState(null);
   const [expandedBranches, setExpandedBranches] = useState(new Set());
 
@@ -676,7 +738,7 @@ function HierarchicalColumnSelector({
                 />
               </Box>
               <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                {category.name}
+                {getDisplayName(category.name)}
               </Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ py: 0, px: 1 }}>
@@ -696,7 +758,7 @@ function HierarchicalColumnSelector({
                             />
                           </ListItemIcon>
                           <ListItemText
-                            primary={child.name}
+                            primary={getDisplayName(child.name)}
                             slotProps={{ primary: { variant: "body2" } }}
                           />
                         </ListItemButton>
@@ -722,7 +784,7 @@ function HierarchicalColumnSelector({
                               />
                             </ListItemIcon>
                             <ListItemText
-                              primary={child.name}
+                              primary={getDisplayName(child.name)}
                               slotProps={{
                                 primary: { variant: "body2", fontWeight: 500 },
                               }}
@@ -757,7 +819,7 @@ function HierarchicalColumnSelector({
                                     />
                                   </ListItemIcon>
                                   <ListItemText
-                                    primary={leaf.name}
+                                    primary={getDisplayName(leaf.name)}
                                     slotProps={{ primary: { variant: "body2" } }}
                                   />
                                 </ListItemButton>
@@ -783,17 +845,51 @@ HierarchicalColumnSelector.propTypes = {
   hierarchy: PropTypes.array.isRequired,
   selectedColumns: PropTypes.instanceOf(Set).isRequired,
   onSelectionChange: PropTypes.func.isRequired,
+  sectionIdToText: PropTypes.objectOf(PropTypes.string),
+  questionIdToText: PropTypes.objectOf(PropTypes.string),
 };
 
-export default function ScoutGroupTable({ scoutGroups }) {
+export default function ScoutGroupTable({
+  scoutGroups,
+  selectedStatistics = [],
+  statisticSubQuestions = {},
+  selectedSubQuestions = {},
+  sectionIdToText = {},
+  questionIdToText = {},
+}) {
   // Build hierarchy from all scout groups' stats
   const hierarchy = useMemo(
     () => buildStatsHierarchy(scoutGroups),
     [scoutGroups]
   );
 
-  // Track selected column IDs (leaves)
+  // Column IDs driven by chip selector (same selection as statistics view)
+  const chipDrivenColumns = useMemo(
+    () =>
+      getColumnIdsFromChipSelection(
+        hierarchy,
+        selectedStatistics,
+        selectedSubQuestions,
+        statisticSubQuestions
+      ),
+    [
+      hierarchy,
+      selectedStatistics,
+      selectedSubQuestions,
+      statisticSubQuestions,
+    ]
+  );
+
+  // Track selected column IDs - sync with chip selection when chips are selected
   const [selectedColumns, setSelectedColumns] = useState(DEFAULT_VISIBLE_COLUMNS);
+
+  useEffect(() => {
+    if (chipDrivenColumns.size > 2) {
+      setSelectedColumns(chipDrivenColumns);
+    } else {
+      setSelectedColumns(DEFAULT_VISIBLE_COLUMNS);
+    }
+  }, [chipDrivenColumns]);
 
   // Column meta: type (number/string) and unique values for string columns
   const columnMeta = useMemo(
@@ -809,8 +905,8 @@ export default function ScoutGroupTable({ scoutGroups }) {
 
   // Create TanStack column definitions
   const columns = useMemo(
-    () => createColumns(selectedColumns, hierarchy, columnMeta),
-    [selectedColumns, hierarchy, columnMeta]
+    () => createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, questionIdToText),
+    [selectedColumns, hierarchy, columnMeta, sectionIdToText, questionIdToText]
   );
 
   // Column filters state
@@ -874,6 +970,8 @@ export default function ScoutGroupTable({ scoutGroups }) {
             hierarchy={hierarchy}
             selectedColumns={selectedColumns}
             onSelectionChange={setSelectedColumns}
+            sectionIdToText={sectionIdToText}
+            questionIdToText={questionIdToText}
           />
         </Select>
       </FormControl>
@@ -903,4 +1001,11 @@ ScoutGroupTable.propTypes = {
       stats: PropTypes.object,
     })
   ).isRequired,
+  selectedStatistics: PropTypes.arrayOf(PropTypes.string),
+  statisticSubQuestions: PropTypes.objectOf(
+    PropTypes.arrayOf(PropTypes.string)
+  ),
+  selectedSubQuestions: PropTypes.object,
+  sectionIdToText: PropTypes.objectOf(PropTypes.string),
+  questionIdToText: PropTypes.objectOf(PropTypes.string),
 };

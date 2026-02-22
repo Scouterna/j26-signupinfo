@@ -6,33 +6,59 @@ const MANUAL_STATISTICS = ['Kön', 'Avgift'];
 
 /**
  * Transforms the raw questions response into chip selector data.
+ * Preserves section and question IDs for matching with stats/groupinfo endpoints.
  *
  * @param {Record<string, { text: string, questions: Record<string, { text: string }> }> | undefined} questionsData
- * @returns {{ statistics: string[], statisticSubQuestions: Record<string, string[]> }}
+ * @returns {{ statistics: string[], statisticSubQuestions: Record<string, string[]>, sectionIdToText: Record<string, string>, questionIdToText: Record<string, string> }}
  */
 function buildChipData(questionsData) {
   /** @type {string[]} */
   const statistics = [...MANUAL_STATISTICS];
   /** @type {Record<string, string[]>} */
   const statisticSubQuestions = {};
+  /** @type {Record<string, string>} */
+  const sectionIdToText = { Kön: 'Kön', Avgift: 'Avgift' };
+  /** @type {Record<string, string>} */
+  const questionIdToText = {};
 
-  if (!questionsData) return { statistics, statisticSubQuestions };
+  if (!questionsData) {
+    return { statistics, statisticSubQuestions, sectionIdToText, questionIdToText };
+  }
 
-  const sections = Object.values(questionsData);
-  const sectionNames = sections.map(s => s.text).sort((a, b) => a.localeCompare(b, 'sv'));
-  statistics.push(...sectionNames);
+  const sectionEntries = Object.entries(questionsData);
+  const sortedSections = sectionEntries
+    .sort(([, a], [, b]) => (a.text || '').localeCompare(b.text || '', 'sv'));
 
-  for (const section of sections) {
-    const questionTexts = Object.values(section.questions || {})
-      .map(q => q.text)
-      .sort((a, b) => a.localeCompare(b, 'sv'));
+  for (const [sectionId, section] of sortedSections) {
+    sectionIdToText[sectionId] = section.text || sectionId;
 
-    if (questionTexts.length > 1) {
-      statisticSubQuestions[section.text] = questionTexts;
+    const questionEntries = Object.entries(section.questions || {});
+    const sortedQuestions = questionEntries
+      .sort(([, a], [, b]) => (a.text || '').localeCompare(b.text || '', 'sv'));
+
+    const questionIds = sortedQuestions.map(([qId]) => qId);
+    for (const [qId, q] of questionEntries) {
+      questionIdToText[qId] = q.text || qId;
+      if (q.choices && typeof q.choices === 'object') {
+        for (const [choiceId, choiceText] of Object.entries(q.choices)) {
+          questionIdToText[choiceId] = choiceText;
+        }
+      }
+    }
+
+    statistics.push(sectionId);
+
+    if (questionIds.length > 1) {
+      statisticSubQuestions[sectionId] = questionIds;
     }
   }
 
-  return { statistics, statisticSubQuestions };
+  return {
+    statistics,
+    statisticSubQuestions,
+    sectionIdToText,
+    questionIdToText,
+  };
 }
 
 /**
@@ -60,7 +86,7 @@ function buildVillagesData(groupsData) {
  * TanStack Query hook that fetches project list, question metadata, and group list.
  * Uses dependent queries: questions and groups are only fetched once the project ID is known.
  *
- * @returns {{ projectId: number|null, statistics: string[], statisticSubQuestions: Object, villagesData: Object, isLoading: boolean, error: Error|null }}
+ * @returns {{ projectId: number|null, statistics: string[], statisticSubQuestions: Object, sectionIdToText: Object, questionIdToText: Object, villagesData: Object, isLoading: boolean, error: Error|null }}
  */
 export default function useProjectQueries() {
   const {
@@ -101,7 +127,7 @@ export default function useProjectQueries() {
     staleTime: Infinity,
   });
 
-  const { statistics, statisticSubQuestions } = useMemo(
+  const { statistics, statisticSubQuestions, sectionIdToText, questionIdToText } = useMemo(
     () => buildChipData(/** @type {any} */ (questionsData)),
     [questionsData],
   );
@@ -115,6 +141,8 @@ export default function useProjectQueries() {
     projectId,
     statistics,
     statisticSubQuestions,
+    sectionIdToText,
+    questionIdToText,
     villagesData,
     isLoading: projectsLoading || questionsLoading || groupsLoading,
     error: projectsError || questionsError || groupsError,

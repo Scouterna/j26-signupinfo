@@ -25,12 +25,15 @@ import StatRow from "./StatRow.jsx";
  * Used for perGroup type subQuestions (single-answer questions).
  * @param {boolean} useStatRow - When true, use StatRow with percentage bars (no-papers styling)
  * @param {function} onSelectByAnswer - When provided, enables "Välj dessa kårer" for each answer
+ * @param {Object} idToDisplayText - Map of ID -> display text for resolving choice/answer IDs
  */
 function GroupedAnswerValues({
   groupedByAnswer,
   useStatRow = false,
   onSelectByAnswer,
+  idToDisplayText = {},
 }) {
+  const getDisplayText = (id) => idToDisplayText[id] ?? id;
   const [expandedAnswers, setExpandedAnswers] = useState({});
 
   const toggleExpanded = (answerName) => {
@@ -57,6 +60,7 @@ function GroupedAnswerValues({
           onSelectByAnswer &&
           Array.isArray(scoutGroups) &&
           scoutGroups.length > 0;
+        const displayLabel = getDisplayText(answerName) || "(tomt)";
 
         return (
           <Box key={answerName}>
@@ -69,7 +73,7 @@ function GroupedAnswerValues({
                 />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <StatRow
-                    label={answerName || "(tomt)"}
+                    label={displayLabel}
                     value={count}
                     total={total}
                   />
@@ -114,7 +118,7 @@ function GroupedAnswerValues({
                       marginRight: "8px",
                     }}
                   >
-                    {answerName || "(tomt)"}
+                    {displayLabel}
                   </Typography>
                 </Box>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
@@ -185,16 +189,19 @@ GroupedAnswerValues.propTypes = {
   ).isRequired,
   useStatRow: PropTypes.bool,
   onSelectByAnswer: PropTypes.func,
+  idToDisplayText: PropTypes.objectOf(PropTypes.string),
 };
 
 /**
  * Renders values for a sub-question section.
  * @param {boolean} useStatRow - When true, use StatRow with percentage bars (no-papers styling)
  * @param {function} onSelectByAnswer - When provided, enables "Välj dessa kårer" for perGroup answers
+ * @param {Object} idToDisplayText - Map of ID -> display text for resolving choice/answer IDs
  */
-function SubQuestionValues({ subQuestion, useStatRow = false, onSelectByAnswer }) {
+function SubQuestionValues({ subQuestion, useStatRow = false, onSelectByAnswer, idToDisplayText = {} }) {
   const { values, groupedByAnswer } = subQuestion;
   const [expandedFreeText, setExpandedFreeText] = useState({});
+  const getDisplayText = (id) => idToDisplayText[id] ?? id;
 
   const toggleFreeTextExpanded = (key) => {
     setExpandedFreeText((prev) => ({
@@ -210,6 +217,7 @@ function SubQuestionValues({ subQuestion, useStatRow = false, onSelectByAnswer }
         groupedByAnswer={groupedByAnswer}
         useStatRow={useStatRow}
         onSelectByAnswer={onSelectByAnswer}
+        idToDisplayText={idToDisplayText}
       />
     );
   }
@@ -224,7 +232,7 @@ function SubQuestionValues({ subQuestion, useStatRow = false, onSelectByAnswer }
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: "4px" }}>
       {entries.map(([key, value]) => {
-        const leftLabel = value.name;
+        const leftLabel = getDisplayText(value.name ?? key);
         const rightValue = value.count;
         const count = Number.isFinite(value.count) ? value.count : 0;
         const hasFreeText = value.freeTextAnswers && value.freeTextAnswers.length > 0;
@@ -362,6 +370,7 @@ SubQuestionValues.propTypes = {
   }).isRequired,
   useStatRow: PropTypes.bool,
   onSelectByAnswer: PropTypes.func,
+  idToDisplayText: PropTypes.objectOf(PropTypes.string),
 };
 
 export { SubQuestionValues, GroupedAnswerValues };

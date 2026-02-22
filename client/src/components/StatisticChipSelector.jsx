@@ -40,6 +40,7 @@ export default function StatisticChipSelector({
   selectedSubQuestions = {},
   onSubQuestionToggle,
   onClearAllSubQuestions,
+  idToDisplayText = {},
 }) {
   const [expanded, setExpanded] = useState(false);
   const [popoverAnchor, setPopoverAnchor] = useState(null);
@@ -103,13 +104,16 @@ export default function StatisticChipSelector({
   };
 
   // --- Chip label ---
+  const getDisplayText = (id) => idToDisplayText[id] ?? id;
+
   const getChipLabel = (option) => {
     const subs = getSubQuestions(option);
-    if (!subs) return option;
-    if (!(option in selectedSubQuestions)) return option;
+    const displayOption = getDisplayText(option);
+    if (!subs) return displayOption;
+    if (!(option in selectedSubQuestions)) return displayOption;
     const active = selectedSubQuestions[option];
-    if (active === null) return option; // all selected
-    return `${option} (${active.length}/${subs.length})`;
+    if (active === null) return displayOption; // all selected
+    return `${displayOption} (${active.length}/${subs.length})`;
   };
 
   // --- Popover: toggle individual sub-question ---
@@ -325,20 +329,20 @@ export default function StatisticChipSelector({
               </ListItemButton>
             </ListItem>
             <Divider />
-            {popoverSubs.map((subName) => (
-              <ListItem key={subName} disablePadding>
+            {popoverSubs.map((subId) => (
+              <ListItem key={subId} disablePadding>
                 <ListItemButton
-                  onClick={() => handleSubQuestionCheck(subName)}
+                  onClick={() => handleSubQuestionCheck(subId)}
                   sx={{ py: 0.25 }}
                 >
                   <ListItemIcon sx={{ minWidth: 36 }}>
                     <Checkbox
-                      checked={isSubQuestionChecked(popoverOption, subName)}
+                      checked={isSubQuestionChecked(popoverOption, subId)}
                       size="small"
                     />
                   </ListItemIcon>
                   <ListItemText
-                    primary={subName}
+                    primary={getDisplayText(subId)}
                     slotProps={{ primary: { variant: "body2" } }}
                   />
                 </ListItemButton>
@@ -359,4 +363,5 @@ StatisticChipSelector.propTypes = {
   selectedSubQuestions: PropTypes.objectOf(PropTypes.arrayOf(PropTypes.string)),
   onSubQuestionToggle: PropTypes.func,
   onClearAllSubQuestions: PropTypes.func,
+  idToDisplayText: PropTypes.objectOf(PropTypes.string),
 };

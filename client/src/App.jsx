@@ -31,6 +31,8 @@ export default function App() {
     projectId,
     statistics,
     statisticSubQuestions,
+    sectionIdToText,
+    questionIdToText,
     villagesData,
     isLoading: projectLoading,
     error: projectError,
@@ -155,6 +157,8 @@ export default function App() {
           totalParticipants={totalParticipants}
           statistics={statistics}
           statisticSubQuestions={statisticSubQuestions}
+          sectionIdToText={sectionIdToText}
+          questionIdToText={questionIdToText}
           selectedStatistics={selectedStatistics}
           setSelectedStatistics={setSelectedStatistics}
           getStatisticData={getStatisticData}

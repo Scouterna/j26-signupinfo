@@ -19,6 +19,8 @@ export default function StatisticsDashboard({
   totalParticipants,
   statistics,
   statisticSubQuestions = {},
+  sectionIdToText = {},
+  questionIdToText = {},
   selectedStatistics,
   setSelectedStatistics,
   getStatisticData,
@@ -44,6 +46,11 @@ export default function StatisticsDashboard({
   const handleClearAllSubQuestions = useCallback(() => {
     setSelectedSubQuestions({});
   }, []);
+
+  const idToDisplayText = useMemo(
+    () => ({ ...sectionIdToText, ...questionIdToText }),
+    [sectionIdToText, questionIdToText]
+  );
 
   // Combine non-sub stats from selectedStatistics + sub-category stats from selectedSubQuestions
   const effectiveSelectedStats = useMemo(() => {
@@ -123,28 +130,29 @@ export default function StatisticsDashboard({
         />
       </Box>
 
+      {/* Statistic Chip Selector - shown for both statistics and table view */}
+      <Box
+        sx={{
+          padding: "16px 20px",
+          backgroundColor: "rgba(0, 0, 0, 0.02)",
+          borderRadius: "12px",
+        }}
+      >
+        <StatisticChipSelector
+          options={statistics}
+          selectedOptions={selectedStatistics}
+          onToggle={setSelectedStatistics}
+          subQuestionMap={statisticSubQuestions}
+          selectedSubQuestions={selectedSubQuestions}
+          onSubQuestionToggle={handleSubQuestionToggle}
+          onClearAllSubQuestions={handleClearAllSubQuestions}
+          idToDisplayText={idToDisplayText}
+        />
+      </Box>
+
       {/* Statistics view */}
       {viewMode === "statistics" && (
         <>
-          {/* Statistic Selector - styled like no-papers */}
-          <Box
-            sx={{
-              padding: "16px 20px",
-              backgroundColor: "rgba(0, 0, 0, 0.02)",
-              borderRadius: "12px",
-            }}
-          >
-            <StatisticChipSelector
-              options={statistics}
-              selectedOptions={selectedStatistics}
-              onToggle={setSelectedStatistics}
-              subQuestionMap={statisticSubQuestions}
-              selectedSubQuestions={selectedSubQuestions}
-              onSubQuestionToggle={handleSubQuestionToggle}
-              onClearAllSubQuestions={handleClearAllSubQuestions}
-            />
-          </Box>
-
           {/* Selected Statistics Cards - StatisticPaper logic, StatisticCard styling */}
           {effectiveSelectedStats.length > 0 ? (
             <Box
@@ -198,7 +206,7 @@ export default function StatisticsDashboard({
                       fontWeight="600"
                       sx={{ marginBottom: "16px" }}
                     >
-                      {statName}
+                      {sectionIdToText[statName] ?? statName}
                     </Typography>
 
                     {subQuestionEntries.length === 0 ? (
@@ -225,13 +233,14 @@ export default function StatisticsDashboard({
                                     color="text.secondary"
                                     sx={{ marginBottom: "6px" }}
                                   >
-                                    {subQuestionName}
+                                    {questionIdToText[subQuestionName] ?? subQuestionName}
                                   </Typography>
                                 )}
                                 <SubQuestionValues
                                   subQuestion={subQuestion}
                                   useStatRow
                                   onSelectByAnswer={onReplaceSelection}
+                                  idToDisplayText={questionIdToText}
                                 />
                               </Box>
                             );
@@ -268,7 +277,14 @@ export default function StatisticsDashboard({
       {/* Table view */}
       {viewMode === "table" && (
         selectedScoutGroups.length > 0 ? (
-          <ScoutGroupTable scoutGroups={selectedScoutGroups} />
+          <ScoutGroupTable
+            scoutGroups={selectedScoutGroups}
+            selectedStatistics={selectedStatistics}
+            statisticSubQuestions={statisticSubQuestions}
+            selectedSubQuestions={selectedSubQuestions}
+            sectionIdToText={sectionIdToText}
+            questionIdToText={questionIdToText}
+          />
         ) : (
           <Box
             sx={{
@@ -297,6 +313,8 @@ StatisticsDashboard.propTypes = {
   totalParticipants: PropTypes.number.isRequired,
   statistics: PropTypes.arrayOf(PropTypes.string).isRequired,
   statisticSubQuestions: PropTypes.objectOf(PropTypes.arrayOf(PropTypes.string)),
+  sectionIdToText: PropTypes.objectOf(PropTypes.string),
+  questionIdToText: PropTypes.objectOf(PropTypes.string),
   selectedStatistics: PropTypes.arrayOf(PropTypes.string).isRequired,
   setSelectedStatistics: PropTypes.func.isRequired,
   getStatisticData: PropTypes.func.isRequired,
