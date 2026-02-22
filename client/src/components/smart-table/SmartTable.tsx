@@ -11,6 +11,7 @@ import {
 	TablePagination,
 	TableRow,
 	TableSortLabel,
+	Tooltip,
 } from "@mui/material";
 import { visuallyHidden } from "@mui/utils";
 import {
@@ -26,6 +27,20 @@ export type Props<TData> = {
 	table: TanstackTable<TData>;
 };
 
+/**
+ * Slugifies a string to be used in CSS variable names.
+ */
+function slugify(str: string) {
+	return str
+		.toLowerCase()
+		.replace(/\s+/g, "-")
+		.replace(/[^\w-]+/g, "")
+		.replace(/--+/g, "-")
+		.replace(/^-+/, "")
+		.replace(/-+$/, "");
+}
+
+
 export function SmartTable<TData extends RowData>({ table }: Props<TData>) {
 	const [headerMenuAnchorEl, setHeaderMenuAnchorEl] =
 		useState<null | HTMLElement>(null);
@@ -33,6 +48,10 @@ export function SmartTable<TData extends RowData>({ table }: Props<TData>) {
 		TData,
 		unknown
 	>>(null);
+
+	const state = table.getState();
+
+	const isResizing = state.columnSizingInfo.isResizingColumn !== false
 
 	/**
 	 * Instead of calling `column.getSize()` on every render for every header
@@ -45,11 +64,11 @@ export function SmartTable<TData extends RowData>({ table }: Props<TData>) {
 		const headers = table.getFlatHeaders();
 		const colSizes: { [key: string]: number } = {};
 		for (const header of headers) {
-			colSizes[`--header-${header.id}-size`] = header.getSize();
-			colSizes[`--col-${header.column.id}-size`] = header.column.getSize();
+			colSizes[`--header-${slugify(header.id)}-size`] = header.getSize();
+			colSizes[`--col-${slugify(header.column.id)}-size`] = header.column.getSize();
 		}
 		return colSizes;
-	}, [table.getState().columnSizingInfo, table.getState().columnSizing]);
+	}, [state.columnSizingInfo, state.columnSizing]);
 
 	return (
 		<Box
@@ -79,8 +98,11 @@ export function SmartTable<TData extends RowData>({ table }: Props<TData>) {
 				}}
 			>
 				<Table
-					sx={{
+					style={{
 						...columnSizeVars,
+					}}
+					sx={{
+						tableLayout: "fixed",
 						width:
 							(table.options.enableColumnResizing ?? true)
 								? table.getTotalSize()
@@ -94,8 +116,9 @@ export function SmartTable<TData extends RowData>({ table }: Props<TData>) {
 								{headerGroup.headers.map((header) => (
 									<TableCell
 										key={header.id}
-										sx={{
-											width: `calc(var(--header-${header?.id}-size) * 1px)`,
+										style={{
+											width: `calc(var(--header-${slugify(header?.id)}-size) * 1px)`,
+											backgroundColor: isResizing ? 'transparent' : undefined
 										}}
 										sortDirection={header.column.getIsSorted() || undefined}
 									>
@@ -103,31 +126,61 @@ export function SmartTable<TData extends RowData>({ table }: Props<TData>) {
 											sx={{
 												display: "flex",
 												"&:hover": {
-													"& .header-actions": {
+													"& .header-actions": !isResizing ? {
 														visibility: "visible",
-													},
+													} : {},
 												},
 											}}
 										>
 											<TableSortLabel
+												disabled={isResizing}
 												active={!!header.column.getIsSorted()}
 												direction={header.column.getIsSorted() || undefined}
 												onClick={header.column.getToggleSortingHandler()}
 												sx={{
 													flex: 1,
+													display: "flex",
+													minWidth: 0,
+													"svg": {
+														display: header.column.getIsSorted() ? "inline" : "none",
+													},
+													'&:hover': {
+														"svg": {
+															display: "inline",
+														},
+													},
 												}}
 											>
-												{flexRender(
-													header.column.columnDef.header,
-													header.getContext(),
-												)}
-												{header.column.getIsSorted() ? (
+												<Tooltip
+													title={
+														flexRender(
+															header.column.columnDef.header,
+															header.getContext(),
+														)
+													}
+												>
+													<Box
+														sx={{
+															flex: 1,
+															whiteSpace: "nowrap",
+															overflow: "hidden",
+															textOverflow: "ellipsis",
+														}}
+													>
+														{flexRender(
+															header.column.columnDef.header,
+															header.getContext(),
+														)}
+													</Box>
+												</Tooltip>
+
+												{header.column.getIsSorted() && (
 													<Box component="span" sx={visuallyHidden}>
 														{header.column.getIsSorted() === "desc"
 															? "sorted descending"
 															: "sorted ascending"}
 													</Box>
-												) : null}
+												)}
 											</TableSortLabel>
 
 											<IconButton
@@ -154,7 +207,7 @@ export function SmartTable<TData extends RowData>({ table }: Props<TData>) {
 						))}
 					</TableHead>
 
-					{table.getState().columnSizingInfo.isResizingColumn ? (
+					{state.columnSizingInfo.isResizingColumn ? (
 						<MemoizedSmartTableBody table={table} />
 					) : (
 						<SmartTableBody table={table} />
@@ -190,8 +243,8 @@ export function SmartTable<TData extends RowData>({ table }: Props<TData>) {
 				component="div"
 				rowsPerPageOptions={[5, 10, 25, 50, 100]}
 				count={table.getRowCount()}
-				rowsPerPage={table.getState().pagination.pageSize}
-				page={table.getState().pagination.pageIndex}
+				rowsPerPage={state.pagination.pageSize}
+				page={state.pagination.pageIndex}
 				onPageChange={(_, index) => {
 					table.setPageIndex(index);
 				}}
@@ -209,7 +262,11 @@ function SmartTableBody<TData>({ table }: { table: TanstackTable<TData> }) {
 			{table.getRowModel().rows.map((row) => (
 				<TableRow key={row.id}>
 					{row.getVisibleCells().map((cell) => (
-						<TableCell key={cell.id}>
+						<TableCell key={cell.id}
+							style={{
+								width: `calc(var(--col-${slugify(cell.column.id)}-size) * 1px)`,
+							}}
+						>
 							{flexRender(cell.column.columnDef.cell, cell.getContext())}
 						</TableCell>
 					))}
@@ -266,9 +323,11 @@ function ResizeHandle({
 					height: "100%",
 					backgroundColor: "grey.300",
 				},
+			}}
+			style={{
 				transform:
 					table.options.columnResizeMode === "onEnd" &&
-					header.column.getIsResizing()
+						header.column.getIsResizing()
 						? `translateX(${table.getState().columnSizingInfo.deltaOffset}px)`
 						: "",
 			}}
