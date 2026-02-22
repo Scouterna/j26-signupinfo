@@ -21,7 +21,11 @@ export default function VillageListItem({
   handleSelection,
   selectedScoutGroupIds,
   renderChildrenExternally = false,
+  selectionChoiceLabel,
 }) {
+  const hasChoiceTint =
+    selectionChoiceLabel && (isAllSelected || isPartiallySelected);
+
   return (
     <>
       <ListItem
@@ -37,7 +41,12 @@ export default function VillageListItem({
       >
         <ListItemButton
           onClick={() => toggleVillageExpansion(village.id)}
-          sx={{ borderRadius: "8px" }}
+          sx={{
+            borderRadius: "8px",
+            ...(hasChoiceTint && {
+              backgroundColor: "rgba(255, 255, 0, 0.25)",
+            }),
+          }}
         >
           <ListItemIcon sx={{ minWidth: 32, mr: 0 }}>
             <Checkbox
@@ -70,6 +79,7 @@ export default function VillageListItem({
                 scoutGroup={scoutGroup}
                 selectedScoutGroupIds={selectedScoutGroupIds}
                 handleSelection={handleSelection}
+                selectionChoiceLabel={selectionChoiceLabel}
               />
             ))}
           </List>
@@ -105,4 +115,9 @@ VillageListItem.propTypes = {
   selectedScoutGroupIds: PropTypes.instanceOf(Set).isRequired,
   /** Whether children are rendered externally (for virtualization) */
   renderChildrenExternally: PropTypes.bool,
+  /** When set, selected items get a yellow tint (selection via "Välj dessa kårer") */
+  selectionChoiceLabel: PropTypes.oneOfType([
+    PropTypes.string,
+    PropTypes.arrayOf(PropTypes.string),
+  ]),
 };

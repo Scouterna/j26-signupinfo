@@ -133,12 +133,17 @@ function DrawerContent({
         return (
           <Typography
             variant="caption"
-            color="text.secondary"
             sx={{
               mb: 1.5,
               fontStyle: "italic",
               wordBreak: "break-word",
               overflowWrap: "anywhere",
+              display: "inline-block",
+              px: 1,
+              py: 0.5,
+              borderRadius: 1,
+              backgroundColor: "rgba(255, 255, 0, 0.25)",
+              color: "text.secondary",
             }}
             title={`Valt utifrån: ${displayText}`}
           >
@@ -198,6 +203,7 @@ function DrawerContent({
                     handleSelection={handleSelection}
                     selectedScoutGroupIds={selectedScoutGroupIds}
                     renderChildrenExternally={true}
+                    selectionChoiceLabel={selectionChoiceLabel}
                   />
                 ) : (
                   <div style={{ paddingLeft: "32px" }}>
@@ -205,6 +211,7 @@ function DrawerContent({
                       scoutGroup={item.scoutGroup}
                       selectedScoutGroupIds={selectedScoutGroupIds}
                       handleSelection={handleSelection}
+                      selectionChoiceLabel={selectionChoiceLabel}
                     />
                   </div>
                 )}

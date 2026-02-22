@@ -12,11 +12,20 @@ export default function ScoutGroupListItem({
   scoutGroup,
   selectedScoutGroupIds,
   handleSelection,
+  selectionChoiceLabel,
 }) {
+  const isSelected = selectedScoutGroupIds.has(scoutGroup.id);
+  const hasChoiceTint = isSelected && selectionChoiceLabel;
+
   return (
     <ListItem disablePadding>
       <ListItemButton
         onClick={() => handleSelection(SELECTION_TYPES.SCOUT_GROUP, scoutGroup.id)}
+        sx={
+          hasChoiceTint
+            ? { backgroundColor: "rgba(255, 255, 0, 0.25)" }
+            : undefined
+        }
       >
         <ListItemIcon sx={{ minWidth: 32, mr: 0 }}>
           <Checkbox
@@ -42,4 +51,9 @@ ScoutGroupListItem.propTypes = {
   selectedScoutGroupIds: PropTypes.instanceOf(Set).isRequired,
   /** Handler for selection changes */
   handleSelection: PropTypes.func.isRequired,
+  /** When set, selected items get a yellow tint (selection via "Välj dessa kårer") */
+  selectionChoiceLabel: PropTypes.oneOfType([
+    PropTypes.string,
+    PropTypes.arrayOf(PropTypes.string),
+  ]),
 };
