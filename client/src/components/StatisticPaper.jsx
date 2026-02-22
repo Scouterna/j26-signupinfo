@@ -51,13 +51,12 @@ function GroupedAnswerValues({
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-      {sortedEntries.map(([answerName, { count, scoutGroups, scoutGroupIds }]) => {
+      {sortedEntries.map(([answerName, { count, scoutGroups }]) => {
         const isExpanded = expandedAnswers[answerName] || false;
         const canSelectByAnswer =
           onSelectByAnswer &&
-          scoutGroupIds &&
-          Array.isArray(scoutGroupIds) &&
-          scoutGroupIds.length > 0;
+          Array.isArray(scoutGroups) &&
+          scoutGroups.length > 0;
 
         return (
           <Box key={answerName}>
@@ -79,7 +78,7 @@ function GroupedAnswerValues({
                   <Tooltip title="Välj dessa kårer">
                     <IconButton
                       size="small"
-                      onClick={() => onSelectByAnswer(scoutGroupIds, answerName)}
+                      onClick={() => onSelectByAnswer(scoutGroups.map(g => g.id), answerName)}
                       aria-label="Välj dessa kårer"
                       sx={{ flexShrink: 0 }}
                     >
@@ -126,7 +125,7 @@ function GroupedAnswerValues({
                     <Tooltip title="Välj dessa kårer">
                       <IconButton
                         size="small"
-                        onClick={() => onSelectByAnswer(scoutGroupIds, answerName)}
+                        onClick={() => onSelectByAnswer(scoutGroups.map(g => g.id), answerName)}
                         aria-label="Välj dessa kårer"
                       >
                         <FilterListIcon fontSize="small" />
@@ -139,9 +138,9 @@ function GroupedAnswerValues({
             {/* Expanded scout group list */}
             {isExpanded && (
               <Box sx={{ marginLeft: "32px", marginTop: "4px" }}>
-                {scoutGroups.map((groupName, index) => (
+                {scoutGroups.map((group) => (
                   <Box
-                    key={index}
+                    key={group.id}
                     sx={{
                       padding: "4px 8px",
                       backgroundColor: useStatRow
@@ -159,7 +158,7 @@ function GroupedAnswerValues({
                         whiteSpace: "normal",
                       }}
                     >
-                      {groupName}
+                      {group.name}
                     </Typography>
                   </Box>
                 ))}
@@ -176,8 +175,12 @@ GroupedAnswerValues.propTypes = {
   groupedByAnswer: PropTypes.objectOf(
     PropTypes.shape({
       count: PropTypes.number.isRequired,
-      scoutGroups: PropTypes.arrayOf(PropTypes.string).isRequired,
-      scoutGroupIds: PropTypes.arrayOf(PropTypes.number),
+      scoutGroups: PropTypes.arrayOf(
+        PropTypes.shape({
+          id: PropTypes.number.isRequired,
+          name: PropTypes.string.isRequired,
+        })
+      ).isRequired,
     })
   ).isRequired,
   useStatRow: PropTypes.bool,
@@ -190,7 +193,7 @@ GroupedAnswerValues.propTypes = {
  * @param {function} onSelectByAnswer - When provided, enables "Välj dessa kårer" for perGroup answers
  */
 function SubQuestionValues({ subQuestion, useStatRow = false, onSelectByAnswer }) {
-  const { type, values, groupedByAnswer } = subQuestion;
+  const { values, groupedByAnswer } = subQuestion;
   const [expandedFreeText, setExpandedFreeText] = useState({});
 
   const toggleFreeTextExpanded = (key) => {
@@ -200,8 +203,8 @@ function SubQuestionValues({ subQuestion, useStatRow = false, onSelectByAnswer }
     }));
   };
 
-  // For perGroup type with groupedByAnswer, use the grouped view
-  if (type === "perGroup" && groupedByAnswer) {
+  // When groupedByAnswer is present, use the grouped view (perGroup questions)
+  if (groupedByAnswer) {
     return (
       <GroupedAnswerValues
         groupedByAnswer={groupedByAnswer}
@@ -211,8 +214,8 @@ function SubQuestionValues({ subQuestion, useStatRow = false, onSelectByAnswer }
     );
   }
 
-  // Default rendering for answers type (and legacy perGroup without groupedByAnswer)
-  const entries = Object.entries(values);
+  // Default rendering for answers type
+  const entries = Object.entries(values || {});
   const total = entries.reduce(
     (sum, [, v]) => sum + (Number.isFinite(v.count) ? v.count : 0),
     0
@@ -221,16 +224,15 @@ function SubQuestionValues({ subQuestion, useStatRow = false, onSelectByAnswer }
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: "4px" }}>
       {entries.map(([key, value]) => {
-        const isPerGroup = type === "perGroup";
-        const leftLabel = isPerGroup ? value.scoutGroupName : value.name;
-        const rightValue = isPerGroup ? value.name : value.count;
+        const leftLabel = value.name;
+        const rightValue = value.count;
         const count = Number.isFinite(value.count) ? value.count : 0;
         const hasFreeText = value.freeTextAnswers && value.freeTextAnswers.length > 0;
         const isFreeTextExpanded = expandedFreeText[key] || false;
 
         return (
           <Box key={key}>
-            {useStatRow && !isPerGroup && Number.isFinite(value.count) ? (
+            {useStatRow && Number.isFinite(value.count) ? (
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                 {hasFreeText && (
                   <ExpandCollapseButton
@@ -344,13 +346,17 @@ function SubQuestionValues({ subQuestion, useStatRow = false, onSelectByAnswer }
 
 SubQuestionValues.propTypes = {
   subQuestion: PropTypes.shape({
-    type: PropTypes.oneOf(["answers", "perGroup"]).isRequired,
-    values: PropTypes.object.isRequired,
+    type: PropTypes.oneOf(["answers", "perGroup"]),
+    values: PropTypes.object,
     groupedByAnswer: PropTypes.objectOf(
       PropTypes.shape({
         count: PropTypes.number.isRequired,
-        scoutGroups: PropTypes.arrayOf(PropTypes.string).isRequired,
-        scoutGroupIds: PropTypes.arrayOf(PropTypes.number),
+        scoutGroups: PropTypes.arrayOf(
+          PropTypes.shape({
+            id: PropTypes.number.isRequired,
+            name: PropTypes.string.isRequired,
+          })
+        ).isRequired,
       })
     ),
   }).isRequired,

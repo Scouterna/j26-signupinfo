@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Box, Typography, ToggleButtonGroup, ToggleButton } from "@mui/material";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PeopleIcon from "@mui/icons-material/People";
@@ -18,6 +18,7 @@ export default function StatisticsDashboard({
   numScoutGroupsSelected,
   totalParticipants,
   statistics,
+  statisticSubQuestions = {},
   selectedStatistics,
   setSelectedStatistics,
   getStatisticData,
@@ -26,19 +27,6 @@ export default function StatisticsDashboard({
 }) {
   const [viewMode, setViewMode] = useState("statistics");
   const [selectedSubQuestions, setSelectedSubQuestions] = useState({});
-
-  // Build a map of statistic name -> sub-question names, only for stats with >1 sub-question
-  const statisticSubQuestions = useMemo(() => {
-    const map = {};
-    statistics.forEach((statName) => {
-      const { subQuestions } = getStatisticData(statName);
-      const keys = Object.keys(subQuestions || {}).filter((k) => k !== "_direct");
-      if (keys.length > 1) {
-        map[statName] = keys.sort((a, b) => a.localeCompare(b, "sv"));
-      }
-    });
-    return map;
-  }, [statistics, getStatisticData]);
 
   // undefined = remove entry (deselect), null = all sub-questions, [...] = specific subset
   const handleSubQuestionToggle = useCallback((statName, subQuestionNames) => {
@@ -308,6 +296,7 @@ StatisticsDashboard.propTypes = {
   numScoutGroupsSelected: PropTypes.number.isRequired,
   totalParticipants: PropTypes.number.isRequired,
   statistics: PropTypes.arrayOf(PropTypes.string).isRequired,
+  statisticSubQuestions: PropTypes.objectOf(PropTypes.arrayOf(PropTypes.string)),
   selectedStatistics: PropTypes.arrayOf(PropTypes.string).isRequired,
   setSelectedStatistics: PropTypes.func.isRequired,
   getStatisticData: PropTypes.func.isRequired,

@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import {
   CssBaseline,
   Box,
@@ -9,33 +10,54 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
+import useProjectQueries from "./hooks/useProjectQueries.js";
 import useScoutGroupSelector from "./hooks/useScoutGroupSelector.js";
 import useApiData from "./hooks/useApiData.js";
+import useGroupSummary from "./hooks/useGroupSummary.js";
+import { getSelectedScoutGroups } from "./hooks/useScoutGroupData.js";
 import ScoutGroupSelector, {
   DrawerToggleButton,
 } from "./components/ScoutGroupSelector.jsx";
 import StatisticsDashboard from "./components/StatisticsDashboard.jsx";
 
 const DRAWER_WIDTH = 340;
+const EMPTY_DATA = { villages: [] };
 
 export default function App() {
   const theme = useTheme();
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
-  const { data, loading, error, refetch } = useApiData();
-  const selectorState = useScoutGroupSelector(data);
 
   const {
-    selectedScoutGroupIds,
-    selectedScoutGroups,
-    totalParticipants,
+    projectId,
     statistics,
-    selectedStatistics,
-    setSelectedStatistics,
+    statisticSubQuestions,
+    villagesData,
+    isLoading: projectLoading,
+    error: projectError,
+  } = useProjectQueries();
+
+  const { data, loading: dataLoading, error: dataError, refetch } = useApiData(projectId);
+
+  const selectorState = useScoutGroupSelector(villagesData);
+  const { selectedScoutGroupIds, replaceSelectionWithIds, isDrawerOpen, toggleDrawer } =
+    selectorState;
+
+  const {
+    totalParticipants,
     getStatisticData,
-    replaceSelectionWithIds,
-    isDrawerOpen,
-    toggleDrawer,
-  } = selectorState;
+    error: summaryError,
+  } = useGroupSummary(projectId, selectedScoutGroupIds);
+
+  const statsData = data || EMPTY_DATA;
+  const selectedScoutGroups = useMemo(
+    () => getSelectedScoutGroups(statsData.villages, selectedScoutGroupIds),
+    [statsData.villages, selectedScoutGroupIds],
+  );
+
+  const [selectedStatistics, setSelectedStatistics] = useState([]);
+
+  const loading = projectLoading || dataLoading;
+  const error = projectError || dataError || summaryError;
 
   // Loading state
   if (loading) {
@@ -132,6 +154,7 @@ export default function App() {
           numScoutGroupsSelected={selectedScoutGroupIds.size}
           totalParticipants={totalParticipants}
           statistics={statistics}
+          statisticSubQuestions={statisticSubQuestions}
           selectedStatistics={selectedStatistics}
           setSelectedStatistics={setSelectedStatistics}
           getStatisticData={getStatisticData}

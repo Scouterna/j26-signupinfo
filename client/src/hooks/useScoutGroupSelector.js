@@ -1,33 +1,22 @@
 import { useState, useMemo } from 'react';
-import useScoutGroupData, { getSelectedScoutGroups } from './useScoutGroupData';
 import { SELECTION_TYPES } from '../constants/selectionTypes';
 
-// Default empty data structure for when data is not yet loaded
 const EMPTY_DATA = { villages: [] };
 
-// This is a custom hook that encapsulates all the sidebar's logic.
-export default function useScoutGroupSelector(jsonData) {
-    const data = jsonData || EMPTY_DATA;
+/**
+ * Hook that encapsulates all the sidebar's selection and UI logic.
+ * Accepts the lightweight villages data (from /groups endpoint) for the selector list.
+ *
+ * @param {{ villages: Array }} villagesData - Villages structure from useProjectQueries
+ */
+export default function useScoutGroupSelector(villagesData) {
+    const data = villagesData || EMPTY_DATA;
 
-    // State management for the sidebar's functionality
     const [selectedScoutGroupIds, setSelectedScoutGroupIds] = useState(new Set());
     const [selectionChoiceLabel, setSelectionChoiceLabel] = useState(null);
     const [expandedVillageIds, setExpandedVillageIds] = useState(new Set());
     const [searchTerm, setSearchTerm] = useState('');
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-
-    const { statistics, totalParticipants, getStatisticData } = useScoutGroupData(data, selectedScoutGroupIds);
-
-    const [selectedStatistics, setSelectedStatistics] = useState([]);
-
-    /**
-     * Memoized array of selected scout groups with their full data.
-     * Used for the table view which needs access to raw group data.
-     */
-    const selectedScoutGroups = useMemo(
-        () => getSelectedScoutGroups(data.villages, selectedScoutGroupIds),
-        [data.villages, selectedScoutGroupIds]
-    );
 
     /**
      * Memoized list of villages filtered by the search term.
@@ -158,11 +147,9 @@ export default function useScoutGroupSelector(jsonData) {
      */
     const toggleDrawer = () => setIsDrawerOpen(prev => !prev);
 
-    // The hook returns all the necessary values and functions for the sidebar to use
     return {
         selectedScoutGroupIds,
         selectionChoiceLabel,
-        selectedScoutGroups,
         expandedVillageIds: effectiveExpandedVillageIds,
         searchTerm,
         setSearchTerm,
@@ -174,10 +161,5 @@ export default function useScoutGroupSelector(jsonData) {
         replaceSelectionWithIds,
         isDrawerOpen,
         toggleDrawer,
-        totalParticipants,
-        statistics,
-        selectedStatistics,
-        setSelectedStatistics,
-        getStatisticData
     };
 }
