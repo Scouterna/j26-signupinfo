@@ -11,6 +11,7 @@ from .config import get_settings
 from .scoutnet import (
     find_members,
     get_group_responses,
+    get_group_summary,
     get_individual_responses,
     get_project_groups,
     get_project_questions,
@@ -121,6 +122,30 @@ async def groups_responses(
         size=size,
         pages=math.ceil(total / size) if total > 0 else 0,
     )
+
+
+@stats_router.get(
+    "/{project_id}/groupinfo/summary",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    response_description="Aggregated group statistics summary",
+)
+async def group_info_summary(
+    project_id: int,
+    group_id: list[int] | None = Query(default=None),
+    user: AuthUser = Depends(require_auth_user),
+):
+    """
+    Return pre-aggregated statistics across the requested groups.
+    If no group_id is given, all groups are included.
+    """
+    summary = await get_group_summary(project_id, group_id)
+    if not summary:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project or one or more groups not found.",
+        )
+    return summary
 
 
 @stats_router.get(
