@@ -415,8 +415,6 @@ async def get_group_summary(project_id: int, group_id: int | list[int] | None) -
         "stats": stats,
     }
 
-
-
 @require_fresh_cache
 async def get_individual_responses(project_id: int, member_id: int) -> dict | None:
     """
@@ -435,6 +433,48 @@ async def get_individual_responses(project_id: int, member_id: int) -> dict | No
         return None  # Data integrity error in scoutnet_forms
 
     return response
+
+
+@require_fresh_cache
+async def get_individuals_by_groups(
+    project_id: int, group_id: int | list[int] | None
+) -> list[dict] | None:
+    """
+    Return all individuals (with their responses) for the given groups.
+    If group_id is None, all groups in the project are included.
+    """
+    if not (project := _project_cache.projects.get(project_id)):
+        return None
+
+    if group_id is None:
+        group_id = list(project.groups.keys())
+    if isinstance(group_id, int):
+        group_id = [group_id]
+    if not all(gid in project.groups for gid in group_id):
+        return None
+
+    results = []
+    for gid in group_id:
+        group = project.groups[gid]
+        for member_no, response in group.individual_answers.items():
+            participant = project.participants.get(member_no)
+            if not participant:
+                continue
+            entry = {
+                "member_no": member_no,
+                "name": participant.get("name", ""),
+                "born": participant.get("born", ""),
+                "group_id": gid,
+                "group_name": group.name,
+                "responses": response,
+            }
+            if participant.get("email"):
+                entry["email"] = participant["email"]
+            if participant.get("mobile"):
+                entry["mobile"] = participant["mobile"]
+            results.append(entry)
+
+    return results
 
 
 @require_fresh_cache
