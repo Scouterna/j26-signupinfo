@@ -325,6 +325,7 @@ async def get_group_summary(project_id: int, group_id: int | list[int] | None) -
         group_id = list(project.groups.keys())
     if isinstance(group_id, int):
         group_id = [group_id]
+    group_id = list(dict.fromkeys(group_id))  # deduplicate, preserving order
     if not all(gid in project.groups for gid in group_id):
         return None
 
@@ -336,7 +337,7 @@ async def get_group_summary(project_id: int, group_id: int | list[int] | None) -
         for cat, cat_data in group.aggregated.items():
             acc = stats.setdefault(cat, {})
             for key, val in cat_data.items():
-                if isinstance(val, (int, float)):
+                if isinstance(val, (int, float)) and not isinstance(val, bool):
                     acc[key] = acc.get(key, 0) + val
                 elif isinstance(val, dict):
                     key_acc = acc.setdefault(key, {})
@@ -344,6 +345,9 @@ async def get_group_summary(project_id: int, group_id: int | list[int] | None) -
                         key_acc[k] = key_acc.get(k, 0) + v
                 elif isinstance(val, list):
                     acc.setdefault(key, []).extend(val)
+                elif isinstance(val, (str, bool)):
+                    key_acc = acc.setdefault(key, {})
+                    key_acc[val] = key_acc.get(val, 0) + 1
 
     return {"total_participants": total_participants, "num_groups": len(group_id), "stats": stats}
 
