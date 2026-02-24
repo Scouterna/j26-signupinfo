@@ -278,7 +278,7 @@ async def get_project_groups(project_id: int) -> dict | None:
     """Return project groups"""
     if not (project := _project_cache.projects.get(project_id)):
         return None
-    groups = {p.name: p.id for p in sorted(project.groups.values(), key=lambda g: g.name.lower())}
+    groups = {p.id: p.name for p in sorted(project.groups.values(), key=lambda g: g.name.lower())}
     return groups
 
 
@@ -313,75 +313,10 @@ async def get_group_responses(project_id: int, group_id: int | list[int] | None)
     return data
 
 
-def _has_sub_questions(category_data: dict) -> bool:
-    """Check if a category contains nested sub-questions (dicts) vs direct answer-count mappings."""
-    return any(isinstance(v, dict) for v in category_data.values())
-
-
-def _aggregate_category(category_data: dict, sub_questions: dict, group: CachedGroup) -> None:
-    """Aggregate one group's category data into the sub_questions accumulator."""
-    category_has_subs = _has_sub_questions(category_data)
-
-    for key, value in category_data.items():
-        if isinstance(value, dict):
-            sq = sub_questions.setdefault(key, {"type": "answers", "values": {}})
-            for answer_key, answer_value in value.items():
-                if isinstance(answer_value, (int, float)):
-                    entry = sq["values"].setdefault(answer_key, {"name": answer_key, "count": 0})
-                    entry["count"] += answer_value
-                elif isinstance(answer_value, list):
-                    entry = sq["values"].setdefault(
-                        answer_key, {"name": answer_key, "count": 0, "freeTextAnswers": []}
-                    )
-                    entry["count"] += len(answer_value)
-                    entry.setdefault("freeTextAnswers", []).extend(answer_value)
-
-        elif isinstance(value, (int, float)):
-            sq_key = key if category_has_subs else "_direct"
-            sq = sub_questions.setdefault(sq_key, {"type": "answers", "values": {}})
-            answer_key = "_count" if category_has_subs else key
-            answer_name = "Antal" if category_has_subs else key
-            entry = sq["values"].setdefault(answer_key, {"name": answer_name, "count": 0})
-            entry["count"] += value
-
-        elif isinstance(value, str):
-            sq = sub_questions.setdefault(key, {"type": "perGroup", "values": {}})
-            sq["values"][group.id] = {"name": value, "scoutGroupName": group.name}
-
-        elif isinstance(value, list):
-            sq = sub_questions.setdefault(
-                key,
-                {"type": "answers", "values": {"_text": {"name": "Svar", "count": 0, "freeTextAnswers": []}}},
-            )
-            sq["values"]["_text"]["count"] += len(value)
-            sq["values"]["_text"]["freeTextAnswers"].extend(value)
-
-
-def _post_process_per_group(sub_questions: dict) -> None:
-    """Compute groupedByAnswer for perGroup sub-questions, using [{id, name}] objects.
-    Replaces the perGroup sub-question with only groupedByAnswer (type/values omitted).
-    """
-    for key, sq in list(sub_questions.items()):
-        if sq.get("type") != "perGroup":
-            continue
-        grouped: dict[str, dict] = {}
-        for group_id_str, info in sq["values"].items():
-            answer = info["name"]
-            entry = grouped.setdefault(answer, {"count": 0, "scoutGroups": []})
-            entry["count"] += 1
-            entry["scoutGroups"].append({"id": int(group_id_str), "name": info["scoutGroupName"]})
-
-        for entry in grouped.values():
-            entry["scoutGroups"].sort(key=lambda g: g["name"].casefold())
-
-        sub_questions[key] = {"groupedByAnswer": grouped}
-
-
 @require_fresh_cache
 async def get_group_summary(project_id: int, group_id: int | list[int] | None) -> dict | None:
     """
     Aggregate stats across the requested groups and return a summary.
-    Mirrors the client-side logic previously in useScoutGroupData.js.
     """
     if not (project := _project_cache.projects.get(project_id)):
         return None
@@ -394,26 +329,24 @@ async def get_group_summary(project_id: int, group_id: int | list[int] | None) -
         return None
 
     total_participants = 0
-    stats: dict[str, dict] = {}  # category_name -> {sub_question_key -> sub_question}
-
+    stats: dict = {}
     for gid in group_id:
         group = project.groups[gid]
         total_participants += group.num_participants
+        for cat, cat_data in group.aggregated.items():
+            acc = stats.setdefault(cat, {})
+            for key, val in cat_data.items():
+                if isinstance(val, (int, float)):
+                    acc[key] = acc.get(key, 0) + val
+                elif isinstance(val, dict):
+                    key_acc = acc.setdefault(key, {})
+                    for k, v in val.items():
+                        key_acc[k] = key_acc.get(k, 0) + v
+                elif isinstance(val, list):
+                    acc.setdefault(key, []).extend(val)
 
-        for category_name, category_data in group.aggregated.items():
-            if not isinstance(category_data, dict):
-                continue
-            sub_questions = stats.setdefault(category_name, {})
-            _aggregate_category(category_data, sub_questions, group)
+    return {"total_participants": total_participants, "num_groups": len(group_id), "stats": stats}
 
-    for sub_questions in stats.values():
-        _post_process_per_group(sub_questions)
-
-    return {
-        "total_participants": total_participants,
-        "num_groups": len(group_id),
-        "stats": stats,
-    }
 
 @require_fresh_cache
 async def get_individual_responses(project_id: int, member_id: int) -> dict | None:
@@ -436,43 +369,33 @@ async def get_individual_responses(project_id: int, member_id: int) -> dict | No
 
 
 @require_fresh_cache
-async def get_individuals_by_groups(
-    project_id: int, group_id: int | list[int] | None
-) -> list[dict] | None:
+async def get_individuals_by_group(project_id: int, group_id: int) -> list[dict] | None:
     """
-    Return all individuals (with their responses) for the given groups.
-    If group_id is None, all groups in the project are included.
+    Return all individuals (with their responses) for a single group.
     """
     if not (project := _project_cache.projects.get(project_id)):
         return None
-
-    if group_id is None:
-        group_id = list(project.groups.keys())
-    if isinstance(group_id, int):
-        group_id = [group_id]
-    if not all(gid in project.groups for gid in group_id):
+    if not (group := project.groups.get(group_id)):
         return None
 
     results = []
-    for gid in group_id:
-        group = project.groups[gid]
-        for member_no, response in group.individual_answers.items():
-            participant = project.participants.get(member_no)
-            if not participant:
-                continue
-            entry = {
-                "member_no": member_no,
-                "name": participant.get("name", ""),
-                "born": participant.get("born", ""),
-                "group_id": gid,
-                "group_name": group.name,
-                "responses": response,
-            }
-            if participant.get("email"):
-                entry["email"] = participant["email"]
-            if participant.get("mobile"):
-                entry["mobile"] = participant["mobile"]
-            results.append(entry)
+    for member_no, response in group.individual_answers.items():
+        participant = project.participants.get(member_no)
+        if not participant:
+            continue
+        entry = {
+            "member_no": member_no,
+            "name": participant.get("name", ""),
+            "born": participant.get("born", ""),
+            "group_id": group_id,
+            "group_name": group.name,
+            "responses": response,
+        }
+        if participant.get("email"):
+            entry["email"] = participant["email"]
+        if participant.get("mobile"):
+            entry["mobile"] = participant["mobile"]
+        results.append(entry)
 
     return results
 

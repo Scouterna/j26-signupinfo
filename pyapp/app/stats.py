@@ -13,7 +13,7 @@ from .scoutnet import (
     get_group_responses,
     get_group_summary,
     get_individual_responses,
-    get_individuals_by_groups,
+    get_individuals_by_group,
     get_project_groups,
     get_project_questions,
     get_projects_info,
@@ -188,25 +188,24 @@ async def individual_responses(project_id: int, member_id: int, user: AuthUser =
 
 
 @stats_router.get(
-    "/{project_id}/individualinfo",
+    "/{project_id}/individualinfo/group/{group_id}",
     response_model=list[dict],
     status_code=status.HTTP_200_OK,
-    response_description="Individuals info for selected groups",
+    response_description="Individual info for a single group",
 )
-async def individuals_by_groups(
+async def individuals_by_group(
     project_id: int,
-    group_id: list[int] | None = Query(default=None),
+    group_id: int,
     user: AuthUser = Depends(require_auth_user),
 ):
     """
-    Return all individuals (with their responses) for the given groups.
-    If no group_id is given, all groups in the project are included.
+    Return all individuals (with their responses) for a single group.
     """
-    individuals = await get_individuals_by_groups(project_id, group_id)
+    individuals = await get_individuals_by_group(project_id, group_id)
     if individuals is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project or one or more groups not found.",
+            detail="Project or group not found.",
         )
     return individuals
 
