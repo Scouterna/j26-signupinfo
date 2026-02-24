@@ -14,6 +14,31 @@ import {
   GroupedAnswerValues,
 } from "./StatisticPaper.jsx";
 
+/**
+ * Build synthetic stat data for "Deltagare" (num_participants) from selected scout groups.
+ * Maps to the same structure as other stats so SubQuestionValues/GroupedAnswerValues can render it.
+ */
+function buildNumParticipantsStatData(selectedScoutGroups, totalParticipants) {
+  const groupedByAnswer = {};
+  if (selectedScoutGroups.length === 0) {
+    groupedByAnswer["Totalt"] = { count: totalParticipants, scoutGroups: [] };
+  } else {
+    for (const g of selectedScoutGroups) {
+      const count = g.num_participants ?? 0;
+      const label = g.name ?? String(g.id);
+      groupedByAnswer[label] = {
+        count,
+        scoutGroups: [{ id: g.id, name: g.name }],
+      };
+    }
+  }
+  return {
+    subQuestions: {
+      _direct: { groupedByAnswer },
+    },
+  };
+}
+
 export default function StatisticsDashboard({
   numScoutGroupsSelected,
   totalParticipants,
@@ -162,7 +187,13 @@ export default function StatisticsDashboard({
               }}
             >
               {effectiveSelectedStats.map((statName) => {
-                const statData = getStatisticData(statName);
+                const statData =
+                  statName === "num_participants"
+                    ? buildNumParticipantsStatData(
+                        selectedScoutGroups,
+                        totalParticipants
+                      )
+                    : getStatisticData(statName);
                 const { subQuestions } = statData;
                 const allEntries = Object.entries(
                   subQuestions || {}

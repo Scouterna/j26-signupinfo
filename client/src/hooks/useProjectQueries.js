@@ -4,6 +4,9 @@ import { fetchProjects, fetchQuestions, fetchGroups } from '../services/api';
 
 const MANUAL_STATISTICS = ['Kön', 'Avgift'];
 
+/** Built-in table column: participant count per scout group. Shown as chip option. */
+const DELTAGARE_STAT_ID = 'num_participants';
+
 /**
  * Transforms the raw questions response into chip selector data.
  * Preserves section and question IDs for matching with stats/groupinfo endpoints.
@@ -13,11 +16,15 @@ const MANUAL_STATISTICS = ['Kön', 'Avgift'];
  */
 function buildChipData(questionsData) {
   /** @type {string[]} */
-  const statistics = [...MANUAL_STATISTICS];
+  const statistics = [DELTAGARE_STAT_ID, ...MANUAL_STATISTICS];
   /** @type {Record<string, string[]>} */
   const statisticSubQuestions = {};
   /** @type {Record<string, string>} */
-  const sectionIdToText = { Kön: 'Kön', Avgift: 'Avgift' };
+  const sectionIdToText = {
+    [DELTAGARE_STAT_ID]: 'Deltagare',
+    Kön: 'Kön',
+    Avgift: 'Avgift',
+  };
   /** @type {Record<string, string>} */
   const questionIdToText = {};
 

@@ -1,8 +1,18 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
-import { Box } from "@mui/material";
 import {
-  flexRender,
+  Box,
+  IconButton,
+  Tooltip,
+  Dialog,
+  DialogContent,
+  AppBar,
+  Toolbar,
+  Typography,
+} from "@mui/material";
+import FullscreenIcon from "@mui/icons-material/Fullscreen";
+import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
+import {
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
@@ -10,9 +20,6 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { SmartTable } from "./smart-table/SmartTable";
-
-// Default columns to show initially (only basic info)
-const DEFAULT_VISIBLE_COLUMNS = new Set(["name"]);
 
 // Separator for column IDs (using a character unlikely to appear in names)
 const PATH_SEPARATOR = "§";
@@ -153,25 +160,59 @@ function getAllColumnIdsFromHierarchy(hierarchy) {
 }
 
 /**
+ * Resolves a category name (from hierarchy/data) to the stat name used in chip selector.
+ * Hierarchy may use section titles; chip selector uses section IDs.
+ */
+function resolveCategoryToStatName(categoryName, sectionIdToText) {
+  if (!sectionIdToText || typeof sectionIdToText !== "object") return categoryName;
+  for (const [id, text] of Object.entries(sectionIdToText)) {
+    if (text === categoryName) return id;
+  }
+  return categoryName;
+}
+
+/**
+ * Resolves a sub-question name (from hierarchy) to question ID for matching.
+ * Hierarchy may use question text; chip selector uses question IDs.
+ */
+function resolveSubQuestionToId(subName, questionIdToText) {
+  if (!questionIdToText || typeof questionIdToText !== "object") return subName;
+  for (const [id, text] of Object.entries(questionIdToText)) {
+    if (text === subName) return id;
+  }
+  return subName;
+}
+
+/**
  * Gets column IDs that match the chip selector selection.
  * - selectedStatistics: array of stat names (simple stats, no sub-questions)
  * - selectedSubQuestions: { statName: null | string[] } - null = all sub-questions, array = subset
  * - statisticSubQuestions: { statName: string[] } - which stats have sub-questions
+ * - sectionIdToText, questionIdToText: used to resolve hierarchy names (titles) to IDs
  */
 function getColumnIdsFromChipSelection(
   hierarchy,
   selectedStatistics,
   selectedSubQuestions,
-  statisticSubQuestions
+  statisticSubQuestions,
+  sectionIdToText,
+  questionIdToText
 ) {
-  const ids = new Set(["name", "num_participants"]);
+  const ids = new Set(["name"]);
+  if (selectedStatistics.includes("num_participants")) {
+    ids.add("num_participants");
+  }
   const hasSubQuestions = (statName) => statName in statisticSubQuestions;
 
   hierarchy.forEach((category) => {
-    const statName = category.name;
+    const rawStatName = category.name;
+    const statName = resolveCategoryToStatName(rawStatName, sectionIdToText);
     const isSimpleStat =
-      selectedStatistics.includes(statName) && !hasSubQuestions(statName);
-    const isSubStat = statName in selectedSubQuestions;
+      (selectedStatistics.includes(statName) || selectedStatistics.includes(rawStatName)) &&
+      !hasSubQuestions(statName) &&
+      !hasSubQuestions(rawStatName);
+    const isSubStat = statName in selectedSubQuestions || rawStatName in selectedSubQuestions;
+    const effectiveStatName = statName in selectedSubQuestions ? statName : rawStatName;
 
     if (!isSimpleStat && !isSubStat) return;
 
@@ -180,16 +221,20 @@ function getColumnIdsFromChipSelection(
       return;
     }
 
-    // Stat with sub-questions: filter by selected sub-questions
-    const activeSubQs = selectedSubQuestions[statName];
-    const includeChild = (subName) =>
-      activeSubQs === null ||
-      (Array.isArray(activeSubQs) &&
-        (subName === "_direct" || activeSubQs.includes(subName)));
+    // Stat with sub-questions: filter by selected sub-questions (only show what is selected)
+    const activeSubQs = selectedSubQuestions[effectiveStatName];
+    const includeChild = (subName) => {
+      if (activeSubQs === null) return true;
+      if (!Array.isArray(activeSubQs)) return false;
+      const resolvedId = resolveSubQuestionToId(subName, questionIdToText);
+      return subName === "_direct" || activeSubQs.includes(subName) || activeSubQs.includes(resolvedId);
+    };
 
     category.children.forEach((child) => {
       if (child.type === "leaf") {
-        if (includeChild("_direct")) ids.add(child.columnId);
+        // Direct leaves under a category with sub-questions use child.name (question id or text)
+        // to match selected sub-questions; "_direct" is for non-question keys
+        if (includeChild(child.name) || includeChild("_direct")) ids.add(child.columnId);
       } else if (child.type === "branch") {
         if (includeChild(child.name)) {
           getAllLeafIds(child).forEach((id) => ids.add(id));
@@ -504,6 +549,7 @@ function getDisplayName(id, sectionIdToText, questionIdToText) {
  * Creates column definitions for TanStack Table.
  */
 function createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, questionIdToText) {
+  const selectedSet = new Set(selectedColumns);
   const columns = [
     {
       accessorKey: "name",
@@ -512,14 +558,16 @@ function createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, 
       size: 200,
       minSize: 150,
     },
-    {
+  ];
+  if (selectedSet.has("num_participants")) {
+    columns.push({
       accessorKey: "num_participants",
       header: "Deltagare",
       meta: { filterVariant: "range" },
       filterFn: rangeFilterFn,
       size: 200,
-    },
-  ];
+    });
+  }
 
   // Build a map of columnId to display name for headers (resolve IDs via display maps)
   const columnIdToName = new Map();
@@ -588,18 +636,22 @@ export default function ScoutGroupTable({
         hierarchy,
         selectedStatistics,
         selectedSubQuestions,
-        statisticSubQuestions
+        statisticSubQuestions,
+        sectionIdToText,
+        questionIdToText
       ),
     [
       hierarchy,
       selectedStatistics,
       selectedSubQuestions,
       statisticSubQuestions,
+      sectionIdToText,
+      questionIdToText,
     ]
   );
 
-  // Use chip-driven columns for the table (no dropdown override)
-  const selectedColumns = chipDrivenColumns.size > 2 ? chipDrivenColumns : DEFAULT_VISIBLE_COLUMNS;
+  // Use chip-driven columns (always includes "name"; "num_participants" and others when chip-selected)
+  const selectedColumns = chipDrivenColumns;
 
   // Column meta: type (number/string) and unique values for string columns
   const columnMeta = useMemo(
@@ -625,6 +677,9 @@ export default function ScoutGroupTable({
   // Sorting state
   const [sorting, setSorting] = useState([{ id: "name", desc: false }]);
 
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   // Create the table instance
   const table = useReactTable({
     data: rows,
@@ -646,6 +701,21 @@ export default function ScoutGroupTable({
     },
   });
 
+  const tableContent = (
+    <Box
+      sx={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        minHeight: 0,
+        overflow: "hidden",
+      }}
+    >
+      <SmartTable table={table} />
+    </Box>
+  );
+
   return (
     <Box
       sx={{
@@ -660,15 +730,95 @@ export default function ScoutGroupTable({
       <Box
         sx={{
           flex: 1,
-          // border: '1px solid #e0e0e0',
+          display: "flex",
+          flexDirection: "column",
           border: 1,
           borderColor: "grey.300",
           borderRadius: 1,
-          overflow: 'hidden',
+          overflow: "hidden",
         }}
       >
-        <SmartTable table={table} />
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "flex-end",
+            alignItems: "center",
+            px: 1,
+            py: 0.5,
+            borderBottom: 1,
+            borderColor: "grey.200",
+            backgroundColor: "action.hover",
+          }}
+        >
+          <Tooltip title="Visa tabell i helskärm">
+            <IconButton
+              size="small"
+              onClick={() => setIsFullscreen(true)}
+              aria-label="Visa tabell i helskärm"
+            >
+              <FullscreenIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+        {tableContent}
       </Box>
+
+      <Dialog
+        fullScreen
+        open={isFullscreen}
+        onClose={() => setIsFullscreen(false)}
+        sx={{
+          "& .MuiDialog-paper": {
+            display: "flex",
+            flexDirection: "column",
+          },
+        }}
+      >
+        <AppBar
+          position="static"
+          sx={{
+            flexShrink: 0,
+            bgcolor: "#546e7a",
+          }}
+        >
+          <Toolbar>
+            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+              Tabell – kårer och statistik
+            </Typography>
+            <Tooltip title="Avsluta helskärm">
+              <IconButton
+                color="inherit"
+                onClick={() => setIsFullscreen(false)}
+                aria-label="Avsluta helskärm"
+              >
+                <FullscreenExitIcon />
+              </IconButton>
+            </Tooltip>
+          </Toolbar>
+        </AppBar>
+        <DialogContent
+          sx={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            p: 0,
+            minHeight: 0,
+            overflow: "hidden",
+          }}
+        >
+          <Box
+            sx={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              minHeight: 0,
+              overflow: "hidden",
+            }}
+          >
+            {tableContent}
+          </Box>
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }
