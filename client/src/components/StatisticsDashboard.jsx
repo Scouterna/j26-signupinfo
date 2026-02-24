@@ -212,13 +212,20 @@ export default function StatisticsDashboard({
                 // For sub-category stats, filter by selected sub-questions
                 // null = show all, [...] = show subset, undefined = not in map (non-sub stat, show all)
                 const activeSubQs = selectedSubQuestions[statName];
-                const subQuestionEntries =
-                  Array.isArray(activeSubQs)
-                    ? allEntries.filter(
-                        ([name]) =>
-                          name === "_direct" || activeSubQs.includes(name)
-                      )
-                    : allEntries;
+                const subQuestionEntries = Array.isArray(activeSubQs)
+                  ? allEntries
+                      .map(([name, subQ]) => {
+                        if (name === "_direct" && subQ.values) {
+                          const filtered = Object.fromEntries(
+                            Object.entries(subQ.values).filter(([k]) => activeSubQs.includes(k)),
+                          );
+                          if (Object.keys(filtered).length === 0) return null;
+                          return [name, { ...subQ, values: filtered }];
+                        }
+                        return activeSubQs.includes(name) ? [name, subQ] : null;
+                      })
+                      .filter(Boolean)
+                  : allEntries;
 
                 return (
                   <Box

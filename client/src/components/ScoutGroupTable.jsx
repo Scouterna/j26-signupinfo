@@ -227,14 +227,12 @@ function getColumnIdsFromChipSelection(
       if (activeSubQs === null) return true;
       if (!Array.isArray(activeSubQs)) return false;
       const resolvedId = resolveSubQuestionToId(subName, questionIdToText);
-      return subName === "_direct" || activeSubQs.includes(subName) || activeSubQs.includes(resolvedId);
+      return activeSubQs.includes(subName) || activeSubQs.includes(resolvedId);
     };
 
     category.children.forEach((child) => {
       if (child.type === "leaf") {
-        // Direct leaves under a category with sub-questions use child.name (question id or text)
-        // to match selected sub-questions; "_direct" is for non-question keys
-        if (includeChild(child.name) || includeChild("_direct")) ids.add(child.columnId);
+        if (includeChild(child.name)) ids.add(child.columnId);
       } else if (child.type === "branch") {
         if (includeChild(child.name)) {
           getAllLeafIds(child).forEach((id) => ids.add(id));
@@ -295,7 +293,7 @@ function getValueFromPath(stats, columnId) {
   if (current === null || current === undefined) return "";
   if (typeof current === "number") return current;
   if (typeof current === "string") return current;
-  if (Array.isArray(current)) return current.length;
+  if (Array.isArray(current)) return current.join("\n");
   return "";
 }
 
