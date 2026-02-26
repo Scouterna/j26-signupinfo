@@ -436,6 +436,31 @@ async def find_members(project_id: int, name: str, born: str, group: str) -> lis
     return results
 
 
+async def get_question_summary(
+    project_id: int, question_id: int, group_ids: list[int] | None
+) -> dict[int, dict] | None:
+    """
+    Return ....
+    """
+    if not (project := _project_cache.projects.get(project_id)):
+        return None
+
+    if not group_ids:
+        group_ids = list(project.groups)  # All groups
+
+    res = {}
+    for gid in group_ids:
+        if not (group := project.groups.get(gid)):
+            return None  # Non existing group!
+        resp = group.group_answers.get(str(question_id), group.individual_answers.get(str(question_id)))
+        if resp:
+            if resp not in res:
+                res[resp] = []
+            res[resp].append(gid)
+
+    return {question_id: res}
+
+
 # --- API routes ---
 
 scoutnet_router = APIRouter(prefix="/scoutnet", tags=["Scoutnet"])
