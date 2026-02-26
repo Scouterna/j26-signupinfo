@@ -278,7 +278,7 @@ async def get_project_groups(project_id: int) -> dict | None:
     """Return project groups"""
     if not (project := _project_cache.projects.get(project_id)):
         return None
-    groups = {p.name: p.id for p in sorted(project.groups.values(), key=lambda g: g.name.lower())}
+    groups = {p.id: p.name for p in sorted(project.groups.values(), key=lambda g: g.name.lower())}
     return groups
 
 
@@ -314,6 +314,45 @@ async def get_group_responses(project_id: int, group_id: int | list[int] | None)
 
 
 @require_fresh_cache
+async def get_group_summary(project_id: int, group_id: int | list[int] | None) -> dict | None:
+    """
+    Aggregate stats across the requested groups and return a summary.
+    """
+    if not (project := _project_cache.projects.get(project_id)):
+        return None
+
+    if group_id is None:
+        group_id = list(project.groups.keys())
+    if isinstance(group_id, int):
+        group_id = [group_id]
+    group_id = list(dict.fromkeys(group_id))  # deduplicate, preserving order
+    if not all(gid in project.groups for gid in group_id):
+        return None
+
+    total_participants = 0
+    stats: dict = {}
+    for gid in group_id:
+        group = project.groups[gid]
+        total_participants += group.num_participants
+        for cat, cat_data in group.aggregated.items():
+            acc = stats.setdefault(cat, {})
+            for key, val in cat_data.items():
+                if isinstance(val, (int, float)) and not isinstance(val, bool):
+                    acc[key] = acc.get(key, 0) + val
+                elif isinstance(val, dict):
+                    key_acc = acc.setdefault(key, {})
+                    for k, v in val.items():
+                        key_acc[k] = key_acc.get(k, 0) + v
+                elif isinstance(val, list):
+                    acc.setdefault(key, []).extend(val)
+                elif isinstance(val, (str, bool)):
+                    key_acc = acc.setdefault(key, {})
+                    key_acc[val] = key_acc.get(val, 0) + 1
+
+    return {"total_participants": total_participants, "num_groups": len(group_id), "stats": stats}
+
+
+@require_fresh_cache
 async def get_individual_responses(project_id: int, member_id: int) -> dict | None:
     """
     Returns an individuals response to questions.
@@ -331,6 +370,38 @@ async def get_individual_responses(project_id: int, member_id: int) -> dict | No
         return None  # Data integrity error in scoutnet_forms
 
     return response
+
+
+@require_fresh_cache
+async def get_individuals_by_group(project_id: int, group_id: int) -> list[dict] | None:
+    """
+    Return all individuals (with their responses) for a single group.
+    """
+    if not (project := _project_cache.projects.get(project_id)):
+        return None
+    if not (group := project.groups.get(group_id)):
+        return None
+
+    results = []
+    for member_no, response in group.individual_answers.items():
+        participant = project.participants.get(member_no)
+        if not participant:
+            continue
+        entry = {
+            "member_no": member_no,
+            "name": participant.get("name", ""),
+            "born": participant.get("born", ""),
+            "group_id": group_id,
+            "group_name": group.name,
+            "responses": response,
+        }
+        if participant.get("email"):
+            entry["email"] = participant["email"]
+        if participant.get("mobile"):
+            entry["mobile"] = participant["mobile"]
+        results.append(entry)
+
+    return results
 
 
 @require_fresh_cache
@@ -363,6 +434,31 @@ async def find_members(project_id: int, name: str, born: str, group: str) -> lis
         results.append(result)
 
     return results
+
+
+async def get_question_summary(
+    project_id: int, question_id: int, group_ids: list[int] | None
+) -> dict[int, dict] | None:
+    """
+    Return ....
+    """
+    if not (project := _project_cache.projects.get(project_id)):
+        return None
+
+    if not group_ids:
+        group_ids = list(project.groups)  # All groups
+
+    res = {}
+    for gid in group_ids:
+        if not (group := project.groups.get(gid)):
+            return None  # Non existing group!
+        resp = group.group_answers.get(str(question_id), group.individual_answers.get(str(question_id)))
+        if resp:
+            if resp not in res:
+                res[resp] = []
+            res[resp].append(gid)
+
+    return {question_id: res}
 
 
 # --- API routes ---
