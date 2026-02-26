@@ -4,21 +4,25 @@ import GroupsIcon from "@mui/icons-material/Groups";
 import PeopleIcon from "@mui/icons-material/People";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import BarChartIcon from "@mui/icons-material/BarChart";
-import PropTypes from "prop-types";
 
 import HeroMetric from "./HeroMetric.jsx";
 import StatisticChipSelector from "./StatisticChipSelector.jsx";
 import ScoutGroupTable from "./ScoutGroupTable.jsx";
 import {
   SubQuestionValues,
-  GroupedAnswerValues,
 } from "./StatisticPaper.jsx";
 
 /**
+ * @typedef {{ id: number | string, name: string, num_participants?: number, stats?: Record<string, any> }} ScoutGroupItem
+ */
+
+/**
  * Build synthetic stat data for "Deltagare" (num_participants) from selected scout groups.
- * Maps to the same structure as other stats so SubQuestionValues/GroupedAnswerValues can render it.
+ * @param {ScoutGroupItem[]} selectedScoutGroups
+ * @param {number} totalParticipants
  */
 function buildNumParticipantsStatData(selectedScoutGroups, totalParticipants) {
+  /** @type {Record<string, { count: number, scoutGroups: { id: number | string, name: string }[] }>} */
   const groupedByAnswer = {};
   if (selectedScoutGroups.length === 0) {
     groupedByAnswer["Totalt"] = { count: totalParticipants, scoutGroups: [] };
@@ -39,6 +43,20 @@ function buildNumParticipantsStatData(selectedScoutGroups, totalParticipants) {
   };
 }
 
+/**
+ * @param {object} props
+ * @param {number} props.numScoutGroupsSelected
+ * @param {number} props.totalParticipants
+ * @param {string[]} props.statistics
+ * @param {Record<string, string[]>} [props.statisticSubQuestions]
+ * @param {Record<string, string>} [props.sectionIdToText]
+ * @param {Record<string, string>} [props.questionIdToText]
+ * @param {string[]} props.selectedStatistics
+ * @param {(stats: string[]) => void} props.setSelectedStatistics
+ * @param {(name: string) => { subQuestions: Record<string, any> }} props.getStatisticData
+ * @param {ScoutGroupItem[]} props.selectedScoutGroups
+ * @param {((ids: number[], answerName: string) => void)} [props.onReplaceSelection]
+ */
 export default function StatisticsDashboard({
   numScoutGroupsSelected,
   totalParticipants,
@@ -53,10 +71,11 @@ export default function StatisticsDashboard({
   onReplaceSelection,
 }) {
   const [viewMode, setViewMode] = useState("statistics");
-  const [selectedSubQuestions, setSelectedSubQuestions] = useState({});
+  const [selectedSubQuestions, setSelectedSubQuestions] = useState(
+    /** @type {Record<string, string[] | null>} */ ({})
+  );
 
-  // undefined = remove entry (deselect), null = all sub-questions, [...] = specific subset
-  const handleSubQuestionToggle = useCallback((statName, subQuestionNames) => {
+  const handleSubQuestionToggle = useCallback((/** @type {string} */ statName, /** @type {string[] | null | undefined} */ subQuestionNames) => {
     setSelectedSubQuestions((prev) => {
       const next = { ...prev };
       if (subQuestionNames === undefined) {
@@ -77,7 +96,6 @@ export default function StatisticsDashboard({
     [sectionIdToText, questionIdToText]
   );
 
-  // Combine non-sub stats from selectedStatistics + sub-category stats from selectedSubQuestions
   const effectiveSelectedStats = useMemo(() => {
     const nonSubSelected = selectedStatistics.filter(
       (s) => !(s in statisticSubQuestions)
@@ -86,7 +104,7 @@ export default function StatisticsDashboard({
     return [...nonSubSelected, ...subSelected];
   }, [selectedStatistics, selectedSubQuestions, statisticSubQuestions]);
 
-  const handleViewModeChange = (event, newMode) => {
+  const handleViewModeChange = (/** @type {any} */ _event, /** @type {string | null} */ newMode) => {
     if (newMode !== null) {
       setViewMode(newMode);
     }
@@ -99,7 +117,7 @@ export default function StatisticsDashboard({
         flexDirection: "column",
         gap: 3,
         width: "100%",
-        minHeight: 0, // Fixes overflow issues when a child like ScoutGroupTable tries to use 100% height of parent
+        minHeight: 0,
       }}
     >
       {/* Page Title + View Toggle */}
@@ -155,7 +173,7 @@ export default function StatisticsDashboard({
         />
       </Box>
 
-      {/* Statistic Chip Selector - shown for both statistics and table view */}
+      {/* Statistic Chip Selector */}
       <Box
         sx={{
           padding: "16px 20px",
@@ -178,7 +196,7 @@ export default function StatisticsDashboard({
       {/* Statistics view */}
       {viewMode === "statistics" && (
         <>
-          {/* Selected Statistics Cards - StatisticPaper logic, StatisticCard styling */}
+          {/* Selected Statistics Cards */}
           {effectiveSelectedStats.length > 0 ? (
             <Box
               sx={{
@@ -206,11 +224,9 @@ export default function StatisticsDashboard({
                     (v) =>
                       v.freeTextAnswers && v.freeTextAnswers.length > 0
                   );
-                  return aHasFreeText - bHasFreeText;
+                  return Number(aHasFreeText) - Number(bHasFreeText);
                 });
 
-                // For sub-category stats, filter by selected sub-questions
-                // null = show all, [...] = show subset, undefined = not in map (non-sub stat, show all)
                 const activeSubQs = selectedSubQuestions[statName];
                 const subQuestionEntries = Array.isArray(activeSubQs)
                   ? allEntries
@@ -260,7 +276,7 @@ export default function StatisticsDashboard({
                         }}
                       >
                         {subQuestionEntries.map(
-                          ([subQuestionName, subQuestion]) => {
+                          (/** @type {any} */ [subQuestionName, subQuestion]) => {
                             const showHeader = subQuestionName !== "_direct";
                             return (
                               <Box key={subQuestionName}>
@@ -345,24 +361,3 @@ export default function StatisticsDashboard({
     </Box>
   );
 }
-
-StatisticsDashboard.propTypes = {
-  numScoutGroupsSelected: PropTypes.number.isRequired,
-  totalParticipants: PropTypes.number.isRequired,
-  statistics: PropTypes.arrayOf(PropTypes.string).isRequired,
-  statisticSubQuestions: PropTypes.objectOf(PropTypes.arrayOf(PropTypes.string)),
-  sectionIdToText: PropTypes.objectOf(PropTypes.string),
-  questionIdToText: PropTypes.objectOf(PropTypes.string),
-  selectedStatistics: PropTypes.arrayOf(PropTypes.string).isRequired,
-  setSelectedStatistics: PropTypes.func.isRequired,
-  getStatisticData: PropTypes.func.isRequired,
-  selectedScoutGroups: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
-      name: PropTypes.string.isRequired,
-      num_participants: PropTypes.number,
-      stats: PropTypes.object,
-    })
-  ).isRequired,
-  onReplaceSelection: PropTypes.func,
-};

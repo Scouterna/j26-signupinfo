@@ -1,4 +1,3 @@
-import PropTypes from "prop-types";
 import {
   ListItem,
   ListItemButton,
@@ -8,6 +7,13 @@ import {
 } from "@mui/material";
 import { SELECTION_TYPES } from "../constants/selectionTypes";
 
+/**
+ * @param {object} props
+ * @param {{ id: string | number, name: string }} props.scoutGroup
+ * @param {Set<string | number>} props.selectedScoutGroupIds
+ * @param {(type: string, id: string | number) => void} props.handleSelection
+ * @param {string | string[]} [props.selectionChoiceLabel]
+ */
 export default function ScoutGroupListItem({
   scoutGroup,
   selectedScoutGroupIds,
@@ -40,20 +46,3 @@ export default function ScoutGroupListItem({
     </ListItem>
   );
 }
-
-ScoutGroupListItem.propTypes = {
-  /** Scout group object with id and name */
-  scoutGroup: PropTypes.shape({
-    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-    name: PropTypes.string.isRequired,
-  }).isRequired,
-  /** Set of currently selected scout group IDs */
-  selectedScoutGroupIds: PropTypes.instanceOf(Set).isRequired,
-  /** Handler for selection changes */
-  handleSelection: PropTypes.func.isRequired,
-  /** When set, selected items get a yellow tint (selection via "Välj dessa kårer") */
-  selectionChoiceLabel: PropTypes.oneOfType([
-    PropTypes.string,
-    PropTypes.arrayOf(PropTypes.string),
-  ]),
-};

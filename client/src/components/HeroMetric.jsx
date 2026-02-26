@@ -1,6 +1,12 @@
 import { Box, Typography } from "@mui/material";
-import PropTypes from "prop-types";
 
+/**
+ * @param {object} props
+ * @param {import('react').ReactNode} [props.icon]
+ * @param {string} props.label
+ * @param {string | number} props.value
+ * @param {"primary" | "secondary"} [props.emphasis]
+ */
 export default function HeroMetric({ icon, label, value, emphasis = "primary" }) {
   const bgColor = emphasis === "primary" 
     ? "rgba(25, 118, 210, 0.08)" 
@@ -56,10 +62,3 @@ export default function HeroMetric({ icon, label, value, emphasis = "primary" })
     </Box>
   );
 }
-
-HeroMetric.propTypes = {
-  icon: PropTypes.node,
-  label: PropTypes.string.isRequired,
-  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-  emphasis: PropTypes.oneOf(["primary", "secondary"]),
-};

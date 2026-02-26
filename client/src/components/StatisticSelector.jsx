@@ -1,4 +1,3 @@
-import PropTypes from "prop-types";
 import {
   Box,
   Typography,
@@ -11,6 +10,13 @@ import {
   OutlinedInput,
 } from "@mui/material";
 
+/**
+ * @param {object} props
+ * @param {string} props.title
+ * @param {string[]} props.value
+ * @param {string[]} props.options
+ * @param {(event: import('react').ChangeEvent) => void} props.onChange
+ */
 export default function StatisticSelector({ title, value, options, onChange }) {
   const numSelected = value.length;
 
@@ -49,10 +55,3 @@ export default function StatisticSelector({ title, value, options, onChange }) {
     </Box>
   );
 }
-
-StatisticSelector.propTypes = {
-  title: PropTypes.string.isRequired,
-  value: PropTypes.arrayOf(PropTypes.string).isRequired,
-  options: PropTypes.arrayOf(PropTypes.string).isRequired,
-  onChange: PropTypes.func.isRequired,
-};

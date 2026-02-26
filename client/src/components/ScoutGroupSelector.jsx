@@ -15,13 +15,29 @@ import CloseIcon from "@mui/icons-material/Close";
 import SearchField from "./SearchField.jsx";
 import VillageListItem from "./VillageListItem.jsx";
 import ScoutGroupListItem from "./ScoutGroupListItem.jsx";
-import PropTypes from "prop-types";
 
 const DRAWER_WIDTH = 340;
 
 /**
+ * @typedef {{ id: string | number, name: string }} ScoutGroup
+ * @typedef {{ id: string | number, name: string, ScoutGroups: ScoutGroup[] }} Village
+ */
+
+/**
  * Content displayed inside the drawer.
- * Extracted for reusability and cleaner code.
+ * @param {object} props
+ * @param {Village[]} props.filteredVillages
+ * @param {Set<string | number>} props.selectedScoutGroupIds
+ * @param {string | string[] | null} [props.selectionChoiceLabel]
+ * @param {Set<string | number>} props.expandedVillageIds
+ * @param {string} props.searchTerm
+ * @param {(term: string) => void} props.setSearchTerm
+ * @param {(type: string, id: string | number) => void} props.handleSelection
+ * @param {(id: string | number) => void} props.toggleVillageExpansion
+ * @param {() => void} props.clearSelection
+ * @param {() => void} props.selectAll
+ * @param {() => void} [props.onClose]
+ * @param {boolean} [props.showCloseButton]
  */
 function DrawerContent({
   filteredVillages,
@@ -39,7 +55,6 @@ function DrawerContent({
 }) {
   const parentRef = useRef(null);
 
-  // Flatten villages and their scout groups into a single virtualized list
   const flattenedItems = [];
   
   filteredVillages.forEach((village) => {
@@ -54,9 +69,8 @@ function DrawerContent({
       selectedInVillage.length > 0 && !isAllSelected;
     const isExpanded = expandedVillageIds.has(village.id);
 
-    // Add village header
     flattenedItems.push({
-      type: 'village',
+      type: /** @type {const} */ ('village'),
       id: `village-${village.id}`,
       village,
       isAllSelected,
@@ -64,11 +78,10 @@ function DrawerContent({
       isExpanded,
     });
 
-    // Add scout groups if expanded
     if (isExpanded) {
       village.ScoutGroups.forEach((scoutGroup) => {
         flattenedItems.push({
-          type: 'scoutGroup',
+          type: /** @type {const} */ ('scoutGroup'),
           id: `scoutGroup-${scoutGroup.id}`,
           scoutGroup,
           villageId: village.id,
@@ -81,7 +94,6 @@ function DrawerContent({
     count: flattenedItems.length,
     getScrollElement: () => parentRef.current,
     estimateSize: (index) => {
-      // Villages are taller than scout groups
       return flattenedItems[index].type === 'village' ? 64 : 48;
     },
     overscan: 10,
@@ -124,7 +136,7 @@ function DrawerContent({
         </Box>
       </Box>
 
-      {/* Selection choice label - discreet, only when filtered by answer */}
+      {/* Selection choice label */}
       {selectionChoiceLabel && (() => {
         const labels = Array.isArray(selectionChoiceLabel)
           ? selectionChoiceLabel
@@ -228,6 +240,20 @@ function DrawerContent({
  * Responsive drawer for selecting scout groups.
  * - Persistent on large screens (lg and up)
  * - Temporary (overlay) on smaller screens
+ *
+ * @param {object} props
+ * @param {Village[]} [props.filteredVillages]
+ * @param {Set<string | number>} [props.selectedScoutGroupIds]
+ * @param {string | string[] | null} [props.selectionChoiceLabel]
+ * @param {Set<string | number>} [props.expandedVillageIds]
+ * @param {string} [props.searchTerm]
+ * @param {(term: string) => void} [props.setSearchTerm]
+ * @param {(type: string, id: string | number) => void} [props.handleSelection]
+ * @param {(id: string | number) => void} [props.toggleVillageExpansion]
+ * @param {() => void} [props.clearSelection]
+ * @param {() => void} [props.selectAll]
+ * @param {boolean} [props.isDrawerOpen]
+ * @param {() => void} [props.toggleDrawer]
  */
 export default function ScoutGroupSelector({
   filteredVillages = [],
@@ -263,7 +289,6 @@ export default function ScoutGroupSelector({
     />
   );
 
-  // Persistent drawer for large screens
   if (isLargeScreen) {
     return (
       <Drawer
@@ -285,7 +310,6 @@ export default function ScoutGroupSelector({
     );
   }
 
-  // Temporary drawer for smaller screens
   return (
     <Drawer
       variant="temporary"
@@ -306,7 +330,9 @@ export default function ScoutGroupSelector({
 
 /**
  * Button to open the drawer on mobile screens.
- * Should be rendered in the app bar or header on small screens.
+ * @param {object} props
+ * @param {() => void} props.onClick
+ * @param {number} [props.selectedCount]
  */
 export function DrawerToggleButton({ onClick, selectedCount = 0 }) {
   const theme = useTheme();
@@ -348,44 +374,3 @@ export function DrawerToggleButton({ onClick, selectedCount = 0 }) {
     </IconButton>
   );
 }
-
-ScoutGroupSelector.propTypes = {
-  /** Filtered list of villages based on search term */
-  filteredVillages: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-      name: PropTypes.string.isRequired,
-      ScoutGroups: PropTypes.arrayOf(
-        PropTypes.shape({
-          id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-          name: PropTypes.string.isRequired,
-        })
-      ).isRequired,
-    })
-  ),
-  /** Set of currently selected scout group IDs */
-  selectedScoutGroupIds: PropTypes.instanceOf(Set).isRequired,
-  /** Label(s) when selection was narrowed via "Välj dessa kårer" (e.g. "Ja" or ["Charterbuss", "00:00"]) */
-  selectionChoiceLabel: PropTypes.oneOfType([
-    PropTypes.string,
-    PropTypes.arrayOf(PropTypes.string),
-  ]),
-  /** Set of currently expanded village IDs */
-  expandedVillageIds: PropTypes.instanceOf(Set).isRequired,
-  /** Current search term */
-  searchTerm: PropTypes.string,
-  /** Function to update search term */
-  setSearchTerm: PropTypes.func,
-  /** Handler for selection changes */
-  handleSelection: PropTypes.func,
-  /** Handler to toggle village expansion */
-  toggleVillageExpansion: PropTypes.func,
-  /** Handler to clear all selections */
-  clearSelection: PropTypes.func,
-  /** Handler to select all (filtered) scout groups */
-  selectAll: PropTypes.func,
-  /** Whether the drawer is open (mobile) */
-  isDrawerOpen: PropTypes.bool,
-  /** Handler to toggle drawer state */
-  toggleDrawer: PropTypes.func,
-};

@@ -1,8 +1,16 @@
 import { useState } from "react";
 import { Box, Typography, Collapse, IconButton, Chip } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import PropTypes from "prop-types";
 
+/**
+ * @typedef {{ text: string, num_answers: number }} Answer
+ */
+
+/**
+ * @param {object} props
+ * @param {Answer[]} props.answers
+ * @param {string} [props.parentLabel]
+ */
 export default function ExpandableAnswers({ answers, parentLabel }) {
   const [expanded, setExpanded] = useState(false);
   const totalAnswers = answers.reduce((sum, a) => sum + a.num_answers, 0);
@@ -100,13 +108,3 @@ export default function ExpandableAnswers({ answers, parentLabel }) {
     </Box>
   );
 }
-
-ExpandableAnswers.propTypes = {
-  answers: PropTypes.arrayOf(
-    PropTypes.shape({
-      text: PropTypes.string.isRequired,
-      num_answers: PropTypes.number.isRequired,
-    })
-  ).isRequired,
-  parentLabel: PropTypes.string,
-};

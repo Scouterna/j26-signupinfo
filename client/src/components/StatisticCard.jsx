@@ -1,10 +1,13 @@
 import { Box, Typography, Paper } from "@mui/material";
-import PropTypes from "prop-types";
 import StatRow from "./StatRow.jsx";
 import ExpandableAnswers from "./ExpandableAnswers.jsx";
 
+/**
+ * @param {object} props
+ * @param {string} props.title
+ * @param {Record<string, { name?: string, scoutGroupName?: string, count?: number, free_text_answers?: Array<{ text: string, num_answers: number }> }>} props.data
+ */
 export default function StatisticCard({ title, data }) {
-  // Calculate total for percentage bars
   const entries = Object.entries(data);
   const total = entries.reduce((sum, [, item]) => {
     const count = Number.isFinite(item.count) ? item.count : 0;
@@ -60,8 +63,3 @@ export default function StatisticCard({ title, data }) {
     </Paper>
   );
 }
-
-StatisticCard.propTypes = {
-  title: PropTypes.string.isRequired,
-  data: PropTypes.object.isRequired,
-};

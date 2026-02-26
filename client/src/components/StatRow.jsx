@@ -1,6 +1,12 @@
 import { Box, Typography } from "@mui/material";
-import PropTypes from "prop-types";
 
+/**
+ * @param {object} props
+ * @param {string} props.label
+ * @param {number} props.value
+ * @param {number} props.total
+ * @param {boolean} [props.showPercentage]
+ */
 export default function StatRow({ label, value, total, showPercentage = false }) {
   const percentage = total > 0 ? (value / total) * 100 : 0;
   const displayValue = showPercentage 
@@ -63,10 +69,3 @@ export default function StatRow({ label, value, total, showPercentage = false })
     </Box>
   );
 }
-
-StatRow.propTypes = {
-  label: PropTypes.string.isRequired,
-  value: PropTypes.number.isRequired,
-  total: PropTypes.number.isRequired,
-  showPercentage: PropTypes.bool,
-};

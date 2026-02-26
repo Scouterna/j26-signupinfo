@@ -1,5 +1,4 @@
 import { useState } from "react";
-import PropTypes from "prop-types";
 import {
   Box,
   Paper,
@@ -21,11 +20,20 @@ import ScoutGroupTable from "./ScoutGroupTable.jsx";
 import StatRow from "./StatRow.jsx";
 
 /**
+ * @typedef {{ id: number, name: string }} GroupRef
+ * @typedef {{ count: number, scoutGroups: GroupRef[] }} GroupedAnswer
+ * @typedef {{ text: string, num_answers: number }} FreeTextItem
+ * @typedef {{ name?: string, count?: number, freeTextAnswers?: (string | FreeTextItem)[] }} SubQuestionValue
+ * @typedef {{ type?: "answers" | "perGroup", values?: Record<string, SubQuestionValue>, groupedByAnswer?: Record<string, GroupedAnswer> }} SubQuestion
+ */
+
+/**
  * Renders grouped answer values with expandable scout group lists.
- * Used for perGroup type subQuestions (single-answer questions).
- * @param {boolean} useStatRow - When true, use StatRow with percentage bars (no-papers styling)
- * @param {function} onSelectByAnswer - When provided, enables "Välj dessa kårer" for each answer
- * @param {Object} idToDisplayText - Map of ID -> display text for resolving choice/answer IDs
+ * @param {object} props
+ * @param {Record<string, GroupedAnswer>} props.groupedByAnswer
+ * @param {boolean} [props.useStatRow]
+ * @param {((ids: number[], answerName: string) => void)} [props.onSelectByAnswer]
+ * @param {Record<string, string>} [props.idToDisplayText]
  */
 function GroupedAnswerValues({
   groupedByAnswer,
@@ -43,7 +51,6 @@ function GroupedAnswerValues({
     }));
   };
 
-  // Sort answers by count (descending), then alphabetically
   const sortedEntries = Object.entries(groupedByAnswer).sort((a, b) => {
     const countDiff = b[1].count - a[1].count;
     if (countDiff !== 0) return countDiff;
@@ -175,28 +182,13 @@ function GroupedAnswerValues({
   );
 }
 
-GroupedAnswerValues.propTypes = {
-  groupedByAnswer: PropTypes.objectOf(
-    PropTypes.shape({
-      count: PropTypes.number.isRequired,
-      scoutGroups: PropTypes.arrayOf(
-        PropTypes.shape({
-          id: PropTypes.number.isRequired,
-          name: PropTypes.string.isRequired,
-        })
-      ).isRequired,
-    })
-  ).isRequired,
-  useStatRow: PropTypes.bool,
-  onSelectByAnswer: PropTypes.func,
-  idToDisplayText: PropTypes.objectOf(PropTypes.string),
-};
-
 /**
  * Renders values for a sub-question section.
- * @param {boolean} useStatRow - When true, use StatRow with percentage bars (no-papers styling)
- * @param {function} onSelectByAnswer - When provided, enables "Välj dessa kårer" for perGroup answers
- * @param {Object} idToDisplayText - Map of ID -> display text for resolving choice/answer IDs
+ * @param {object} props
+ * @param {SubQuestion} props.subQuestion
+ * @param {boolean} [props.useStatRow]
+ * @param {((ids: number[], answerName: string) => void)} [props.onSelectByAnswer]
+ * @param {Record<string, string>} [props.idToDisplayText]
  */
 function SubQuestionValues({ subQuestion, useStatRow = false, onSelectByAnswer, idToDisplayText = {} }) {
   const { values, groupedByAnswer } = subQuestion;
@@ -210,7 +202,6 @@ function SubQuestionValues({ subQuestion, useStatRow = false, onSelectByAnswer, 
     }));
   };
 
-  // When groupedByAnswer is present, use the grouped view (perGroup questions)
   if (groupedByAnswer) {
     return (
       <GroupedAnswerValues
@@ -222,7 +213,6 @@ function SubQuestionValues({ subQuestion, useStatRow = false, onSelectByAnswer, 
     );
   }
 
-  // Default rendering for answers type
   const entries = Object.entries(values || {});
   const total = entries.reduce(
     (sum, [, v]) => sum + (Number.isFinite(v.count) ? v.count : 0),
@@ -352,29 +342,22 @@ function SubQuestionValues({ subQuestion, useStatRow = false, onSelectByAnswer, 
   );
 }
 
-SubQuestionValues.propTypes = {
-  subQuestion: PropTypes.shape({
-    type: PropTypes.oneOf(["answers", "perGroup"]),
-    values: PropTypes.object,
-    groupedByAnswer: PropTypes.objectOf(
-      PropTypes.shape({
-        count: PropTypes.number.isRequired,
-        scoutGroups: PropTypes.arrayOf(
-          PropTypes.shape({
-            id: PropTypes.number.isRequired,
-            name: PropTypes.string.isRequired,
-          })
-        ).isRequired,
-      })
-    ),
-  }).isRequired,
-  useStatRow: PropTypes.bool,
-  onSelectByAnswer: PropTypes.func,
-  idToDisplayText: PropTypes.objectOf(PropTypes.string),
-};
-
 export { SubQuestionValues, GroupedAnswerValues };
 
+/**
+ * @typedef {{ id: number, name: string, num_participants?: number, stats?: Record<string, any> }} ScoutGroupItem
+ */
+
+/**
+ * @param {object} props
+ * @param {number} props.numScoutGroupsSelected
+ * @param {number} props.totalParticipants
+ * @param {string[]} props.statistics
+ * @param {string[]} props.selectedStatistics
+ * @param {(stats: string[]) => void} props.setSelectedStatistics
+ * @param {(name: string) => { subQuestions: Record<string, SubQuestion> }} props.getStatisticData
+ * @param {ScoutGroupItem[]} props.selectedScoutGroups
+ */
 export default function StatisticPaper({
   numScoutGroupsSelected,
   totalParticipants,
@@ -384,7 +367,7 @@ export default function StatisticPaper({
   getStatisticData,
   selectedScoutGroups,
 }) {
-  const [viewMode, setViewMode] = useState("statistics"); // "statistics" or "table"
+  const [viewMode, setViewMode] = useState("statistics");
 
   const handleStatisticChange = (event) => {
     const {
@@ -491,7 +474,6 @@ export default function StatisticPaper({
               {selectedStatistics.map((statName) => {
                 const statData = getStatisticData(statName);
                 const { subQuestions } = statData;
-                // Sort sub-questions: those with free text answers go to the bottom
                 const subQuestionEntries = Object.entries(subQuestions || {}).sort(
                   ([, a], [, b]) => {
                     const aHasFreeText = Object.values(a.values || {}).some(
@@ -500,7 +482,6 @@ export default function StatisticPaper({
                     const bHasFreeText = Object.values(b.values || {}).some(
                       (v) => v.freeTextAnswers && v.freeTextAnswers.length > 0
                     );
-                    // Items without free text come first (false < true)
                     return aHasFreeText - bHasFreeText;
                   }
                 );
@@ -533,7 +514,6 @@ export default function StatisticPaper({
                     ) : (
                       <Box sx={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                         {subQuestionEntries.map(([subQuestionName, subQuestion]) => {
-                          // "_direct" means direct values without a sub-question header
                           const showHeader = subQuestionName !== "_direct";
 
                           return (
@@ -577,20 +557,3 @@ export default function StatisticPaper({
     </Paper>
   );
 }
-
-StatisticPaper.propTypes = {
-  numScoutGroupsSelected: PropTypes.number.isRequired,
-  totalParticipants: PropTypes.number.isRequired,
-  statistics: PropTypes.arrayOf(PropTypes.string).isRequired,
-  selectedStatistics: PropTypes.arrayOf(PropTypes.string).isRequired,
-  setSelectedStatistics: PropTypes.func.isRequired,
-  getStatisticData: PropTypes.func.isRequired,
-  selectedScoutGroups: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.number.isRequired,
-      name: PropTypes.string.isRequired,
-      num_participants: PropTypes.number,
-      stats: PropTypes.object,
-    })
-  ).isRequired,
-};

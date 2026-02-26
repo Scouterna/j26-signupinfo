@@ -1,4 +1,3 @@
-import PropTypes from "prop-types";
 import {
   ListItem,
   ListItemButton,
@@ -12,6 +11,23 @@ import ExpandCollapseButton from "./ExpandCollapseButton";
 import ScoutGroupListItem from "./ScoutGroupListItem";
 import { SELECTION_TYPES } from "../constants/selectionTypes";
 
+/**
+ * @typedef {{ id: string | number, name: string }} ScoutGroup
+ * @typedef {{ id: string | number, name: string, ScoutGroups: ScoutGroup[] }} Village
+ */
+
+/**
+ * @param {object} props
+ * @param {Village} props.village
+ * @param {boolean} props.isAllSelected
+ * @param {boolean} props.isPartiallySelected
+ * @param {boolean} props.isExpanded
+ * @param {(id: string | number) => void} props.toggleVillageExpansion
+ * @param {(type: string, id: string | number) => void} props.handleSelection
+ * @param {Set<string | number>} props.selectedScoutGroupIds
+ * @param {boolean} [props.renderChildrenExternally]
+ * @param {string | string[]} [props.selectionChoiceLabel]
+ */
 export default function VillageListItem({
   village,
   isAllSelected,
@@ -88,36 +104,3 @@ export default function VillageListItem({
     </>
   );
 }
-
-VillageListItem.propTypes = {
-  /** Village object with id, name, and ScoutGroups array */
-  village: PropTypes.shape({
-    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-    name: PropTypes.string.isRequired,
-    ScoutGroups: PropTypes.arrayOf(
-      PropTypes.shape({
-        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-        name: PropTypes.string.isRequired,
-      })
-    ).isRequired,
-  }).isRequired,
-  /** Whether all scout groups in this village are selected */
-  isAllSelected: PropTypes.bool.isRequired,
-  /** Whether some (but not all) scout groups are selected */
-  isPartiallySelected: PropTypes.bool.isRequired,
-  /** Whether the village list is expanded */
-  isExpanded: PropTypes.bool.isRequired,
-  /** Handler to toggle village expansion */
-  toggleVillageExpansion: PropTypes.func.isRequired,
-  /** Handler for selection changes */
-  handleSelection: PropTypes.func.isRequired,
-  /** Set of currently selected scout group IDs */
-  selectedScoutGroupIds: PropTypes.instanceOf(Set).isRequired,
-  /** Whether children are rendered externally (for virtualization) */
-  renderChildrenExternally: PropTypes.bool,
-  /** When set, selected items get a yellow tint (selection via "Välj dessa kårer") */
-  selectionChoiceLabel: PropTypes.oneOfType([
-    PropTypes.string,
-    PropTypes.arrayOf(PropTypes.string),
-  ]),
-};

@@ -1,7 +1,12 @@
-import PropTypes from "prop-types";
 import { IconButton } from "@mui/material";
 import { ExpandLess, ExpandMore } from "@mui/icons-material";
 
+/**
+ * @param {object} props
+ * @param {boolean} props.isExpanded
+ * @param {import('react').MouseEventHandler<HTMLButtonElement>} [props.onClick]
+ * @param {import('@mui/system').SxProps} [props.sx]
+ */
 export default function ExpandCollapseButton({ isExpanded, ...props }) {
   return (
     <IconButton
@@ -13,10 +18,3 @@ export default function ExpandCollapseButton({ isExpanded, ...props }) {
     </IconButton>
   );
 }
-
-ExpandCollapseButton.propTypes = {
-  /** Whether the section is currently expanded */
-  isExpanded: PropTypes.bool.isRequired,
-  /** Click handler for the button */
-  onClick: PropTypes.func,
-};

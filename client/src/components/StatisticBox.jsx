@@ -1,6 +1,10 @@
 import { Box, Typography } from "@mui/material";
-import PropTypes from "prop-types";
 
+/**
+ * @param {object} props
+ * @param {string} props.title
+ * @param {string | number} props.value
+ */
 export default function StatisticBox({ title, value }) {
   return (
     <Box
@@ -31,8 +35,3 @@ export default function StatisticBox({ title, value }) {
     </Box>
   );
 }
-
-StatisticBox.propTypes = {
-  title: PropTypes.string.isRequired,
-  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-};

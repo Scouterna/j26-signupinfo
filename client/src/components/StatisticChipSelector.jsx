@@ -16,7 +16,6 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ClearIcon from "@mui/icons-material/Clear";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
-import PropTypes from "prop-types";
 
 const MAX_VISIBLE = 8;
 
@@ -31,6 +30,16 @@ const MAX_VISIBLE = 8;
  *
  * Clicking a sub-category chip body toggles between "all" and "none".
  * Using the dropdown arrow lets users pick individual sub-questions.
+ *
+ * @param {object} props
+ * @param {string[]} props.options
+ * @param {string[]} props.selectedOptions
+ * @param {(selected: string[]) => void} props.onToggle
+ * @param {Record<string, string[]>} [props.subQuestionMap]
+ * @param {Record<string, string[] | null>} [props.selectedSubQuestions]
+ * @param {(statName: string, subQuestionNames: string[] | null | undefined) => void} [props.onSubQuestionToggle]
+ * @param {() => void} [props.onClearAllSubQuestions]
+ * @param {Record<string, string>} [props.idToDisplayText]
  */
 export default function StatisticChipSelector({
   options,
@@ -48,7 +57,6 @@ export default function StatisticChipSelector({
 
   const getSubQuestions = (option) => subQuestionMap[option] || null;
 
-  // Whether a chip is active (should be shown as selected / partially selected)
   const isChipActive = (option) => {
     if (getSubQuestions(option)) {
       return option in selectedSubQuestions;
@@ -56,33 +64,27 @@ export default function StatisticChipSelector({
     return selectedOptions.includes(option);
   };
 
-  // Fully selected = all sub-questions (value is null)
   const isFullySelected = (option) => {
     if (!getSubQuestions(option)) return selectedOptions.includes(option);
     return selectedSubQuestions[option] === null;
   };
 
-  // Partially selected = some sub-questions (value is a non-empty array)
   const isPartiallySelected = (option) => {
     if (!getSubQuestions(option)) return false;
     const val = selectedSubQuestions[option];
     return Array.isArray(val) && val.length > 0;
   };
 
-  // --- Chip body click ---
   const handleToggle = (option) => {
     const hasSubs = !!getSubQuestions(option);
 
     if (hasSubs) {
       if (isChipActive(option)) {
-        // Active → deselect all (remove entry)
         onSubQuestionToggle(option, undefined);
       } else {
-        // Inactive → select all
         onSubQuestionToggle(option, null);
       }
     } else {
-      // Simple chip toggle
       if (selectedOptions.includes(option)) {
         onToggle(selectedOptions.filter((s) => s !== option));
       } else {
@@ -91,7 +93,6 @@ export default function StatisticChipSelector({
     }
   };
 
-  // --- Dropdown arrow click ---
   const handleDropdownClick = (event, option) => {
     event.stopPropagation();
     setPopoverAnchor(event.currentTarget);
@@ -103,7 +104,6 @@ export default function StatisticChipSelector({
     setPopoverOption(null);
   };
 
-  // --- Chip label ---
   const getDisplayText = (id) => idToDisplayText[id] ?? id;
 
   const getChipLabel = (option) => {
@@ -112,11 +112,10 @@ export default function StatisticChipSelector({
     if (!subs) return displayOption;
     if (!(option in selectedSubQuestions)) return displayOption;
     const active = selectedSubQuestions[option];
-    if (active === null) return displayOption; // all selected
+    if (active === null) return displayOption;
     return `${displayOption} (${active.length}/${subs.length})`;
   };
 
-  // --- Popover: toggle individual sub-question ---
   const handleSubQuestionCheck = (subName) => {
     if (!onSubQuestionToggle || !popoverOption) return;
     const subs = getSubQuestions(popoverOption);
@@ -126,24 +125,20 @@ export default function StatisticChipSelector({
     const current = isActive ? selectedSubQuestions[popoverOption] : undefined;
 
     if (!isActive) {
-      // Not active yet → create entry with just this sub-question
       onSubQuestionToggle(popoverOption, [subName]);
     } else if (current === null) {
-      // All selected → deselect this one
       const newSelection = subs.filter((s) => s !== subName);
       onSubQuestionToggle(
         popoverOption,
         newSelection.length === 0 ? undefined : newSelection
       );
     } else if (current.includes(subName)) {
-      // Deselect this sub-question
       const newSelection = current.filter((s) => s !== subName);
       onSubQuestionToggle(
         popoverOption,
         newSelection.length === 0 ? undefined : newSelection
       );
     } else {
-      // Select this sub-question
       const newSelection = [...current, subName];
       onSubQuestionToggle(
         popoverOption,
@@ -152,19 +147,15 @@ export default function StatisticChipSelector({
     }
   };
 
-  // --- Popover: "Alla" toggle ---
   const handleSelectAll = () => {
     if (!onSubQuestionToggle || !popoverOption) return;
     if (isFullySelected(popoverOption)) {
-      // All → none
       onSubQuestionToggle(popoverOption, undefined);
     } else {
-      // None / partial → all
       onSubQuestionToggle(popoverOption, null);
     }
   };
 
-  // --- Popover checkbox states ---
   const isSubQuestionChecked = (option, subName) => {
     if (!(option in selectedSubQuestions)) return false;
     const active = selectedSubQuestions[option];
@@ -177,7 +168,6 @@ export default function StatisticChipSelector({
     return selectedSubQuestions[option] === null;
   };
 
-  // --- Sorting: active chips to front when collapsed ---
   const sortedOptions = [...options].sort((a, b) => {
     return Number(isChipActive(b)) - Number(isChipActive(a));
   });
@@ -354,14 +344,3 @@ export default function StatisticChipSelector({
     </Box>
   );
 }
-
-StatisticChipSelector.propTypes = {
-  options: PropTypes.arrayOf(PropTypes.string).isRequired,
-  selectedOptions: PropTypes.arrayOf(PropTypes.string).isRequired,
-  onToggle: PropTypes.func.isRequired,
-  subQuestionMap: PropTypes.objectOf(PropTypes.arrayOf(PropTypes.string)),
-  selectedSubQuestions: PropTypes.objectOf(PropTypes.arrayOf(PropTypes.string)),
-  onSubQuestionToggle: PropTypes.func,
-  onClearAllSubQuestions: PropTypes.func,
-  idToDisplayText: PropTypes.objectOf(PropTypes.string),
-};

@@ -1,5 +1,4 @@
 import { useMemo, useState, useEffect, useRef } from "react";
-import PropTypes from "prop-types";
 import {
   Box,
   IconButton,
@@ -21,16 +20,23 @@ import {
 } from "@tanstack/react-table";
 import { SmartTable } from "./smart-table/SmartTable";
 
-// Separator for column IDs (using a character unlikely to appear in names)
 const PATH_SEPARATOR = "§";
 
 /**
+ * @typedef {{ id: number | string, name: string, num_participants?: number, stats?: Record<string, any> }} ScoutGroupItem
+ * @typedef {{ name: string, type: "leaf", columnId: string }} LeafNode
+ * @typedef {{ name: string, type: "branch", children: LeafNode[] }} BranchNode
+ * @typedef {{ name: string, children: Map<string, LeafNode | BranchNode> | (LeafNode | BranchNode)[] }} CategoryNode
+ * @typedef {{ type: "number" } | { type: "string", uniqueValues: string[] }} ColumnMeta
+ */
+
+/**
  * Builds a hierarchical tree structure from all scout groups' stats.
- * Returns an array of category nodes, each with children (sub-questions or leaves).
+ * @param {ScoutGroupItem[]} scoutGroups
  */
 function buildStatsHierarchy(scoutGroups) {
-  // Collect all unique paths and their types across all scout groups
-  const pathsMap = new Map(); // path -> { type, leafName, categoryName, subQuestionName? }
+  /** @type {Map<string, { type: string, leafName: string, categoryName: string, subQuestionName?: string }>} */
+  const pathsMap = new Map();
 
   scoutGroups.forEach((group) => {
     if (!group.stats || typeof group.stats !== "object") return;
@@ -42,7 +48,6 @@ function buildStatsHierarchy(scoutGroups) {
         if (value === null || value === undefined) return;
 
         if (typeof value === "object" && !Array.isArray(value)) {
-          // Nested sub-question with answer options
           Object.keys(value).forEach((answerKey) => {
             const columnId = [categoryName, key, answerKey].join(PATH_SEPARATOR);
             if (!pathsMap.has(columnId)) {
@@ -55,7 +60,6 @@ function buildStatsHierarchy(scoutGroups) {
             }
           });
         } else {
-          // Direct value (number, string, or array) - this is a leaf
           const columnId = [categoryName, key].join(PATH_SEPARATOR);
           if (!pathsMap.has(columnId)) {
             pathsMap.set(columnId, {
@@ -69,7 +73,7 @@ function buildStatsHierarchy(scoutGroups) {
     });
   });
 
-  // Build tree structure from collected paths
+  /** @type {Map<string, { name: string, children: Map<string, any> }>} */
   const categoriesMap = new Map();
 
   pathsMap.forEach((info, columnId) => {
@@ -85,7 +89,6 @@ function buildStatsHierarchy(scoutGroups) {
     const category = categoriesMap.get(categoryName);
 
     if (type === "nestedLeaf") {
-      // Has a sub-question level
       if (!category.children.has(subQuestionName)) {
         category.children.set(subQuestionName, {
           name: subQuestionName,
@@ -99,7 +102,6 @@ function buildStatsHierarchy(scoutGroups) {
         columnId,
       });
     } else {
-      // Direct leaf under category
       category.children.set(columnId, {
         name: leafName,
         type: "leaf",
@@ -108,7 +110,6 @@ function buildStatsHierarchy(scoutGroups) {
     }
   });
 
-  // Convert maps to sorted arrays
   const hierarchy = Array.from(categoriesMap.values())
     .map((category) => ({
       ...category,
@@ -117,14 +118,14 @@ function buildStatsHierarchy(scoutGroups) {
           if (child.type === "branch") {
             return {
               ...child,
-              children: child.children.sort((a, b) =>
+              children: child.children.sort((/** @type {any} */ a, /** @type {any} */ b) =>
                 a.name.localeCompare(b.name, "sv")
               ),
             };
           }
           return child;
         })
-        .sort((a, b) => a.name.localeCompare(b.name, "sv")),
+        .sort((/** @type {any} */ a, /** @type {any} */ b) => a.name.localeCompare(b.name, "sv")),
     }))
     .sort((a, b) => a.name.localeCompare(b.name, "sv"));
 
@@ -132,12 +133,15 @@ function buildStatsHierarchy(scoutGroups) {
 }
 
 /**
- * Gets all leaf column IDs from a hierarchy node (category or branch).
+ * Gets all leaf column IDs from a hierarchy node.
+ * @param {{ children?: any[] }} node
+ * @returns {string[]}
  */
 function getAllLeafIds(node) {
+  /** @type {string[]} */
   const ids = [];
   if (node.children) {
-    node.children.forEach((child) => {
+    node.children.forEach((/** @type {any} */ child) => {
       if (child.type === "leaf") {
         ids.push(child.columnId);
       } else if (child.type === "branch") {
@@ -150,8 +154,11 @@ function getAllLeafIds(node) {
 
 /**
  * Gets all leaf column IDs from the full hierarchy.
+ * @param {any[]} hierarchy
+ * @returns {string[]}
  */
 function getAllColumnIdsFromHierarchy(hierarchy) {
+  /** @type {string[]} */
   const ids = [];
   hierarchy.forEach((category) => {
     ids.push(...getAllLeafIds(category));
@@ -160,8 +167,9 @@ function getAllColumnIdsFromHierarchy(hierarchy) {
 }
 
 /**
- * Resolves a category name (from hierarchy/data) to the stat name used in chip selector.
- * Hierarchy may use section titles; chip selector uses section IDs.
+ * Resolves a category name to the stat name used in chip selector.
+ * @param {string} categoryName
+ * @param {Record<string, string>} sectionIdToText
  */
 function resolveCategoryToStatName(categoryName, sectionIdToText) {
   if (!sectionIdToText || typeof sectionIdToText !== "object") return categoryName;
@@ -172,8 +180,9 @@ function resolveCategoryToStatName(categoryName, sectionIdToText) {
 }
 
 /**
- * Resolves a sub-question name (from hierarchy) to question ID for matching.
- * Hierarchy may use question text; chip selector uses question IDs.
+ * Resolves a sub-question name to question ID for matching.
+ * @param {string} subName
+ * @param {Record<string, string>} questionIdToText
  */
 function resolveSubQuestionToId(subName, questionIdToText) {
   if (!questionIdToText || typeof questionIdToText !== "object") return subName;
@@ -185,10 +194,13 @@ function resolveSubQuestionToId(subName, questionIdToText) {
 
 /**
  * Gets column IDs that match the chip selector selection.
- * - selectedStatistics: array of stat names (simple stats, no sub-questions)
- * - selectedSubQuestions: { statName: null | string[] } - null = all sub-questions, array = subset
- * - statisticSubQuestions: { statName: string[] } - which stats have sub-questions
- * - sectionIdToText, questionIdToText: used to resolve hierarchy names (titles) to IDs
+ * @param {any[]} hierarchy
+ * @param {string[]} selectedStatistics
+ * @param {Record<string, string[] | null>} selectedSubQuestions
+ * @param {Record<string, string[]>} statisticSubQuestions
+ * @param {Record<string, string>} sectionIdToText
+ * @param {Record<string, string>} questionIdToText
+ * @returns {Set<string>}
  */
 function getColumnIdsFromChipSelection(
   hierarchy,
@@ -202,7 +214,7 @@ function getColumnIdsFromChipSelection(
   if (selectedStatistics.includes("num_participants")) {
     ids.add("num_participants");
   }
-  const hasSubQuestions = (statName) => statName in statisticSubQuestions;
+  const hasSubQuestions = (/** @type {string} */ statName) => statName in statisticSubQuestions;
 
   hierarchy.forEach((category) => {
     const rawStatName = category.name;
@@ -221,16 +233,15 @@ function getColumnIdsFromChipSelection(
       return;
     }
 
-    // Stat with sub-questions: filter by selected sub-questions (only show what is selected)
     const activeSubQs = selectedSubQuestions[effectiveStatName];
-    const includeChild = (subName) => {
+    const includeChild = (/** @type {string} */ subName) => {
       if (activeSubQs === null) return true;
       if (!Array.isArray(activeSubQs)) return false;
       const resolvedId = resolveSubQuestionToId(subName, questionIdToText);
       return activeSubQs.includes(subName) || activeSubQs.includes(resolvedId);
     };
 
-    category.children.forEach((child) => {
+    category.children.forEach((/** @type {any} */ child) => {
       if (child.type === "leaf") {
         if (includeChild(child.name)) ids.add(child.columnId);
       } else if (child.type === "branch") {
@@ -246,10 +257,13 @@ function getColumnIdsFromChipSelection(
 
 /**
  * For each stat column, determines type (number vs string) and unique string values.
- * Used so string columns get select filter with checklist of options.
+ * @param {ScoutGroupItem[]} scoutGroups
+ * @param {any[]} hierarchy
+ * @returns {Map<string, ColumnMeta>}
  */
 function getColumnMeta(scoutGroups, hierarchy) {
   const columnIds = getAllColumnIdsFromHierarchy(hierarchy);
+  /** @type {Map<string, ColumnMeta>} */
   const meta = new Map();
 
   columnIds.forEach((columnId) => {
@@ -277,11 +291,15 @@ function getColumnMeta(scoutGroups, hierarchy) {
 
 /**
  * Gets the value from a scout group's stats using a column ID path.
+ * @param {Record<string, any> | undefined} stats
+ * @param {string} columnId
+ * @returns {string | number}
  */
 function getValueFromPath(stats, columnId) {
   if (!stats) return "";
   const parts = columnId.split(PATH_SEPARATOR);
 
+  /** @type {any} */
   let current = stats;
   for (const part of parts) {
     if (current === null || current === undefined) return "";
@@ -289,7 +307,6 @@ function getValueFromPath(stats, columnId) {
     current = current[part];
   }
 
-  // Handle different value types
   if (current === null || current === undefined) return "";
   if (typeof current === "number") return current;
   if (typeof current === "string") return current;
@@ -299,9 +316,12 @@ function getValueFromPath(stats, columnId) {
 
 /**
  * Transforms scout groups into row data for the table.
+ * @param {ScoutGroupItem[]} scoutGroups
+ * @param {Set<string>} selectedColumns
  */
 function transformToRows(scoutGroups, selectedColumns) {
   return scoutGroups.map((group) => {
+    /** @type {Record<string, any>} */
     const row = {
       id: group.id,
       name: group.name,
@@ -320,13 +340,17 @@ function transformToRows(scoutGroups, selectedColumns) {
 
 /**
  * Multi-select dropdown component for categorical filters.
+ * @param {object} props
+ * @param {string[]} props.options
+ * @param {string[]} props.value
+ * @param {(selected: string[]) => void} props.onChange
  */
 function MultiSelectDropdown({ options, value, onChange }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
+    /** @param {MouseEvent} event */
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsOpen(false);
@@ -336,7 +360,7 @@ function MultiSelectDropdown({ options, value, onChange }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const toggleOption = (optionValue) => {
+  const toggleOption = (/** @type {string} */ optionValue) => {
     const newValue = value.includes(optionValue)
       ? value.filter((v) => v !== optionValue)
       : [...value, optionValue];
@@ -389,14 +413,15 @@ function MultiSelectDropdown({ options, value, onChange }) {
   );
 }
 
-MultiSelectDropdown.propTypes = {
-  options: PropTypes.arrayOf(PropTypes.string).isRequired,
-  value: PropTypes.arrayOf(PropTypes.string).isRequired,
-  onChange: PropTypes.func.isRequired,
-};
-
 /**
  * Debounced input component for text and number filters.
+ * @param {object} props
+ * @param {string | number} props.value
+ * @param {(value: string) => void} props.onChange
+ * @param {number} [props.debounce]
+ * @param {string} [props.type]
+ * @param {string} [props.placeholder]
+ * @param {string} [props.className]
  */
 function DebouncedInput({
   value: initialValue,
@@ -412,7 +437,7 @@ function DebouncedInput({
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      onChange(value);
+      onChange(/** @type {string} */ (value));
     }, debounce);
 
     return () => clearTimeout(timeout);
@@ -427,18 +452,15 @@ function DebouncedInput({
   );
 }
 
-DebouncedInput.propTypes = {
-  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-  onChange: PropTypes.func.isRequired,
-  debounce: PropTypes.number,
-};
-
 /**
  * Filter component that renders the appropriate filter UI based on column meta.
+ * @param {object} props
+ * @param {import('@tanstack/react-table').Column<any, any>} props.column
+ * @param {Map<string, ColumnMeta>} [props.columnMeta]
  */
 function Filter({ column, columnMeta }) {
   const columnFilterValue = column.getFilterValue();
-  const { filterVariant } = column.columnDef.meta ?? {};
+  const { filterVariant } = /** @type {{ filterVariant?: string }} */ (column.columnDef.meta ?? {});
   const meta = columnMeta?.get(column.id);
 
   if (filterVariant === "range") {
@@ -446,18 +468,18 @@ function Filter({ column, columnMeta }) {
       <div className="scout-filter-range">
         <DebouncedInput
           type="number"
-          value={columnFilterValue?.[0] ?? ""}
+          value={/** @type {any[]} */ (columnFilterValue)?.[0] ?? ""}
           onChange={(value) =>
-            column.setFilterValue((old) => [value, old?.[1]])
+            column.setFilterValue((/** @type {any[]} */ old) => [value, old?.[1]])
           }
           placeholder="Min"
           className="scout-filter-input scout-filter-input-small"
         />
         <DebouncedInput
           type="number"
-          value={columnFilterValue?.[1] ?? ""}
+          value={/** @type {any[]} */ (columnFilterValue)?.[1] ?? ""}
           onChange={(value) =>
-            column.setFilterValue((old) => [old?.[0], value])
+            column.setFilterValue((/** @type {any[]} */ old) => [old?.[0], value])
           }
           placeholder="Max"
           className="scout-filter-input scout-filter-input-small"
@@ -466,7 +488,7 @@ function Filter({ column, columnMeta }) {
     );
   }
 
-  if (filterVariant === "select" && meta?.uniqueValues?.length) {
+  if (filterVariant === "select" && meta && "uniqueValues" in meta && meta.uniqueValues?.length) {
     return (
       <MultiSelectDropdown
         options={meta.uniqueValues}
@@ -478,11 +500,10 @@ function Filter({ column, columnMeta }) {
     );
   }
 
-  // Default: text filter
   return (
     <DebouncedInput
       type="text"
-      value={columnFilterValue ?? ""}
+      value={/** @type {string} */ (columnFilterValue ?? "")}
       onChange={(value) => column.setFilterValue(value)}
       placeholder="Sök..."
       className="scout-filter-input"
@@ -490,13 +511,11 @@ function Filter({ column, columnMeta }) {
   );
 }
 
-Filter.propTypes = {
-  column: PropTypes.object.isRequired,
-  columnMeta: PropTypes.instanceOf(Map),
-};
-
 /**
  * Custom filter function for range (min/max) filtering.
+ * @param {import('@tanstack/react-table').Row<any>} row
+ * @param {string} columnId
+ * @param {any} filterValue
  */
 function rangeFilterFn(row, columnId, filterValue) {
   const value = row.getValue(columnId);
@@ -520,6 +539,9 @@ function rangeFilterFn(row, columnId, filterValue) {
 
 /**
  * Custom filter function for multi-select filtering.
+ * @param {import('@tanstack/react-table').Row<any>} row
+ * @param {string} columnId
+ * @param {any} filterValue
  */
 function multiSelectFilterFn(row, columnId, filterValue) {
   if (!filterValue || (Array.isArray(filterValue) && filterValue.length === 0)) {
@@ -538,6 +560,9 @@ function multiSelectFilterFn(row, columnId, filterValue) {
 
 /**
  * Resolves an ID to display text using the provided maps.
+ * @param {string} id
+ * @param {Record<string, string>} [sectionIdToText]
+ * @param {Record<string, string>} [questionIdToText]
  */
 function getDisplayName(id, sectionIdToText, questionIdToText) {
   return sectionIdToText?.[id] ?? questionIdToText?.[id] ?? id;
@@ -545,9 +570,15 @@ function getDisplayName(id, sectionIdToText, questionIdToText) {
 
 /**
  * Creates column definitions for TanStack Table.
+ * @param {Set<string>} selectedColumns
+ * @param {any[]} hierarchy
+ * @param {Map<string, ColumnMeta>} columnMeta
+ * @param {Record<string, string>} sectionIdToText
+ * @param {Record<string, string>} questionIdToText
  */
 function createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, questionIdToText) {
   const selectedSet = new Set(selectedColumns);
+  /** @type {any[]} */
   const columns = [
     {
       accessorKey: "name",
@@ -567,15 +598,15 @@ function createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, 
     });
   }
 
-  // Build a map of columnId to display name for headers (resolve IDs via display maps)
+  /** @type {Map<string, string>} */
   const columnIdToName = new Map();
   hierarchy.forEach((category) => {
-    category.children.forEach((child) => {
+    category.children.forEach((/** @type {any} */ child) => {
       if (child.type === "leaf") {
         const displayName = getDisplayName(child.name, sectionIdToText, questionIdToText);
         columnIdToName.set(child.columnId, displayName);
       } else if (child.type === "branch") {
-        child.children.forEach((leaf) => {
+        child.children.forEach((/** @type {any} */ leaf) => {
           const displayName = getDisplayName(leaf.name, sectionIdToText, questionIdToText);
           columnIdToName.set(leaf.columnId, displayName);
         });
@@ -583,7 +614,6 @@ function createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, 
     });
   });
 
-  // Add dynamic columns for selected leaves
   selectedColumns.forEach((columnId) => {
     if (columnId === "name" || columnId === "num_participants") return;
 
@@ -591,6 +621,7 @@ function createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, 
     const meta = columnMeta.get(columnId);
     const isNumeric = meta?.type === "number";
 
+    /** @type {any} */
     const colDef = {
       accessorKey: columnId,
       header: headerName,
@@ -600,7 +631,7 @@ function createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, 
     if (isNumeric) {
       colDef.meta = { filterVariant: "range" };
       colDef.filterFn = rangeFilterFn;
-    } else if (meta?.uniqueValues?.length) {
+    } else if (meta && "uniqueValues" in meta && meta.uniqueValues?.length) {
       colDef.meta = { filterVariant: "select" };
       colDef.filterFn = multiSelectFilterFn;
     } else {
@@ -613,6 +644,15 @@ function createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, 
   return columns;
 }
 
+/**
+ * @param {object} props
+ * @param {ScoutGroupItem[]} props.scoutGroups
+ * @param {string[]} [props.selectedStatistics]
+ * @param {Record<string, string[]>} [props.statisticSubQuestions]
+ * @param {Record<string, string[] | null>} [props.selectedSubQuestions]
+ * @param {Record<string, string>} [props.sectionIdToText]
+ * @param {Record<string, string>} [props.questionIdToText]
+ */
 export default function ScoutGroupTable({
   scoutGroups,
   selectedStatistics = [],
@@ -621,13 +661,11 @@ export default function ScoutGroupTable({
   sectionIdToText = {},
   questionIdToText = {},
 }) {
-  // Build hierarchy from all scout groups' stats
   const hierarchy = useMemo(
     () => buildStatsHierarchy(scoutGroups),
     [scoutGroups]
   );
 
-  // Column IDs driven by chip selector (same selection as statistics view)
   const chipDrivenColumns = useMemo(
     () =>
       getColumnIdsFromChipSelection(
@@ -648,37 +686,27 @@ export default function ScoutGroupTable({
     ]
   );
 
-  // Use chip-driven columns (always includes "name"; "num_participants" and others when chip-selected)
   const selectedColumns = chipDrivenColumns;
 
-  // Column meta: type (number/string) and unique values for string columns
   const columnMeta = useMemo(
     () => getColumnMeta(scoutGroups, hierarchy),
     [scoutGroups, hierarchy]
   );
 
-  // Transform data to rows based on selected columns
   const rows = useMemo(
     () => transformToRows(scoutGroups, selectedColumns),
     [scoutGroups, selectedColumns]
   );
 
-  // Create TanStack column definitions
   const columns = useMemo(
     () => createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, questionIdToText),
     [selectedColumns, hierarchy, columnMeta, sectionIdToText, questionIdToText]
   );
 
-  // Column filters state
   const [columnFilters, setColumnFilters] = useState([]);
-
-  // Sorting state
   const [sorting, setSorting] = useState([{ id: "name", desc: false }]);
-
-  // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Create the table instance
   const table = useReactTable({
     data: rows,
     columns,
@@ -820,21 +848,3 @@ export default function ScoutGroupTable({
     </Box>
   );
 }
-
-ScoutGroupTable.propTypes = {
-  scoutGroups: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.number.isRequired,
-      name: PropTypes.string.isRequired,
-      num_participants: PropTypes.number,
-      stats: PropTypes.object,
-    })
-  ).isRequired,
-  selectedStatistics: PropTypes.arrayOf(PropTypes.string),
-  statisticSubQuestions: PropTypes.objectOf(
-    PropTypes.arrayOf(PropTypes.string)
-  ),
-  selectedSubQuestions: PropTypes.object,
-  sectionIdToText: PropTypes.objectOf(PropTypes.string),
-  questionIdToText: PropTypes.objectOf(PropTypes.string),
-};
