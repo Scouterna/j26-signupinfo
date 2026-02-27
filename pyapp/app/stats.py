@@ -13,9 +13,11 @@ from .scoutnet import (
     get_group_responses,
     get_group_summary,
     get_individual_responses,
+    get_individuals_by_group,
     get_project_groups,
     get_project_questions,
     get_projects_info,
+    get_question_summary,
 )
 
 settings = get_settings()
@@ -32,6 +34,9 @@ class Page(BaseModel):
     pages: int
 
 
+# --- API route to get existing projects (based on configuration) and project questions ---
+
+
 @stats_router.get(
     "/projects",
     response_model=dict[int, str],
@@ -43,6 +48,9 @@ async def projects(user: AuthUser = Depends(require_auth_user)):
     Return projects info
     """
     return await get_projects_info()
+
+
+# --- API route to get list of project questions and registered groups ---
 
 
 @stats_router.get(
@@ -83,13 +91,59 @@ async def project_groups(project_id: int, user: AuthUser = Depends(require_auth_
     return project_groups
 
 
+# --- API route to get aggregated information for one or more groups ---
+
+
+@stats_router.get(
+    "/{project_id}/groupinfo/summary",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    response_description="Aggregated group statistics summary",
+)
+async def project_groupinfo_summary(
+    project_id: int,
+    group_ids: list[int] | None = Query(default=None),
+    user: AuthUser = Depends(require_auth_user),
+):
+    """
+    Return pre-aggregated statistics across the requested groups.
+    If no group_id is given, all groups are included.
+    """
+    summary = await get_group_summary(project_id, group_ids)
+    if not summary:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project or one or more groups not found.",
+        )
+    return summary
+
+
+@stats_router.get(
+    "/{project_id}/groupinfo/{group_id}",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    response_description="Group info",
+)
+async def project_groupinfo_groupid(project_id: int, group_id: int, user: AuthUser = Depends(require_auth_user)):
+    """
+    Return a single group responses.
+    """
+    responses = await get_group_responses(project_id, group_id)
+    if not responses:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project or group not found",
+        )
+    return responses[0]
+
+
 @stats_router.get(
     "/{project_id}/groupinfo",
     response_model=Page,
     status_code=status.HTTP_200_OK,
     response_description="Paginated group info",
 )
-async def groups_responses(
+async def project_groupinfo(
     project_id: int,
     group_id: list[int] | None = Query(default=None),
     page: int = Query(default=1, ge=1, description="Page number"),
@@ -108,15 +162,12 @@ async def groups_responses(
             detail="Project or one or more groups not found.",
         )
 
-    # if "signupinfo-superuser" not in user.roles:
-    #     for record in all:
-    #         record.pop("stats", None)
-
     total = len(responses)
     skip = (page - 1) * size
+    items = responses[skip : skip + size]
 
     return Page(
-        items=responses[skip : skip + size],
+        items=items,
         total=total,
         page=page,
         size=size,
@@ -124,47 +175,35 @@ async def groups_responses(
     )
 
 
+# --- API route to get responses on specific question for one or more groups ---
+
+
 @stats_router.get(
-    "/{project_id}/groupinfo/summary",
+    "/{project_id}/groupinfo/response/{question_id}",
     response_model=dict,
     status_code=status.HTTP_200_OK,
-    response_description="Aggregated group statistics summary",
+    response_description="Group responses on specific question",
 )
-async def group_info_summary(
+async def groupinfo_response_question_id(
     project_id: int,
-    group_id: list[int] | None = Query(default=None),
+    question_id: int,
+    group_ids: list[int] | None = Query(default=None),
     user: AuthUser = Depends(require_auth_user),
 ):
     """
-    Return pre-aggregated statistics across the requested groups.
-    If no group_id is given, all groups are included.
+    Return responses for a particular question and what the requested groups have answered.
+    If no group_ids is given, all groups are included.
     """
-    summary = await get_group_summary(project_id, group_id)
+    summary = await get_question_summary(project_id, question_id, group_ids)
     if not summary:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project or one or more groups not found.",
+            detail="Project or question not found.",
         )
     return summary
 
 
-@stats_router.get(
-    "/{project_id}/groupinfo/{group_id}",
-    response_model=dict,
-    status_code=status.HTTP_200_OK,
-    response_description="Group info",
-)
-async def group_responses(project_id: int, group_id: int, user: AuthUser = Depends(require_auth_user)):
-    """
-    Return a single group responses.
-    """
-    responses = await get_group_responses(project_id, group_id)
-    if not responses:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project or group not found",
-        )
-    return responses[0]
+# --- API route to get individual information for one participant or for a whole group ---
 
 
 @stats_router.get(
@@ -187,6 +226,32 @@ async def individual_responses(project_id: int, member_id: int, user: AuthUser =
 
 
 @stats_router.get(
+    "/{project_id}/individualinfo/group/{group_id}",
+    response_model=list[dict],
+    status_code=status.HTTP_200_OK,
+    response_description="Individual info for a single group",
+)
+async def individuals_by_group(
+    project_id: int,
+    group_id: int,
+    user: AuthUser = Depends(require_auth_user),
+):
+    """
+    Return all individuals (with their responses) for a single group.
+    """
+    individuals = await get_individuals_by_group(project_id, group_id)
+    if individuals is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project or group not found.",
+        )
+    return individuals
+
+
+# --- API route to search for a participant ---
+
+
+@stats_router.get(
     "/{project_id}/search_member",
     response_model=list[dict],
     status_code=status.HTTP_200_OK,
@@ -194,24 +259,25 @@ async def individual_responses(project_id: int, member_id: int, user: AuthUser =
 )
 async def search_member(
     project_id: int,
-    name: str | None = Query(default=""),
-    born: str | None = Query(default=""),
-    troop: str | None = Query(default=""),
+    name: str = Query(default=""),
+    born: str = Query(default=""),
+    group: str = Query(default=""),
+    max_hits: int = Query(default=10, ge=1, le=50, description="Maximum returned hits"),
     user: AuthUser = Depends(require_auth_user),
 ):
     """
     Search for a member according to the search critera.
-    If more then 10 hits, nothing is returned.
+    If more then "max_hits" participants matches, an error is returned.
     """
-    responses = await find_members(project_id, name, born, troop)
+    responses = await find_members(project_id, name, born, group)
     if not responses:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Incorrect project or no members found that match the criteria.",
         )
-    if len(responses) > 10:
+    if len(responses) > max_hits:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="More then ten members that match the criteria.",
+            detail=f"More then {max_hits} participants match the criteria.",
         )
     return responses

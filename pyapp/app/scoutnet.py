@@ -44,8 +44,8 @@ class CachedGroup:
     name: str
     num_participants: int = 0
     aggregated: dict = field(default_factory=dict)  # section_title -> {question_key: counts/values}
-    individual_answers: dict = field(default_factory=dict)  # member_no -> {question_key: value}
-    group_answers: dict = field(default_factory=dict)  # question_key -> raw value
+    raw_individual_answers: dict = field(default_factory=dict)  # member_no -> {question_key: value}
+    raw_group_answers: dict = field(default_factory=dict)  # question_key -> raw value
     contact: dict | None = None
 
 
@@ -65,6 +65,7 @@ class ProjectCache:
     """Global cache for decoded Scoutnet project data."""
 
     projects: dict = field(default_factory=dict)  # project_id -> CachedProject
+    group_map: dict[int, str] = field(default_factory=dict)
     updated_at: float = 0  # 0 = never updated
 
     def mark_updated(self):
@@ -83,7 +84,7 @@ class ProjectCache:
         return (time.time() - self.updated_at) > settings.PROJECT_CACHE_MAX_AGE_H * 3600
 
 
-# --- Project cache ---
+# --- Project cache global ---
 
 _project_cache = ProjectCache()
 
@@ -92,6 +93,7 @@ _project_cache = ProjectCache()
 
 
 async def scoutnet_init() -> None:
+    await _load_initial_group_map()  # Retrive an initial group map
     await _update_project_cache()  # Fill cache at start
     return
 
@@ -206,7 +208,7 @@ async def _get_all_projectdata_from_scoutnet() -> list[ScoutnetProjectData]:
     return list(results)
 
 
-# --- External (and local) functions ---
+# --- Local functions ---
 
 
 async def _update_project_cache() -> None:
@@ -218,6 +220,30 @@ async def _update_project_cache() -> None:
     del all_data  # Force garbage collection (I think)
     logger.info("Finish cache update")
     return
+
+
+async def _load_initial_group_map() -> None:
+    group_map = {}
+    if settings.SCOUTNET_BODYLIST_KEY:  # Fetch map from Scoutnet
+        try:
+            url = f"https://scoutnet.se/api/body_key_list?id={settings.SCOUTNET_BODYLIST_ID}&key={settings.SCOUTNET_BODYLIST_KEY}"
+            raw_map = await _scoutnet_get(url)
+            group_map = {g["body_id"]: g["body_name"] for g in raw_map.values() if g.get("body_type") == "group"}
+        except Exception:
+            logger.warning("Failed to fetch group_map from Scoutnet, falling back to local file")
+    if not group_map:
+        try:  # Check local file instead
+            map_file = Path(__file__).resolve().parent.parent / "group_map.json"
+            raw = json.loads(map_file.read_text(encoding="utf-8"))
+            group_map = {int(k): v for k, v in raw.items()}
+        except Exception:
+            logger.warning("Failed to load group_map from local file, using empty initial map")
+
+    _project_cache.group_map = group_map
+    logger.info("Loaded group_map with %d entries", len(_project_cache.group_map))
+
+
+# --- Functions called from the API handlers in stats.py ---
 
 
 @require_fresh_cache
@@ -252,7 +278,7 @@ async def get_project_groups(project_id: int) -> dict | None:
     """Return project groups"""
     if not (project := _project_cache.projects.get(project_id)):
         return None
-    groups = {p.name: p.id for p in sorted(project.groups.values(), key=lambda g: g.name.lower())}
+    groups = {p.id: p.name for p in sorted(project.groups.values(), key=lambda g: g.name.lower())}
     return groups
 
 
@@ -287,75 +313,10 @@ async def get_group_responses(project_id: int, group_id: int | list[int] | None)
     return data
 
 
-def _has_sub_questions(category_data: dict) -> bool:
-    """Check if a category contains nested sub-questions (dicts) vs direct answer-count mappings."""
-    return any(isinstance(v, dict) for v in category_data.values())
-
-
-def _aggregate_category(category_data: dict, sub_questions: dict, group: CachedGroup) -> None:
-    """Aggregate one group's category data into the sub_questions accumulator."""
-    category_has_subs = _has_sub_questions(category_data)
-
-    for key, value in category_data.items():
-        if isinstance(value, dict):
-            sq = sub_questions.setdefault(key, {"type": "answers", "values": {}})
-            for answer_key, answer_value in value.items():
-                if isinstance(answer_value, (int, float)):
-                    entry = sq["values"].setdefault(answer_key, {"name": answer_key, "count": 0})
-                    entry["count"] += answer_value
-                elif isinstance(answer_value, list):
-                    entry = sq["values"].setdefault(
-                        answer_key, {"name": answer_key, "count": 0, "freeTextAnswers": []}
-                    )
-                    entry["count"] += len(answer_value)
-                    entry.setdefault("freeTextAnswers", []).extend(answer_value)
-
-        elif isinstance(value, (int, float)):
-            sq_key = key if category_has_subs else "_direct"
-            sq = sub_questions.setdefault(sq_key, {"type": "answers", "values": {}})
-            answer_key = "_count" if category_has_subs else key
-            answer_name = "Antal" if category_has_subs else key
-            entry = sq["values"].setdefault(answer_key, {"name": answer_name, "count": 0})
-            entry["count"] += value
-
-        elif isinstance(value, str):
-            sq = sub_questions.setdefault(key, {"type": "perGroup", "values": {}})
-            sq["values"][group.id] = {"name": value, "scoutGroupName": group.name}
-
-        elif isinstance(value, list):
-            sq = sub_questions.setdefault(
-                key,
-                {"type": "answers", "values": {"_text": {"name": "Svar", "count": 0, "freeTextAnswers": []}}},
-            )
-            sq["values"]["_text"]["count"] += len(value)
-            sq["values"]["_text"]["freeTextAnswers"].extend(value)
-
-
-def _post_process_per_group(sub_questions: dict) -> None:
-    """Compute groupedByAnswer for perGroup sub-questions, using [{id, name}] objects.
-    Replaces the perGroup sub-question with only groupedByAnswer (type/values omitted).
-    """
-    for key, sq in list(sub_questions.items()):
-        if sq.get("type") != "perGroup":
-            continue
-        grouped: dict[str, dict] = {}
-        for group_id_str, info in sq["values"].items():
-            answer = info["name"]
-            entry = grouped.setdefault(answer, {"count": 0, "scoutGroups": []})
-            entry["count"] += 1
-            entry["scoutGroups"].append({"id": int(group_id_str), "name": info["scoutGroupName"]})
-
-        for entry in grouped.values():
-            entry["scoutGroups"].sort(key=lambda g: g["name"].casefold())
-
-        sub_questions[key] = {"groupedByAnswer": grouped}
-
-
 @require_fresh_cache
 async def get_group_summary(project_id: int, group_id: int | list[int] | None) -> dict | None:
     """
     Aggregate stats across the requested groups and return a summary.
-    Mirrors the client-side logic previously in useScoutGroupData.js.
     """
     if not (project := _project_cache.projects.get(project_id)):
         return None
@@ -364,32 +325,41 @@ async def get_group_summary(project_id: int, group_id: int | list[int] | None) -
         group_id = list(project.groups.keys())
     if isinstance(group_id, int):
         group_id = [group_id]
+    group_id = list(dict.fromkeys(group_id))  # deduplicate, preserving order
     if not all(gid in project.groups for gid in group_id):
         return None
 
     total_participants = 0
-    stats: dict[str, dict] = {}  # category_name -> {sub_question_key -> sub_question}
-
+    stats: dict = {}
     for gid in group_id:
         group = project.groups[gid]
         total_participants += group.num_participants
-
-        for category_name, category_data in group.aggregated.items():
-            if not isinstance(category_data, dict):
+        for cat, cat_data in group.aggregated.items():
+            if cat in [
+                21325,
+                21326,
+                21330,
+            ]:  # Ugly(?) fix to remove categories "Nödkontakt", Ansvariga från kåren" and "Byindelning" from summary
                 continue
-            sub_questions = stats.setdefault(category_name, {})
-            _aggregate_category(category_data, sub_questions, group)
+            acc = stats.setdefault(cat, {})
+            for key, val in cat_data.items():
+                if isinstance(val, (int, float)) and not isinstance(val, bool):
+                    acc[key] = acc.get(key, 0) + val
+                elif isinstance(val, dict):
+                    key_acc = acc.setdefault(key, {})
+                    for k, v in val.items():
+                        key_acc[k] = key_acc.get(k, 0) + v
+                elif isinstance(val, list):
+                    # acc.setdefault(key, []).extend(val)
+                    pass  # Skip lists in summary?
+                elif isinstance(val, (str, bool)):
+                    key_acc = acc.setdefault(key, {})
+                    key_acc[val] = key_acc.get(val, 0) + 1
 
-    for sub_questions in stats.values():
-        _post_process_per_group(sub_questions)
-
-    return {
-        "total_participants": total_participants,
-        "num_groups": len(group_id),
-        "stats": stats,
-    }
+    return {"total_participants": total_participants, "num_groups": len(group_id), "stats": stats}
 
 
+@require_fresh_cache
 async def get_individual_responses(project_id: int, member_id: int) -> dict | None:
     """
     Returns an individuals response to questions.
@@ -401,7 +371,7 @@ async def get_individual_responses(project_id: int, member_id: int) -> dict | No
     if (
         not (group_id := participant.get("registration_group"))
         or not (group := project.groups.get(group_id))
-        or not (response := group.individual_answers.get(member_id))
+        or not (response := group.raw_individual_answers.get(member_id))
     ):
         logger.error("Data integrity error in scoutnet_forms")
         return None  # Data integrity error in scoutnet_forms
@@ -410,14 +380,48 @@ async def get_individual_responses(project_id: int, member_id: int) -> dict | No
 
 
 @require_fresh_cache
-async def find_members(project_id: int, name: str, born: str, troop: str) -> list[dict] | None:
+async def get_individuals_by_group(project_id: int, group_id: int) -> list[dict] | None:
+    """
+    Return all individuals (with their responses) for a single group.
+    """
+    if not (project := _project_cache.projects.get(project_id)):
+        return None
+    if not (group := project.groups.get(group_id)):
+        return None
+
+    results = []
+    for member_no, response in group.raw_individual_answers.items():
+        participant = project.participants.get(member_no)
+        if not participant:
+            continue
+        entry = {
+            "member_no": member_no,
+            "name": participant.get("name", ""),
+            "born": participant.get("born", ""),
+            "group_id": group_id,
+            "group_name": group.name,
+            "responses": response,
+        }
+        if participant.get("email"):
+            entry["email"] = participant["email"]
+        if participant.get("mobile"):
+            entry["mobile"] = participant["mobile"]
+        results.append(entry)
+
+    return results
+
+
+@require_fresh_cache
+async def find_members(project_id: int, name: str, born: str, group: str) -> list[dict] | None:
+    """
+    Find and return a list of participants that match the provided criteria.
+    """
     if not (project := _project_cache.projects.get(project_id)):
         return None
 
-    # Pre-resolve group_id -> name for troop matching and result display
-    group_names = {gid: g.name for gid, g in project.groups.items()}
-    troop_lower = troop.lower()
+    group_lower = group.lower()
     name_lower = name.lower()
+    group_names = _project_cache.group_map
 
     results = []
     for member_no, p in project.participants.items():
@@ -425,21 +429,60 @@ async def find_members(project_id: int, name: str, born: str, troop: str) -> lis
             continue
         if born and not p["born"].startswith(born):
             continue
-        if troop_lower:
-            gid = p.get("registration_group") or p.get("member_group", 0)
-            if troop_lower not in group_names.get(gid, "").lower():
+        if group_lower:
+            if group_lower not in group_names.get(p.get("registration_group", 0), "").lower() and (
+                p.get("member_group") == p.get("registration_group")
+                or group_lower not in group_names.get(p.get("member_group", 0), "").lower()
+            ):
                 continue
         result = {"member_no": member_no, **p}
-        if "member_group" in result:
-            result["member_group"] = group_names.get(result["member_group"], result["member_group"])
-        if "registration_group" in result:
-            result["registration_group"] = group_names.get(result["registration_group"], result["registration_group"])
+        result["member_group"] = group_names.get(result["member_group"], result["member_group"])
+        result["registration_group"] = group_names.get(result["registration_group"], result["registration_group"])
         results.append(result)
 
     return results
 
 
-# --- API functions ---
+async def get_question_summary(
+    project_id: int, question_id: int, group_ids: list[int] | None
+) -> dict[int, dict] | None:
+    """
+    Return ....
+    """
+    if not (project := _project_cache.projects.get(project_id)):
+        return None
+
+    if not group_ids:
+        group_ids = list(project.groups)  # All groups
+
+    section_id = next((sid for sid, sec in project.questions.items() if question_id in sec.get("questions", {})), None)
+    type = project.questions[section_id]["questions"][question_id]["type"]
+
+    res = {}
+    for gid in group_ids:
+        if not (group := project.groups.get(gid)):
+            return None  # Non existing group!
+        resp = group.aggregated.get(section_id, {}).get(question_id)
+        if resp:
+            if type == "choice":
+                if isinstance(resp, int):
+                    res.setdefault(resp, []).append(gid)
+                elif isinstance(resp, dict):
+                    for k, v in resp.items():
+                        res.setdefault(k, []).append(gid)
+                else:
+                    pass  # Check for other possibilities?
+            elif type == "boolean":
+                res.setdefault("checked", []).append(gid)
+            elif type == "text":
+                res.setdefault("responded", []).append(gid)
+            else:
+                pass  # Check for other possibilities?
+
+    return {question_id: res}
+
+
+# --- API routes ---
 
 scoutnet_router = APIRouter(prefix="/scoutnet", tags=["Scoutnet"])
 

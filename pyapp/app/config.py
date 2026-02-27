@@ -16,6 +16,8 @@ class ProjectConfig(BaseModel):
 
 class Settings(BaseSettings):
     SCOUTNET_PROJECTS: list[ProjectConfig]
+    SCOUTNET_BODYLIST_ID: int = 692
+    SCOUTNET_BODYLIST_KEY: str = ""
     PROJECT_CACHE_MAX_AGE_H: int = 24  # In hours
     SESSION_SECRET_KEY: str = "change-me"
     API_PREFIX: str = "/api"
