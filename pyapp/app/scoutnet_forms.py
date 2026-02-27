@@ -54,56 +54,45 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
 
         # Aggregate sex
         sex = sex_values[p["sex"]]
-        if sex not in group.aggregated["Kön"]:
-            group.aggregated["Kön"][sex] = 0
-        group.aggregated["Kön"][sex] += 1
+        group.aggregated["Kön"][sex] = group.aggregated["Kön"].get(sex, 0) + 1
 
         # Aggregate fee values
         fee = fee_values.get(str(p["fee_id"]), "Okänd")  # Fee key is a string the values?
-        if fee not in group.aggregated["Avgift"]:
-            group.aggregated["Avgift"][fee] = 0
-        group.aggregated["Avgift"][fee] += 1
+        group.aggregated["Avgift"][fee] = group.aggregated["Avgift"].get(fee, 0) + 1
 
         # Aggregate question responses
         if p["questions"]:
-            group.individual_answers[p["member_no"]] = p["questions"]  # Store raw individual responses
+            group.raw_individual_answers[p["member_no"]] = p["questions"]  # Store raw individual responses
             for qnum, qval in p["questions"].items():
                 q = qdata[qnum]
                 qnum = int(qnum)
+                # if qnum == 88181:
+                #     pass
                 section_id = q["section_id"]
 
                 # Save all questions separately
-                if section_id not in questions:
-                    questions[section_id] = {"text": sections[section_id], "questions": {}}
-                secq = questions[section_id]["questions"]
+                secq = questions.setdefault(section_id, {"text": sections[section_id], "questions": {}})["questions"]
                 if qnum not in secq:
                     secq[qnum] = {"text": q["question"], "type": q["type"]}
                     if q["type"] == "choice":
                         secq[qnum]["choices"] = {c["value"]: c["option"] for c in q.get("choices", {}).values()}
 
                 # Add response section to group
-                if section_id not in group.aggregated:
-                    group.aggregated[section_id] = {}
-                group_section = group.aggregated[section_id]
+                group_section = group.aggregated.setdefault(section_id, {})
 
                 # Check question type and handle response accordingly
                 if q["type"] == "boolean":
                     if q["choices"][qval]["option"] == "checked":
-                        if qnum not in group_section:
-                            group_section[qnum] = 0
-                        group_section[qnum] += 1
+                        group_section[qnum] = group_section.get(qnum, 0) + 1
 
                 elif q["type"] == "choice":
-                    if qnum not in group_section:
-                        group_section[qnum] = {}
+                    choice_counts = group_section.setdefault(qnum, {})
                     if type(qval) is not list:
                         qval = [qval]
                     for qsel in qval:
                         if qsel not in q["choices"]:
                             continue
-                        if qsel not in group_section[qnum]:
-                            group_section[qnum][qsel] = 0
-                        group_section[qnum][qsel] += 1
+                        choice_counts[int(qsel)] = choice_counts.get(qsel, 0) + 1
 
                 elif q["type"] == "text":
                     if (
@@ -118,17 +107,13 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
                         and qval
                         and qval.lower() not in ["no", "none", "n/a", "na", "n/a`", "ingen", "-"]
                     ):
-                        if qnum not in group_section:
-                            group_section[qnum] = []
-                        group_section[qnum].append(qval)
+                        group_section.setdefault(qnum, []).append(qval)
 
                 elif q["type"] == "number":
                     if qval:
-                        if qnum not in group_section:
-                            group_section[qnum] = 0
                         # if float(qval) > 100:
                         #     pass
-                        group_section[qnum] += float(qval)
+                        group_section[qnum] = group_section.get(qnum, 0) + float(qval)
 
                 elif q["type"] == "other_unsupported_by_api":
                     pass
@@ -149,17 +134,20 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
             group = groups[gid]
             if g["questions"]:
                 # Store raw group answers
-                group.group_answers = g["questions"]
+                group.raw_group_answers = g["questions"]
 
                 # Also compute aggregated group-level answers
                 for qnum, qval in g["questions"].items():
                     q = qdata[qnum]
+                    qnum = int(qnum)  # Always store question numbers as ints
+                    if qnum == 88179:
+                        pass
                     # qtext = q["question"]
 
                     section_id = q["section_id"]
-                    if section_id not in questions:
-                        questions[section_id] = {"text": sections[section_id], "questions": {}}
-                    secq = questions[section_id]["questions"]
+                    secq = questions.setdefault(section_id, {"text": sections[section_id], "questions": {}})[
+                        "questions"
+                    ]
                     if qnum not in secq:  # Save questions
                         secq[qnum] = {"text": q["question"], "type": q["type"]}
                         # if choices := q.get("choices"):
@@ -167,16 +155,15 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
                             secq[qnum]["choices"] = {c["value"]: c["option"] for c in q.get("choices", {}).values()}
 
                     # section = sections[q["section_id"]]
-                    if section_id not in group.aggregated:
-                        group.aggregated[section_id] = {}
-                    group_section = group.aggregated[section_id]
+                    group_section = group.aggregated.setdefault(section_id, {})
 
                     if q["type"] == "boolean":
                         group_section[qnum] = "Ja" if q["choices"][qval]["option"] == "checked" else "Nej"
                     elif q["type"] == "choice":
                         if qval not in q["choices"]:
                             continue
-                        group_section[qnum] = q["choices"][qval]["option"]
+                        # group_section[qnum] = q["choices"][qval]["option"]
+                        group_section[qnum] = int(qval)
                     elif q["type"] == "text":
                         group_section[qnum] = qval
                     else:

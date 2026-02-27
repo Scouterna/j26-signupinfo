@@ -44,8 +44,8 @@ class CachedGroup:
     name: str
     num_participants: int = 0
     aggregated: dict = field(default_factory=dict)  # section_title -> {question_key: counts/values}
-    individual_answers: dict = field(default_factory=dict)  # member_no -> {question_key: value}
-    group_answers: dict = field(default_factory=dict)  # question_key -> raw value
+    raw_individual_answers: dict = field(default_factory=dict)  # member_no -> {question_key: value}
+    raw_group_answers: dict = field(default_factory=dict)  # question_key -> raw value
     contact: dict | None = None
 
 
@@ -335,6 +335,12 @@ async def get_group_summary(project_id: int, group_id: int | list[int] | None) -
         group = project.groups[gid]
         total_participants += group.num_participants
         for cat, cat_data in group.aggregated.items():
+            if cat in [
+                21325,
+                21326,
+                21330,
+            ]:  # Ugly(?) fix to remove categories "Nödkontakt", Ansvariga från kåren" and "Byindelning" from summary
+                continue
             acc = stats.setdefault(cat, {})
             for key, val in cat_data.items():
                 if isinstance(val, (int, float)) and not isinstance(val, bool):
@@ -344,7 +350,8 @@ async def get_group_summary(project_id: int, group_id: int | list[int] | None) -
                     for k, v in val.items():
                         key_acc[k] = key_acc.get(k, 0) + v
                 elif isinstance(val, list):
-                    acc.setdefault(key, []).extend(val)
+                    # acc.setdefault(key, []).extend(val)
+                    pass  # Skip lists in summary?
                 elif isinstance(val, (str, bool)):
                     key_acc = acc.setdefault(key, {})
                     key_acc[val] = key_acc.get(val, 0) + 1
@@ -364,7 +371,7 @@ async def get_individual_responses(project_id: int, member_id: int) -> dict | No
     if (
         not (group_id := participant.get("registration_group"))
         or not (group := project.groups.get(group_id))
-        or not (response := group.individual_answers.get(member_id))
+        or not (response := group.raw_individual_answers.get(member_id))
     ):
         logger.error("Data integrity error in scoutnet_forms")
         return None  # Data integrity error in scoutnet_forms
@@ -383,7 +390,7 @@ async def get_individuals_by_group(project_id: int, group_id: int) -> list[dict]
         return None
 
     results = []
-    for member_no, response in group.individual_answers.items():
+    for member_no, response in group.raw_individual_answers.items():
         participant = project.participants.get(member_no)
         if not participant:
             continue
@@ -448,15 +455,29 @@ async def get_question_summary(
     if not group_ids:
         group_ids = list(project.groups)  # All groups
 
+    section_id = next((sid for sid, sec in project.questions.items() if question_id in sec.get("questions", {})), None)
+    type = project.questions[section_id]["questions"][question_id]["type"]
+
     res = {}
     for gid in group_ids:
         if not (group := project.groups.get(gid)):
             return None  # Non existing group!
-        resp = group.group_answers.get(str(question_id), group.individual_answers.get(str(question_id)))
+        resp = group.aggregated.get(section_id, {}).get(question_id)
         if resp:
-            if resp not in res:
-                res[resp] = []
-            res[resp].append(gid)
+            if type == "choice":
+                if isinstance(resp, int):
+                    res.setdefault(resp, []).append(gid)
+                elif isinstance(resp, dict):
+                    for k, v in resp.items():
+                        res.setdefault(k, []).append(gid)
+                else:
+                    pass  # Check for other possibilities?
+            elif type == "boolean":
+                res.setdefault("checked", []).append(gid)
+            elif type == "text":
+                res.setdefault("responded", []).append(gid)
+            else:
+                pass  # Check for other possibilities?
 
     return {question_id: res}
 
