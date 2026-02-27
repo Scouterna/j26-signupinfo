@@ -34,7 +34,7 @@ class Page(BaseModel):
     pages: int
 
 
-# --- API route to get existing projects (based on configuration) ---
+# --- API route to get existing projects (based on configuration) and project questions ---
 
 
 @stats_router.get(
@@ -50,7 +50,7 @@ async def projects(user: AuthUser = Depends(require_auth_user)):
     return await get_projects_info()
 
 
-# --- API route to get list of project questions and response groups ---
+# --- API route to get list of project questions and registered groups ---
 
 
 @stats_router.get(
@@ -92,6 +92,30 @@ async def project_groups(project_id: int, user: AuthUser = Depends(require_auth_
 
 
 # --- API route to get aggregated information for one or more groups ---
+
+
+@stats_router.get(
+    "/{project_id}/groupinfo/summary",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    response_description="Aggregated group statistics summary",
+)
+async def project_groupinfo_summary(
+    project_id: int,
+    group_ids: list[int] | None = Query(default=None),
+    user: AuthUser = Depends(require_auth_user),
+):
+    """
+    Return pre-aggregated statistics across the requested groups.
+    If no group_id is given, all groups are included.
+    """
+    summary = await get_group_summary(project_id, group_ids)
+    if not summary:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project or one or more groups not found.",
+        )
+    return summary
 
 
 @stats_router.get(
@@ -138,44 +162,17 @@ async def project_groupinfo(
             detail="Project or one or more groups not found.",
         )
 
-    # if "signupinfo-superuser" not in user.roles:
-    #     for record in all:
-    #         record.pop("stats", None)
-
     total = len(responses)
     skip = (page - 1) * size
+    items = responses[skip : skip + size]
 
     return Page(
-        items=responses[skip : skip + size],
+        items=items,
         total=total,
         page=page,
         size=size,
         pages=math.ceil(total / size) if total > 0 else 0,
     )
-
-
-@stats_router.get(
-    "/{project_id}/groupinfo/summary",
-    response_model=dict,
-    status_code=status.HTTP_200_OK,
-    response_description="Aggregated group statistics summary",
-)
-async def project_groupinfo_summary(
-    project_id: int,
-    group_id: list[int] | None = Query(default=None),
-    user: AuthUser = Depends(require_auth_user),
-):
-    """
-    Return pre-aggregated statistics across the requested groups.
-    If no group_id is given, all groups are included.
-    """
-    summary = await get_group_summary(project_id, group_id)
-    if not summary:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project or one or more groups not found.",
-        )
-    return summary
 
 
 # --- API route to get responses on specific question for one or more groups ---
