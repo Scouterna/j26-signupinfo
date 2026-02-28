@@ -146,7 +146,7 @@ def dev_cache(func):
 # --- Scoutnet retrieve functions ---
 
 
-@dev_cache
+# @dev_cache
 async def _scoutnet_get(url) -> dict:
     try:
         async with httpx.AsyncClient(timeout=20.0) as http_client:
@@ -456,6 +456,8 @@ async def get_question_summary(
         group_ids = list(project.groups)  # All groups
 
     section_id = next((sid for sid, sec in project.questions.items() if question_id in sec.get("questions", {})), None)
+    if not section_id:
+        return {question_id: {}}
     type = project.questions[section_id]["questions"][question_id]["type"]
 
     res = {}

@@ -96,8 +96,8 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
 
                 elif q["type"] == "text":
                     if (
-                        sections[section_id] != "Hälsa"
-                        and q["question"]
+                        # sections[section_id] != "Hälsa" and
+                        q["question"]
                         not in [
                             "Övriga önskemål på arbetsuppgifter",
                             "Önskemål om personer att jobba tillsammans med:",

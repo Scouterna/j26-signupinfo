@@ -110,16 +110,19 @@ async def require_auth_user(request: Request) -> AuthUser:
                 name="Fake Super User",
                 preferred_username="scoutnet|1234567",
                 email="fake.user@scouterna.se",
-                roles=["signupinfo-superuser"],
+                roles=["j26-planning-staff"],
             )
 
     claims = await decode_access_token(token, request)
+    roles = _extract_roles(claims)
+    if not any(role in settings.J26_ROLES for role in roles):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No suitable roles")  # No suitable roles
 
     return AuthUser(
         subject=claims.get("sub", ""),
         name=claims.get("name"),
         preferred_username=claims.get("preferred_username"),
         email=claims.get("email"),
-        roles=_extract_roles(claims),
+        roles=roles,
         # claims=claims,
     )
