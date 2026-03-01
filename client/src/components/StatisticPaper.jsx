@@ -143,7 +143,7 @@ function GroupedAnswerValues({
                     ))
                   ) : (
                     <Typography variant="caption" color="text.secondary">
-                      Inga kårer
+                      Data tillfälligt inte tillgängligt. Använd tabell.
                     </Typography>
                   )}
                 </Box>

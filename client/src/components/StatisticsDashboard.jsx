@@ -274,6 +274,7 @@ export default function StatisticsDashboard({
                       >
                         {questionEntries.map(([questionId, questionData]) => {
                           const isNumeric = typeof questionData === "number";
+                          const isTextAnswers = Array.isArray(questionData);
                           const isBooleanQuestion = isNumeric && booleanQuestionIds.has(questionId);
                           const showHeader = questionId !== "_direct" && !isNumeric;
                           // For boolean questions the question label becomes the row label by
@@ -281,6 +282,14 @@ export default function StatisticsDashboard({
                           const effectiveIdToDisplayText = isBooleanQuestion
                             ? { ...idToDisplayText, checked: questionIdToText[questionId] ?? questionId }
                             : idToDisplayText;
+                          // Convert free-text answer arrays to a frequency count map for display.
+                          const effectiveAnswerCounts = isTextAnswers
+                            ? questionData.reduce((acc, text) => {
+                                const key = text || "(tomt)";
+                                acc[key] = (acc[key] || 0) + 1;
+                                return acc;
+                              }, {})
+                            : questionData;
                           return (
                             <Box key={questionId}>
                               {showHeader && (
@@ -311,11 +320,11 @@ export default function StatisticsDashboard({
                               ) : (
                                 <QuestionStats
                                   questionId={questionId}
-                                  answerCounts={isBooleanQuestion ? { checked: questionData } : questionData}
+                                  answerCounts={isBooleanQuestion ? { checked: questionData } : effectiveAnswerCounts}
                                   projectId={projectId}
                                   selectedGroupIds={selectedGroupIds}
                                   groupIdToName={groupIdToName}
-                                  onSelectByAnswer={onReplaceSelection}
+                                  onSelectByAnswer={isTextAnswers ? undefined : onReplaceSelection}
                                   idToDisplayText={effectiveIdToDisplayText}
                                 />
                               )}
