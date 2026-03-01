@@ -30,7 +30,12 @@ export function SmartTableHeaderMenu<TData extends RowData>({
 	const [filterMenuAnchorEl, setFilterMenuAnchorEl] =
 		useState<HTMLElement | null>(null);
 
-	const [selected, setSelected] = useState<(string | number)[]>([]);
+	const selected: (string | number)[] =
+		(header?.column.getFilterValue() as (string | number)[] | undefined) ?? [];
+
+	const handleSelected = (newSelected: (string | number)[]) => {
+		header?.column.setFilterValue(newSelected.length ? newSelected : undefined);
+	};
 
 	const open = Boolean(anchor) && Boolean(header);
 
@@ -83,7 +88,6 @@ export function SmartTableHeaderMenu<TData extends RowData>({
 				<MenuItem
 					key="filterMenu"
 					onClick={(e) => {
-						console.log("Setting to", e.currentTarget);
 						setFilterMenuAnchorEl(e.currentTarget);
 					}}
 				>
@@ -142,17 +146,16 @@ export function SmartTableHeaderMenu<TData extends RowData>({
 					},
 				}}
 				onClose={() => {
-					console.log("Removing it");
 					setFilterMenuAnchorEl(null);
 				}}
 			>
 				{dataType?.type === "choice" ? (
-					<ChoiceFilter
-						open={!!filterMenuAnchorEl}
-						options={dataType.options}
-						selected={selected}
-						onSelected={setSelected}
-					/>
+			<ChoiceFilter
+					open={!!filterMenuAnchorEl}
+					options={dataType.options}
+					selected={selected}
+					onSelected={handleSelected}
+				/>
 				) : (
 					<Box sx={{ px: 2, py: 0.75 }}>
 						<Typography>

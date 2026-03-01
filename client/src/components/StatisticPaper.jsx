@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import {
   Box,
-  Typography,
   CircularProgress,
   IconButton,
   Tooltip,
@@ -9,7 +8,6 @@ import {
 } from "@mui/material";
 import FilterListIcon from "@mui/icons-material/FilterList";
 
-import ExpandCollapseButton from "./ExpandCollapseButton.jsx";
 import StatRow from "./StatRow.jsx";
 
 /**
@@ -36,18 +34,7 @@ function GroupedAnswerValues({
   idToDisplayText = {},
 }) {
   const getDisplayText = (/** @type {string} */ id) => idToDisplayText[id] ?? id;
-  const [expandedAnswers, setExpandedAnswers] = useState(/** @type {Record<string, boolean>} */ ({}));
   const [pendingAnswer, setPendingAnswer] = useState(/** @type {{ answerName: string, displayLabel: string } | null} */ (null));
-
-  const toggleExpanded = (/** @type {string} */ answerName) => {
-    if (!expandedAnswers[answerName] && groups === null) {
-      onRequestGroups();
-    }
-    setExpandedAnswers((prev) => ({
-      ...prev,
-      [answerName]: !prev[answerName],
-    }));
-  };
 
   const handleFilterClick = (/** @type {string} */ answerName, /** @type {string} */ displayLabel) => {
     if (!onSelectByAnswer) return;
@@ -86,67 +73,24 @@ function GroupedAnswerValues({
       </Backdrop>
       <Box sx={{ display: "flex", flexDirection: "column", gap: "4px" }}>
         {sortedEntries.map(([answerName, count]) => {
-          const isExpanded = expandedAnswers[answerName] || false;
-          const resolvedGroups = groups?.[answerName] ?? null;
           const displayLabel = getDisplayText(answerName) || "(tomt)";
 
           return (
-            <Box key={answerName}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                <ExpandCollapseButton
-                  isExpanded={isExpanded}
-                  onClick={() => toggleExpanded(answerName)}
-                  sx={{ marginRight: "4px", marginLeft: "-8px", flexShrink: 0 }}
-                />
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <StatRow label={displayLabel} value={count} total={total} />
-                </Box>
-                {onSelectByAnswer && (
-                  <Tooltip title="Välj dessa kårer">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleFilterClick(answerName, displayLabel)}
-                      aria-label="Välj dessa kårer"
-                      sx={{ flexShrink: 0 }}
-                    >
-                      <FilterListIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                )}
+            <Box key={answerName} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <StatRow label={displayLabel} value={count} total={total} />
               </Box>
-              {isExpanded && (
-                <Box sx={{ marginLeft: "32px", marginTop: "4px" }}>
-                  {isLoadingGroups ? (
-                    <CircularProgress size={16} sx={{ mt: 0.5 }} />
-                  ) : resolvedGroups && resolvedGroups.length > 0 ? (
-                    resolvedGroups.map((group) => (
-                      <Box
-                        key={group.id}
-                        sx={{
-                          padding: "4px 8px",
-                          backgroundColor: "rgba(0, 0, 0, 0.02)",
-                          borderRadius: "4px",
-                          marginTop: "2px",
-                        }}
-                      >
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            overflowWrap: "anywhere",
-                            wordBreak: "break-word",
-                            whiteSpace: "normal",
-                          }}
-                        >
-                          {group.name}
-                        </Typography>
-                      </Box>
-                    ))
-                  ) : (
-                    <Typography variant="caption" color="text.secondary">
-                      Data tillfälligt inte tillgängligt. Använd tabell.
-                    </Typography>
-                  )}
-                </Box>
+              {onSelectByAnswer && (
+                <Tooltip title="Välj kårer">
+                  <IconButton
+                    size="small"
+                    onClick={() => handleFilterClick(answerName, displayLabel)}
+                    aria-label="Välj kårer"
+                    sx={{ flexShrink: 0 }}
+                  >
+                    <FilterListIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               )}
             </Box>
           );
