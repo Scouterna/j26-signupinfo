@@ -28,11 +28,13 @@ export default function useGroupSummary(projectId, selectedGroupIds) {
 
   const totalParticipants = summaryData?.total_participants ?? 0;
 
+  /**
+   * Returns the raw summary data for a section.
+   * @param {string} sectionId
+   * @returns {Record<string, Record<string, number> | number>}
+   */
   const getStatisticData = useCallback(
-    (categoryName) => {
-      const subQuestions = summaryData?.stats?.[categoryName] ?? {};
-      return { subQuestions };
-    },
+    (sectionId) => summaryData?.stats?.[sectionId] ?? {},
     [summaryData],
   );
 

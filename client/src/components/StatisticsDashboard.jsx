@@ -8,39 +8,37 @@ import BarChartIcon from "@mui/icons-material/BarChart";
 import HeroMetric from "./HeroMetric.jsx";
 import StatisticChipSelector from "./StatisticChipSelector.jsx";
 import ScoutGroupTable from "./ScoutGroupTable.jsx";
-import {
-  SubQuestionValues,
-} from "./StatisticPaper.jsx";
+import { SubQuestionValues } from "./StatisticPaper.jsx";
+import QuestionStats from "./QuestionStats.jsx";
+import StatRow from "./StatRow.jsx";
 
 /**
  * @typedef {{ id: number | string, name: string, num_participants?: number, stats?: Record<string, any> }} ScoutGroupItem
  */
 
 /**
- * Build synthetic stat data for "Deltagare" (num_participants) from selected scout groups.
+ * Build counts and pre-resolved groups for "Deltagare" (num_participants).
  * @param {ScoutGroupItem[]} selectedScoutGroups
  * @param {number} totalParticipants
+ * @returns {{ counts: Record<string, number>, groups: Record<string, { id: number|string, name: string }[]> }}
  */
 function buildNumParticipantsStatData(selectedScoutGroups, totalParticipants) {
-  /** @type {Record<string, { count: number, scoutGroups: { id: number | string, name: string }[] }>} */
-  const groupedByAnswer = {};
+  /** @type {Record<string, number>} */
+  const counts = {};
+  /** @type {Record<string, { id: number|string, name: string }[]>} */
+  const groups = {};
+
   if (selectedScoutGroups.length === 0) {
-    groupedByAnswer["Totalt"] = { count: totalParticipants, scoutGroups: [] };
+    counts["Totalt"] = totalParticipants;
+    groups["Totalt"] = [];
   } else {
     for (const g of selectedScoutGroups) {
-      const count = g.num_participants ?? 0;
       const label = g.name ?? String(g.id);
-      groupedByAnswer[label] = {
-        count,
-        scoutGroups: [{ id: g.id, name: g.name }],
-      };
+      counts[label] = g.num_participants ?? 0;
+      groups[label] = [{ id: g.id, name: g.name }];
     }
   }
-  return {
-    subQuestions: {
-      _direct: { groupedByAnswer },
-    },
-  };
+  return { counts, groups };
 }
 
 /**
@@ -51,11 +49,15 @@ function buildNumParticipantsStatData(selectedScoutGroups, totalParticipants) {
  * @param {Record<string, string[]>} [props.statisticSubQuestions]
  * @param {Record<string, string>} [props.sectionIdToText]
  * @param {Record<string, string>} [props.questionIdToText]
+ * @param {Set<string>} [props.booleanQuestionIds]
  * @param {string[]} props.selectedStatistics
  * @param {(stats: string[]) => void} props.setSelectedStatistics
- * @param {(name: string) => { subQuestions: Record<string, any> }} props.getStatisticData
+ * @param {(sectionId: string) => Record<string, Record<string, number> | number>} props.getStatisticData
  * @param {ScoutGroupItem[]} props.selectedScoutGroups
  * @param {((ids: number[], answerName: string) => void)} [props.onReplaceSelection]
+ * @param {number|null} [props.projectId]
+ * @param {Set<number>} [props.selectedGroupIds]
+ * @param {Record<number, string>} [props.groupIdToName]
  */
 export default function StatisticsDashboard({
   numScoutGroupsSelected,
@@ -64,11 +66,15 @@ export default function StatisticsDashboard({
   statisticSubQuestions = {},
   sectionIdToText = {},
   questionIdToText = {},
+  booleanQuestionIds = new Set(),
   selectedStatistics,
   setSelectedStatistics,
   getStatisticData,
   selectedScoutGroups,
   onReplaceSelection,
+  projectId = null,
+  selectedGroupIds = new Set(),
+  groupIdToName = {},
 }) {
   const [viewMode, setViewMode] = useState("statistics");
   const [selectedSubQuestions, setSelectedSubQuestions] = useState(
@@ -205,43 +211,34 @@ export default function StatisticsDashboard({
               }}
             >
               {effectiveSelectedStats.map((statName) => {
-                const statData =
-                  statName === "num_participants"
-                    ? buildNumParticipantsStatData(
-                        selectedScoutGroups,
-                        totalParticipants
-                      )
-                    : getStatisticData(statName);
-                const { subQuestions } = statData;
-                const allEntries = Object.entries(
-                  subQuestions || {}
-                ).sort(([, a], [, b]) => {
-                  const aHasFreeText = Object.values(a.values || {}).some(
-                    (v) =>
-                      v.freeTextAnswers && v.freeTextAnswers.length > 0
-                  );
-                  const bHasFreeText = Object.values(b.values || {}).some(
-                    (v) =>
-                      v.freeTextAnswers && v.freeTextAnswers.length > 0
-                  );
-                  return Number(aHasFreeText) - Number(bHasFreeText);
-                });
+                const isNumParticipants = statName === "num_participants";
 
                 const activeSubQs = selectedSubQuestions[statName];
-                const subQuestionEntries = Array.isArray(activeSubQs)
-                  ? allEntries
-                      .map(([name, subQ]) => {
-                        if (name === "_direct" && subQ.values) {
-                          const filtered = Object.fromEntries(
-                            Object.entries(subQ.values).filter(([k]) => activeSubQs.includes(k)),
-                          );
-                          if (Object.keys(filtered).length === 0) return null;
-                          return [name, { ...subQ, values: filtered }];
-                        }
-                        return activeSubQs.includes(name) ? [name, subQ] : null;
-                      })
-                      .filter(Boolean)
-                  : allEntries;
+
+                let questionEntries;
+                if (isNumParticipants) {
+                  const { counts, groups } = buildNumParticipantsStatData(
+                    selectedScoutGroups,
+                    totalParticipants,
+                  );
+                  questionEntries = [["_direct", { counts, groups }]];
+                } else {
+                  const sectionData = getStatisticData(statName);
+                  questionEntries = Object.entries(sectionData);
+                  if (Array.isArray(activeSubQs)) {
+                    questionEntries = questionEntries.filter(([qId]) =>
+                      activeSubQs.includes(qId)
+                    );
+                  }
+                }
+
+                // Total for inline numeric StatRows (shared across all number-valued questions in section)
+                const numericTotal = isNumParticipants
+                  ? 0
+                  : questionEntries.reduce(
+                      (sum, [, v]) => (typeof v === "number" ? sum + v : sum),
+                      0,
+                    );
 
                 return (
                   <Box
@@ -263,7 +260,7 @@ export default function StatisticsDashboard({
                       {sectionIdToText[statName] ?? statName}
                     </Typography>
 
-                    {subQuestionEntries.length === 0 ? (
+                    {questionEntries.length === 0 ? (
                       <Typography variant="body2" color="text.secondary">
                         Ingen data tillgänglig
                       </Typography>
@@ -275,31 +272,56 @@ export default function StatisticsDashboard({
                           gap: "12px",
                         }}
                       >
-                        {subQuestionEntries.map(
-                          (/** @type {any} */ [subQuestionName, subQuestion]) => {
-                            const showHeader = subQuestionName !== "_direct";
-                            return (
-                              <Box key={subQuestionName}>
-                                {showHeader && (
-                                  <Typography
-                                    variant="body2"
-                                    fontWeight="500"
-                                    color="text.secondary"
-                                    sx={{ marginBottom: "6px" }}
-                                  >
-                                    {questionIdToText[subQuestionName] ?? subQuestionName}
-                                  </Typography>
-                                )}
+                        {questionEntries.map(([questionId, questionData]) => {
+                          const isNumeric = typeof questionData === "number";
+                          const isBooleanQuestion = isNumeric && booleanQuestionIds.has(questionId);
+                          const showHeader = questionId !== "_direct" && !isNumeric;
+                          // For boolean questions the question label becomes the row label by
+                          // overriding "checked" (the API answer key) with the question text.
+                          const effectiveIdToDisplayText = isBooleanQuestion
+                            ? { ...idToDisplayText, checked: questionIdToText[questionId] ?? questionId }
+                            : idToDisplayText;
+                          return (
+                            <Box key={questionId}>
+                              {showHeader && (
+                                <Typography
+                                  variant="body2"
+                                  fontWeight="500"
+                                  color="text.secondary"
+                                  sx={{ marginBottom: "6px" }}
+                                >
+                                  {questionIdToText[questionId] ?? questionId}
+                                </Typography>
+                              )}
+                              {isNumParticipants ? (
                                 <SubQuestionValues
-                                  subQuestion={subQuestion}
-                                  useStatRow
+                                  answerCounts={questionData.counts}
+                                  groups={questionData.groups}
+                                  isLoadingGroups={false}
+                                  onRequestGroups={() => {}}
                                   onSelectByAnswer={onReplaceSelection}
                                   idToDisplayText={questionIdToText}
                                 />
-                              </Box>
-                            );
-                          }
-                        )}
+                              ) : (isNumeric && !isBooleanQuestion) ? (
+                                <StatRow
+                                  label={questionIdToText[questionId] ?? questionId}
+                                  value={questionData}
+                                  total={numericTotal}
+                                />
+                              ) : (
+                                <QuestionStats
+                                  questionId={questionId}
+                                  answerCounts={isBooleanQuestion ? { checked: questionData } : questionData}
+                                  projectId={projectId}
+                                  selectedGroupIds={selectedGroupIds}
+                                  groupIdToName={groupIdToName}
+                                  onSelectByAnswer={onReplaceSelection}
+                                  idToDisplayText={effectiveIdToDisplayText}
+                                />
+                              )}
+                            </Box>
+                          );
+                        })}
                       </Box>
                     )}
                   </Box>

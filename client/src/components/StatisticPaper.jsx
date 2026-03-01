@@ -1,178 +1,127 @@
 import { useState } from "react";
 import {
   Box,
-  Paper,
   Typography,
-  Chip,
-  ToggleButtonGroup,
-  ToggleButton,
+  CircularProgress,
   IconButton,
   Tooltip,
 } from "@mui/material";
 import FilterListIcon from "@mui/icons-material/FilterList";
-import TableChartIcon from "@mui/icons-material/TableChart";
-import BarChartIcon from "@mui/icons-material/BarChart";
 
-import StatisticSelector from "./StatisticSelector.jsx";
-import StatisticBox from "./StatisticBox.jsx";
 import ExpandCollapseButton from "./ExpandCollapseButton.jsx";
-import ScoutGroupTable from "./ScoutGroupTable.jsx";
 import StatRow from "./StatRow.jsx";
 
 /**
  * @typedef {{ id: number, name: string }} GroupRef
- * @typedef {{ count: number, scoutGroups: GroupRef[] }} GroupedAnswer
- * @typedef {{ text: string, num_answers: number }} FreeTextItem
- * @typedef {{ name?: string, count?: number, freeTextAnswers?: (string | FreeTextItem)[] }} SubQuestionValue
- * @typedef {{ type?: "answers" | "perGroup", values?: Record<string, SubQuestionValue>, groupedByAnswer?: Record<string, GroupedAnswer> }} SubQuestion
  */
 
 /**
- * Renders grouped answer values with expandable scout group lists.
+ * Renders grouped answer counts with expandable scout group lists (lazily loaded).
+ *
  * @param {object} props
- * @param {Record<string, GroupedAnswer>} props.groupedByAnswer
- * @param {boolean} [props.useStatRow]
+ * @param {Record<string, number>} props.counts - answer label -> count
+ * @param {Record<string, GroupRef[]> | null} props.groups - null until lazily loaded
+ * @param {boolean} props.isLoadingGroups
+ * @param {() => void} props.onRequestGroups - called on first expand when groups are null
  * @param {((ids: number[], answerName: string) => void)} [props.onSelectByAnswer]
  * @param {Record<string, string>} [props.idToDisplayText]
  */
 function GroupedAnswerValues({
-  groupedByAnswer,
-  useStatRow = false,
+  counts,
+  groups,
+  isLoadingGroups,
+  onRequestGroups,
   onSelectByAnswer,
   idToDisplayText = {},
 }) {
-  const getDisplayText = (id) => idToDisplayText[id] ?? id;
-  const [expandedAnswers, setExpandedAnswers] = useState({});
+  const getDisplayText = (/** @type {string} */ id) => idToDisplayText[id] ?? id;
+  const [expandedAnswers, setExpandedAnswers] = useState(/** @type {Record<string, boolean>} */ ({}));
 
-  const toggleExpanded = (answerName) => {
+  const toggleExpanded = (/** @type {string} */ answerName) => {
+    if (!expandedAnswers[answerName] && groups === null) {
+      onRequestGroups();
+    }
     setExpandedAnswers((prev) => ({
       ...prev,
       [answerName]: !prev[answerName],
     }));
   };
 
-  const sortedEntries = Object.entries(groupedByAnswer).sort((a, b) => {
-    const countDiff = b[1].count - a[1].count;
+  const sortedEntries = Object.entries(counts).sort((a, b) => {
+    const countDiff = b[1] - a[1];
     if (countDiff !== 0) return countDiff;
     return a[0].localeCompare(b[0], "sv");
   });
 
-  const total = sortedEntries.reduce((sum, [, { count }]) => sum + count, 0);
+  const total = sortedEntries.reduce((sum, [, count]) => sum + count, 0);
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-      {sortedEntries.map(([answerName, { count, scoutGroups }]) => {
+      {sortedEntries.map(([answerName, count]) => {
         const isExpanded = expandedAnswers[answerName] || false;
+        const resolvedGroups = groups?.[answerName] ?? null;
         const canSelectByAnswer =
           onSelectByAnswer &&
-          Array.isArray(scoutGroups) &&
-          scoutGroups.length > 0;
+          Array.isArray(resolvedGroups) &&
+          resolvedGroups.length > 0;
         const displayLabel = getDisplayText(answerName) || "(tomt)";
 
         return (
           <Box key={answerName}>
-            {useStatRow ? (
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                <ExpandCollapseButton
-                  isExpanded={isExpanded}
-                  onClick={() => toggleExpanded(answerName)}
-                  sx={{ marginRight: "4px", marginLeft: "-8px", flexShrink: 0 }}
-                />
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <StatRow
-                    label={displayLabel}
-                    value={count}
-                    total={total}
-                  />
-                </Box>
-                {canSelectByAnswer && (
-                  <Tooltip title="Välj dessa kårer">
-                    <IconButton
-                      size="small"
-                      onClick={() => onSelectByAnswer(scoutGroups.map(g => g.id), answerName)}
-                      aria-label="Välj dessa kårer"
-                      sx={{ flexShrink: 0 }}
-                    >
-                      <FilterListIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                )}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <ExpandCollapseButton
+                isExpanded={isExpanded}
+                onClick={() => toggleExpanded(answerName)}
+                sx={{ marginRight: "4px", marginLeft: "-8px", flexShrink: 0 }}
+              />
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <StatRow label={displayLabel} value={count} total={total} />
               </Box>
-            ) : (
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "4px 8px",
-                  backgroundColor: "white",
-                  borderRadius: "4px",
-                }}
-              >
-                <Box sx={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
-                  <ExpandCollapseButton
-                    isExpanded={isExpanded}
-                    onClick={() => toggleExpanded(answerName)}
-                    sx={{ marginRight: "4px", marginLeft: "-8px" }}
-                  />
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      overflowWrap: "anywhere",
-                      wordBreak: "break-word",
-                      whiteSpace: "normal",
-                      flex: 1,
-                      marginRight: "8px",
-                    }}
+              {canSelectByAnswer && (
+                <Tooltip title="Välj dessa kårer">
+                  <IconButton
+                    size="small"
+                    onClick={() => onSelectByAnswer(resolvedGroups.map((g) => g.id), displayLabel)}
+                    aria-label="Välj dessa kårer"
+                    sx={{ flexShrink: 0 }}
                   >
-                    {displayLabel}
-                  </Typography>
-                </Box>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                  <Typography variant="body2" fontWeight="600" sx={{ flexShrink: 0 }}>
-                    {count}
-                  </Typography>
-                  {canSelectByAnswer && (
-                    <Tooltip title="Välj dessa kårer">
-                      <IconButton
-                        size="small"
-                        onClick={() => onSelectByAnswer(scoutGroups.map(g => g.id), answerName)}
-                        aria-label="Välj dessa kårer"
-                      >
-                        <FilterListIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                </Box>
-              </Box>
-            )}
-            {/* Expanded scout group list */}
+                    <FilterListIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
             {isExpanded && (
               <Box sx={{ marginLeft: "32px", marginTop: "4px" }}>
-                {scoutGroups.map((group) => (
-                  <Box
-                    key={group.id}
-                    sx={{
-                      padding: "4px 8px",
-                      backgroundColor: useStatRow
-                        ? "rgba(0, 0, 0, 0.02)"
-                        : "#f0f0f0",
-                      borderRadius: "4px",
-                      marginTop: "2px",
-                    }}
-                  >
-                    <Typography
-                      variant="caption"
+                {isLoadingGroups ? (
+                  <CircularProgress size={16} sx={{ mt: 0.5 }} />
+                ) : resolvedGroups && resolvedGroups.length > 0 ? (
+                  resolvedGroups.map((group) => (
+                    <Box
+                      key={group.id}
                       sx={{
-                        overflowWrap: "anywhere",
-                        wordBreak: "break-word",
-                        whiteSpace: "normal",
+                        padding: "4px 8px",
+                        backgroundColor: "rgba(0, 0, 0, 0.02)",
+                        borderRadius: "4px",
+                        marginTop: "2px",
                       }}
                     >
-                      {group.name}
-                    </Typography>
-                  </Box>
-                ))}
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          overflowWrap: "anywhere",
+                          wordBreak: "break-word",
+                          whiteSpace: "normal",
+                        }}
+                      >
+                        {group.name}
+                      </Typography>
+                    </Box>
+                  ))
+                ) : (
+                  <Typography variant="caption" color="text.secondary">
+                    Inga kårer
+                  </Typography>
+                )}
               </Box>
             )}
           </Box>
@@ -183,377 +132,38 @@ function GroupedAnswerValues({
 }
 
 /**
- * Renders values for a sub-question section.
+ * Renders values for a single question from the summary endpoint.
+ *
  * @param {object} props
- * @param {SubQuestion} props.subQuestion
- * @param {boolean} [props.useStatRow]
+ * @param {Record<string, number> | number} props.answerCounts
+ * @param {Record<string, GroupRef[]> | null} props.groups - null until lazily loaded
+ * @param {boolean} [props.isLoadingGroups]
+ * @param {() => void} [props.onRequestGroups]
  * @param {((ids: number[], answerName: string) => void)} [props.onSelectByAnswer]
  * @param {Record<string, string>} [props.idToDisplayText]
  */
-function SubQuestionValues({ subQuestion, useStatRow = false, onSelectByAnswer, idToDisplayText = {} }) {
-  const { values, groupedByAnswer } = subQuestion;
-  const [expandedFreeText, setExpandedFreeText] = useState({});
-  const getDisplayText = (id) => idToDisplayText[id] ?? id;
-
-  const toggleFreeTextExpanded = (key) => {
-    setExpandedFreeText((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
-
-  if (groupedByAnswer) {
-    return (
-      <GroupedAnswerValues
-        groupedByAnswer={groupedByAnswer}
-        useStatRow={useStatRow}
-        onSelectByAnswer={onSelectByAnswer}
-        idToDisplayText={idToDisplayText}
-      />
-    );
+function SubQuestionValues({
+  answerCounts,
+  groups = null,
+  isLoadingGroups = false,
+  onRequestGroups = () => {},
+  onSelectByAnswer,
+  idToDisplayText = {},
+}) {
+  if (typeof answerCounts === "number") {
+    return <StatRow label="" value={answerCounts} total={answerCounts} />;
   }
 
-  const entries = Object.entries(values || {});
-  const total = entries.reduce(
-    (sum, [, v]) => sum + (Number.isFinite(v.count) ? v.count : 0),
-    0
-  );
-
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-      {entries.map(([key, value]) => {
-        const leftLabel = getDisplayText(value.name ?? key);
-        const rightValue = value.count;
-        const count = Number.isFinite(value.count) ? value.count : 0;
-        const hasFreeText = value.freeTextAnswers && value.freeTextAnswers.length > 0;
-        const isFreeTextExpanded = expandedFreeText[key] || false;
-
-        return (
-          <Box key={key}>
-            {useStatRow && Number.isFinite(value.count) ? (
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                {hasFreeText && (
-                  <ExpandCollapseButton
-                    isExpanded={isFreeTextExpanded}
-                    onClick={() => toggleFreeTextExpanded(key)}
-                    sx={{ marginRight: "4px", marginLeft: "-8px", flexShrink: 0 }}
-                  />
-                )}
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <StatRow label={leftLabel} value={count} total={total} />
-                </Box>
-              </Box>
-            ) : (
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: useStatRow ? "4px 0" : "4px 8px",
-                  backgroundColor: useStatRow ? "transparent" : "white",
-                  borderRadius: "4px",
-                }}
-              >
-                <Box sx={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
-                  {hasFreeText && (
-                    <ExpandCollapseButton
-                      isExpanded={isFreeTextExpanded}
-                      onClick={() => toggleFreeTextExpanded(key)}
-                      sx={{ marginRight: "4px", marginLeft: "-8px" }}
-                    />
-                  )}
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      overflowWrap: "anywhere",
-                      wordBreak: "break-word",
-                      whiteSpace: "normal",
-                      flex: 1,
-                      marginRight: "8px",
-                    }}
-                  >
-                    {leftLabel}
-                  </Typography>
-                </Box>
-                <Typography variant="body2" fontWeight="600" sx={{ flexShrink: 0 }}>
-                  {rightValue}
-                </Typography>
-              </Box>
-            )}
-            {/* Free text answers - collapsible */}
-            {hasFreeText && isFreeTextExpanded && (
-              <Box sx={{ marginLeft: "32px", marginTop: "4px" }}>
-                {value.freeTextAnswers.map((item, index) => {
-                  const text =
-                    typeof item === "string" ? item : item?.text ?? "";
-                  const numAnswers =
-                    typeof item === "object" && item?.num_answers != null
-                      ? item.num_answers
-                      : 1;
-                  return (
-                    <Box
-                      key={index}
-                      sx={{
-                        padding: "4px 8px",
-                        backgroundColor: "rgba(0, 0, 0, 0.02)",
-                        borderRadius: "6px",
-                        marginTop: "2px",
-                        borderLeft: "3px solid",
-                        borderLeftColor: "primary.light",
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                        }}
-                      >
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            overflowWrap: "anywhere",
-                            wordBreak: "break-word",
-                            whiteSpace: "normal",
-                            flex: 1,
-                          }}
-                        >
-                          {text}
-                        </Typography>
-                        {numAnswers > 1 && (
-                          <Typography
-                            variant="caption"
-                            fontWeight="600"
-                            sx={{ marginLeft: "12px", color: "text.secondary" }}
-                          >
-                            {numAnswers}
-                          </Typography>
-                        )}
-                      </Box>
-                    </Box>
-                  );
-                })}
-              </Box>
-            )}
-          </Box>
-        );
-      })}
-    </Box>
+    <GroupedAnswerValues
+      counts={answerCounts}
+      groups={groups}
+      isLoadingGroups={isLoadingGroups}
+      onRequestGroups={onRequestGroups}
+      onSelectByAnswer={onSelectByAnswer}
+      idToDisplayText={idToDisplayText}
+    />
   );
 }
 
 export { SubQuestionValues, GroupedAnswerValues };
-
-/**
- * @typedef {{ id: number, name: string, num_participants?: number, stats?: Record<string, any> }} ScoutGroupItem
- */
-
-/**
- * @param {object} props
- * @param {number} props.numScoutGroupsSelected
- * @param {number} props.totalParticipants
- * @param {string[]} props.statistics
- * @param {string[]} props.selectedStatistics
- * @param {(stats: string[]) => void} props.setSelectedStatistics
- * @param {(name: string) => { subQuestions: Record<string, SubQuestion> }} props.getStatisticData
- * @param {ScoutGroupItem[]} props.selectedScoutGroups
- */
-export default function StatisticPaper({
-  numScoutGroupsSelected,
-  totalParticipants,
-  statistics,
-  selectedStatistics,
-  setSelectedStatistics,
-  getStatisticData,
-  selectedScoutGroups,
-}) {
-  const [viewMode, setViewMode] = useState("statistics");
-
-  const handleStatisticChange = (event) => {
-    const {
-      target: { value },
-    } = event;
-    setSelectedStatistics(typeof value === "string" ? value.split(",") : value);
-  };
-
-  const handleChipDelete = (statToDelete) => () => {
-    setSelectedStatistics((prevStats) =>
-      prevStats.filter((stat) => stat !== statToDelete)
-    );
-  };
-
-  const handleViewModeChange = (event, newMode) => {
-    if (newMode !== null) {
-      setViewMode(newMode);
-    }
-  };
-
-  return (
-    <Paper
-      elevation={3}
-      sx={{
-        padding: "24px",
-        display: "flex",
-        flexDirection: "column",
-        borderRadius: "16px",
-        height: "100%",
-        gap: "16px",
-        overflow: "auto",
-      }}
-    >
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 2 }}>
-        <Typography variant="h5" component="h2" fontWeight="600">
-          {viewMode === "statistics" ? "Statistik" : "Kåröversikt"}
-        </Typography>
-        <ToggleButtonGroup
-          value={viewMode}
-          exclusive
-          onChange={handleViewModeChange}
-          aria-label="view mode"
-          size="small"
-        >
-          <ToggleButton value="statistics" aria-label="statistics view">
-            <BarChartIcon sx={{ mr: 0.5 }} />
-            Statistik
-          </ToggleButton>
-          <ToggleButton value="table" aria-label="table view">
-            <TableChartIcon sx={{ mr: 0.5 }} />
-            Tabell
-          </ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
-
-      {/* Container for StatisticBoxes and Selector */}
-      <Box sx={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-        <StatisticBox
-          title="Antal valda kårer"
-          value={numScoutGroupsSelected}
-        />
-        <StatisticBox title="Antal deltagare" value={totalParticipants} />
-        {viewMode === "statistics" && (
-          <StatisticSelector
-            title="Vald statistik"
-            value={selectedStatistics}
-            options={statistics}
-            onChange={handleStatisticChange}
-          />
-        )}
-      </Box>
-
-      {/* Statistics view */}
-      {viewMode === "statistics" && (
-        <>
-          {/* Display selected statistics as external Chips below the selector */}
-          {selectedStatistics.length > 0 && (
-            <Box
-              sx={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 1,
-                paddingTop: "8px",
-              }}
-            >
-              {selectedStatistics.map((stat) => (
-                <Chip
-                  key={stat}
-                  label={stat}
-                  onDelete={handleChipDelete(stat)}
-                  color="primary"
-                  variant="outlined"
-                  size="medium"
-                />
-              ))}
-            </Box>
-          )}
-
-          {/* Display all selected statistics in boxes */}
-          {selectedStatistics.length > 0 && (
-            <Box
-              sx={{ display: "flex", flexWrap: "wrap", gap: 2, marginTop: "8px" }}
-            >
-              {selectedStatistics.map((statName) => {
-                const statData = getStatisticData(statName);
-                const { subQuestions } = statData;
-                const subQuestionEntries = Object.entries(subQuestions || {}).sort(
-                  ([, a], [, b]) => {
-                    const aHasFreeText = Object.values(a.values || {}).some(
-                      (v) => v.freeTextAnswers && v.freeTextAnswers.length > 0
-                    );
-                    const bHasFreeText = Object.values(b.values || {}).some(
-                      (v) => v.freeTextAnswers && v.freeTextAnswers.length > 0
-                    );
-                    return aHasFreeText - bHasFreeText;
-                  }
-                );
-
-                return (
-                  <Box
-                    key={statName}
-                    sx={{
-                      border: "1px solid #e0e0e0",
-                      borderRadius: "8px",
-                      padding: "12px",
-                      backgroundColor: "#fafafa",
-                      minWidth: "250px",
-                      flex: "1 1 auto",
-                      maxWidth: "400px",
-                    }}
-                  >
-                    <Typography
-                      variant="subtitle1"
-                      fontWeight="600"
-                      sx={{ marginBottom: "12px" }}
-                    >
-                      {statName}
-                    </Typography>
-
-                    {subQuestionEntries.length === 0 ? (
-                      <Typography variant="body2" color="text.secondary">
-                        Ingen data tillgänglig
-                      </Typography>
-                    ) : (
-                      <Box sx={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                        {subQuestionEntries.map(([subQuestionName, subQuestion]) => {
-                          const showHeader = subQuestionName !== "_direct";
-
-                          return (
-                            <Box key={subQuestionName}>
-                              {showHeader && (
-                                <Typography
-                                  variant="body2"
-                                  fontWeight="500"
-                                  color="text.secondary"
-                                  sx={{ marginBottom: "6px" }}
-                                >
-                                  {subQuestionName}
-                                </Typography>
-                              )}
-                              <SubQuestionValues subQuestion={subQuestion} />
-                            </Box>
-                          );
-                        })}
-                      </Box>
-                    )}
-                  </Box>
-                );
-              })}
-            </Box>
-          )}
-        </>
-      )}
-
-      {/* Table view */}
-      {viewMode === "table" && (
-        <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          {selectedScoutGroups.length > 0 ? (
-            <ScoutGroupTable scoutGroups={selectedScoutGroups} />
-          ) : (
-            <Typography variant="body1" color="text.secondary" sx={{ textAlign: "center", py: 4 }}>
-              Välj kårer i sidopanelen för att visa tabellen
-            </Typography>
-          )}
-        </Box>
-      )}
-    </Paper>
-  );
-}

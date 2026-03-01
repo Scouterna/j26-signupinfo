@@ -11,8 +11,8 @@ const DELTAGARE_STAT_ID = 'num_participants';
  * Transforms the raw questions response into chip selector data.
  * Preserves section and question IDs for matching with stats/groupinfo endpoints.
  *
- * @param {Record<string, { text: string, questions: Record<string, { text: string }> }> | undefined} questionsData
- * @returns {{ statistics: string[], statisticSubQuestions: Record<string, string[]>, sectionIdToText: Record<string, string>, questionIdToText: Record<string, string> }}
+ * @param {Record<string, { text: string, questions: Record<string, { text: string, type?: string }> }> | undefined} questionsData
+ * @returns {{ statistics: string[], statisticSubQuestions: Record<string, string[]>, sectionIdToText: Record<string, string>, questionIdToText: Record<string, string>, booleanQuestionIds: Set<string> }}
  */
 function buildChipData(questionsData) {
   /** @type {string[]} */
@@ -27,9 +27,11 @@ function buildChipData(questionsData) {
   };
   /** @type {Record<string, string>} */
   const questionIdToText = {};
+  /** @type {Set<string>} */
+  const booleanQuestionIds = new Set();
 
   if (!questionsData) {
-    return { statistics, statisticSubQuestions, sectionIdToText, questionIdToText };
+    return { statistics, statisticSubQuestions, sectionIdToText, questionIdToText, booleanQuestionIds };
   }
 
   const sectionEntries = Object.entries(questionsData);
@@ -46,6 +48,9 @@ function buildChipData(questionsData) {
     const questionIds = sortedQuestions.map(([qId]) => qId);
     for (const [qId, q] of questionEntries) {
       questionIdToText[qId] = q.text || qId;
+      if (q.type === 'boolean') {
+        booleanQuestionIds.add(qId);
+      }
       if (q.choices && typeof q.choices === 'object') {
         for (const [choiceId, choiceText] of Object.entries(q.choices)) {
           questionIdToText[choiceId] = choiceText;
@@ -65,6 +70,7 @@ function buildChipData(questionsData) {
     statisticSubQuestions,
     sectionIdToText,
     questionIdToText,
+    booleanQuestionIds,
   };
 }
 
@@ -93,7 +99,7 @@ function buildVillagesData(groupsData) {
  * TanStack Query hook that fetches project list, question metadata, and group list.
  * Uses dependent queries: questions and groups are only fetched once the project ID is known.
  *
- * @returns {{ projectId: number|null, statistics: string[], statisticSubQuestions: Object, sectionIdToText: Object, questionIdToText: Object, villagesData: Object, isLoading: boolean, error: Error|null }}
+ * @returns {{ projectId: number|null, statistics: string[], statisticSubQuestions: Object, sectionIdToText: Object, questionIdToText: Object, booleanQuestionIds: Set<string>, villagesData: Object, isLoading: boolean, error: Error|null }}
  */
 export default function useProjectQueries() {
   const {
@@ -134,7 +140,7 @@ export default function useProjectQueries() {
     staleTime: Infinity,
   });
 
-  const { statistics, statisticSubQuestions, sectionIdToText, questionIdToText } = useMemo(
+  const { statistics, statisticSubQuestions, sectionIdToText, questionIdToText, booleanQuestionIds } = useMemo(
     () => buildChipData(/** @type {any} */ (questionsData)),
     [questionsData],
   );
@@ -144,13 +150,23 @@ export default function useProjectQueries() {
     [groupsData],
   );
 
+  /** @type {Record<number, string>} */
+  const groupIdToName = useMemo(() => {
+    if (!groupsData) return {};
+    return Object.fromEntries(
+      Object.entries(/** @type {any} */ (groupsData)).map(([id, name]) => [Number(id), name])
+    );
+  }, [groupsData]);
+
   return {
     projectId,
     statistics,
     statisticSubQuestions,
     sectionIdToText,
     questionIdToText,
+    booleanQuestionIds,
     villagesData,
+    groupIdToName,
     isLoading: projectsLoading || questionsLoading || groupsLoading,
     error: projectsError || questionsError || groupsError,
   };

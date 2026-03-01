@@ -74,8 +74,22 @@ export async function fetchGroups(projectId) {
  * @throws {Error} If the request fails
  */
 export async function fetchGroupInfoSummary(projectId, groupIds) {
-  const params = groupIds.map(id => `group_id=${id}`).join('&');
+  const params = groupIds.map(id => `group_ids=${id}`).join('&');
   return apiFetch(`/stats/${projectId}/groupinfo/summary?${params}`);
+}
+
+/**
+ * Fetches which groups gave which answers for a specific question.
+ *
+ * @param {number|string} projectId
+ * @param {number|string} questionId
+ * @param {number[]} groupIds - Array of group IDs to include
+ * @returns {Promise<Object>} { questionId: { answerId: [group_ids] } }
+ * @throws {Error} If the request fails
+ */
+export async function fetchQuestionGroupResponse(projectId, questionId, groupIds) {
+  const params = groupIds.map(id => `group_ids=${id}`).join('&');
+  return apiFetch(`/stats/${projectId}/groupinfo/response/${questionId}?${params}`);
 }
 
 /**

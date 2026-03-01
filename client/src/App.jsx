@@ -33,7 +33,9 @@ export default function App() {
     statisticSubQuestions,
     sectionIdToText,
     questionIdToText,
+    booleanQuestionIds,
     villagesData,
+    groupIdToName,
     isLoading: projectLoading,
     error: projectError,
   } = useProjectQueries();
@@ -159,11 +161,15 @@ export default function App() {
           statisticSubQuestions={statisticSubQuestions}
           sectionIdToText={sectionIdToText}
           questionIdToText={questionIdToText}
+          booleanQuestionIds={booleanQuestionIds}
           selectedStatistics={selectedStatistics}
           setSelectedStatistics={setSelectedStatistics}
           getStatisticData={getStatisticData}
           selectedScoutGroups={selectedScoutGroups}
           onReplaceSelection={replaceSelectionWithIds}
+          projectId={projectId}
+          selectedGroupIds={selectedScoutGroupIds}
+          groupIdToName={groupIdToName}
         />
       </Box>
     </Box>
