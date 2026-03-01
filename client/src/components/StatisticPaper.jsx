@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   Typography,
   CircularProgress,
   IconButton,
   Tooltip,
+  Backdrop,
 } from "@mui/material";
 import FilterListIcon from "@mui/icons-material/FilterList";
 
@@ -36,6 +37,7 @@ function GroupedAnswerValues({
 }) {
   const getDisplayText = (/** @type {string} */ id) => idToDisplayText[id] ?? id;
   const [expandedAnswers, setExpandedAnswers] = useState(/** @type {Record<string, boolean>} */ ({}));
+  const [pendingAnswer, setPendingAnswer] = useState(/** @type {{ answerName: string, displayLabel: string } | null} */ (null));
 
   const toggleExpanded = (/** @type {string} */ answerName) => {
     if (!expandedAnswers[answerName] && groups === null) {
@@ -47,6 +49,25 @@ function GroupedAnswerValues({
     }));
   };
 
+  const handleFilterClick = (/** @type {string} */ answerName, /** @type {string} */ displayLabel) => {
+    if (!onSelectByAnswer) return;
+    if (groups !== null) {
+      const resolvedGroups = groups[answerName] ?? [];
+      onSelectByAnswer(resolvedGroups.map((g) => g.id), displayLabel);
+    } else {
+      setPendingAnswer({ answerName, displayLabel });
+      onRequestGroups();
+    }
+  };
+
+  useEffect(() => {
+    if (groups !== null && pendingAnswer !== null) {
+      const resolvedGroups = groups[pendingAnswer.answerName] ?? [];
+      onSelectByAnswer?.(resolvedGroups.map((g) => g.id), pendingAnswer.displayLabel);
+      setPendingAnswer(null);
+    }
+  }, [groups, pendingAnswer, onSelectByAnswer]);
+
   const sortedEntries = Object.entries(counts).sort((a, b) => {
     const countDiff = b[1] - a[1];
     if (countDiff !== 0) return countDiff;
@@ -56,78 +77,82 @@ function GroupedAnswerValues({
   const total = sortedEntries.reduce((sum, [, count]) => sum + count, 0);
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-      {sortedEntries.map(([answerName, count]) => {
-        const isExpanded = expandedAnswers[answerName] || false;
-        const resolvedGroups = groups?.[answerName] ?? null;
-        const canSelectByAnswer =
-          onSelectByAnswer &&
-          Array.isArray(resolvedGroups) &&
-          resolvedGroups.length > 0;
-        const displayLabel = getDisplayText(answerName) || "(tomt)";
+    <>
+      <Backdrop
+        open={isLoadingGroups && pendingAnswer !== null}
+        sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, color: "#fff" }}
+      >
+        <CircularProgress color="inherit" />
+      </Backdrop>
+      <Box sx={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+        {sortedEntries.map(([answerName, count]) => {
+          const isExpanded = expandedAnswers[answerName] || false;
+          const resolvedGroups = groups?.[answerName] ?? null;
+          const displayLabel = getDisplayText(answerName) || "(tomt)";
 
-        return (
-          <Box key={answerName}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <ExpandCollapseButton
-                isExpanded={isExpanded}
-                onClick={() => toggleExpanded(answerName)}
-                sx={{ marginRight: "4px", marginLeft: "-8px", flexShrink: 0 }}
-              />
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <StatRow label={displayLabel} value={count} total={total} />
-              </Box>
-              {canSelectByAnswer && (
-                <Tooltip title="Välj dessa kårer">
-                  <IconButton
-                    size="small"
-                    onClick={() => onSelectByAnswer(resolvedGroups.map((g) => g.id), displayLabel)}
-                    aria-label="Välj dessa kårer"
-                    sx={{ flexShrink: 0 }}
-                  >
-                    <FilterListIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </Box>
-            {isExpanded && (
-              <Box sx={{ marginLeft: "32px", marginTop: "4px" }}>
-                {isLoadingGroups ? (
-                  <CircularProgress size={16} sx={{ mt: 0.5 }} />
-                ) : resolvedGroups && resolvedGroups.length > 0 ? (
-                  resolvedGroups.map((group) => (
-                    <Box
-                      key={group.id}
-                      sx={{
-                        padding: "4px 8px",
-                        backgroundColor: "rgba(0, 0, 0, 0.02)",
-                        borderRadius: "4px",
-                        marginTop: "2px",
-                      }}
+          return (
+            <Box key={answerName}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                <ExpandCollapseButton
+                  isExpanded={isExpanded}
+                  onClick={() => toggleExpanded(answerName)}
+                  sx={{ marginRight: "4px", marginLeft: "-8px", flexShrink: 0 }}
+                />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <StatRow label={displayLabel} value={count} total={total} />
+                </Box>
+                {onSelectByAnswer && (
+                  <Tooltip title="Välj dessa kårer">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleFilterClick(answerName, displayLabel)}
+                      aria-label="Välj dessa kårer"
+                      sx={{ flexShrink: 0 }}
                     >
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          overflowWrap: "anywhere",
-                          wordBreak: "break-word",
-                          whiteSpace: "normal",
-                        }}
-                      >
-                        {group.name}
-                      </Typography>
-                    </Box>
-                  ))
-                ) : (
-                  <Typography variant="caption" color="text.secondary">
-                    Inga kårer
-                  </Typography>
+                      <FilterListIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 )}
               </Box>
-            )}
-          </Box>
-        );
-      })}
-    </Box>
+              {isExpanded && (
+                <Box sx={{ marginLeft: "32px", marginTop: "4px" }}>
+                  {isLoadingGroups ? (
+                    <CircularProgress size={16} sx={{ mt: 0.5 }} />
+                  ) : resolvedGroups && resolvedGroups.length > 0 ? (
+                    resolvedGroups.map((group) => (
+                      <Box
+                        key={group.id}
+                        sx={{
+                          padding: "4px 8px",
+                          backgroundColor: "rgba(0, 0, 0, 0.02)",
+                          borderRadius: "4px",
+                          marginTop: "2px",
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            overflowWrap: "anywhere",
+                            wordBreak: "break-word",
+                            whiteSpace: "normal",
+                          }}
+                        >
+                          {group.name}
+                        </Typography>
+                      </Box>
+                    ))
+                  ) : (
+                    <Typography variant="caption" color="text.secondary">
+                      Inga kårer
+                    </Typography>
+                  )}
+                </Box>
+              )}
+            </Box>
+          );
+        })}
+      </Box>
+    </>
   );
 }
 

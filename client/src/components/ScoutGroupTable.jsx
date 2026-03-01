@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState } from "react";
 import {
   Box,
   IconButton,
@@ -259,16 +259,17 @@ function getColumnIdsFromChipSelection(
  * For each stat column, determines type (number vs string) and unique string values.
  * @param {ScoutGroupItem[]} scoutGroups
  * @param {any[]} hierarchy
+ * @param {Record<string, string>} [questionIdToText]
  * @returns {Map<string, ColumnMeta>}
  */
-function getColumnMeta(scoutGroups, hierarchy) {
+function getColumnMeta(scoutGroups, hierarchy, questionIdToText) {
   const columnIds = getAllColumnIdsFromHierarchy(hierarchy);
   /** @type {Map<string, ColumnMeta>} */
   const meta = new Map();
 
   columnIds.forEach((columnId) => {
     const values = scoutGroups
-      .map((g) => getValueFromPath(g.stats, columnId))
+      .map((g) => getValueFromPath(g.stats, columnId, questionIdToText))
       .filter((v) => v !== "" && v !== null && v !== undefined);
 
     const allNumeric =
@@ -291,11 +292,13 @@ function getColumnMeta(scoutGroups, hierarchy) {
 
 /**
  * Gets the value from a scout group's stats using a column ID path.
+ * Resolves string IDs to display names via questionIdToText when provided.
  * @param {Record<string, any> | undefined} stats
  * @param {string} columnId
+ * @param {Record<string, string>} [questionIdToText]
  * @returns {string | number}
  */
-function getValueFromPath(stats, columnId) {
+function getValueFromPath(stats, columnId, questionIdToText) {
   if (!stats) return "";
   const parts = columnId.split(PATH_SEPARATOR);
 
@@ -308,8 +311,13 @@ function getValueFromPath(stats, columnId) {
   }
 
   if (current === null || current === undefined) return "";
-  if (typeof current === "number") return current;
-  if (typeof current === "string") return current;
+  if (typeof current === "number") {
+    const resolved = questionIdToText?.[String(current)];
+    return resolved !== undefined ? resolved : current;
+  }
+  if (typeof current === "string") {
+    return questionIdToText?.[current] ?? current;
+  }
   if (Array.isArray(current)) return current.join("\n");
   return "";
 }
@@ -318,8 +326,9 @@ function getValueFromPath(stats, columnId) {
  * Transforms scout groups into row data for the table.
  * @param {ScoutGroupItem[]} scoutGroups
  * @param {Set<string>} selectedColumns
+ * @param {Record<string, string>} [questionIdToText]
  */
-function transformToRows(scoutGroups, selectedColumns) {
+function transformToRows(scoutGroups, selectedColumns, questionIdToText) {
   return scoutGroups.map((group) => {
     /** @type {Record<string, any>} */
     const row = {
@@ -330,211 +339,12 @@ function transformToRows(scoutGroups, selectedColumns) {
 
     selectedColumns.forEach((columnId) => {
       if (columnId !== "name" && columnId !== "num_participants") {
-        row[columnId] = getValueFromPath(group.stats, columnId);
+        row[columnId] = getValueFromPath(group.stats, columnId, questionIdToText);
       }
     });
 
     return row;
   });
-}
-
-/**
- * Multi-select dropdown component for categorical filters.
- * @param {object} props
- * @param {string[]} props.options
- * @param {string[]} props.value
- * @param {(selected: string[]) => void} props.onChange
- */
-function MultiSelectDropdown({ options, value, onChange }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef(null);
-
-  useEffect(() => {
-    /** @param {MouseEvent} event */
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const toggleOption = (/** @type {string} */ optionValue) => {
-    const newValue = value.includes(optionValue)
-      ? value.filter((v) => v !== optionValue)
-      : [...value, optionValue];
-    onChange(newValue);
-  };
-
-  const displayText =
-    value.length === 0
-      ? "Alla"
-      : value.length === options.length
-      ? "Alla valda"
-      : value.length === 1
-      ? value[0]
-      : `${value.length} valda`;
-
-  return (
-    <div ref={dropdownRef} className="scout-multi-select-dropdown">
-      <button
-        type="button"
-        className="scout-dropdown-toggle"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <span className="scout-dropdown-text">{displayText}</span>
-        <span className="scout-dropdown-arrow">{isOpen ? "▲" : "▼"}</span>
-      </button>
-      {isOpen && (
-        <div className="scout-dropdown-menu">
-          {options.map((option) => (
-            <label key={option} className="scout-dropdown-item">
-              <input
-                type="checkbox"
-                checked={value.includes(option)}
-                onChange={() => toggleOption(option)}
-              />
-              <span>{option}</span>
-            </label>
-          ))}
-          {value.length > 0 && (
-            <button
-              type="button"
-              className="scout-clear-button"
-              onClick={() => onChange([])}
-            >
-              Rensa alla
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Debounced input component for text and number filters.
- * @param {object} props
- * @param {string | number} props.value
- * @param {(value: string) => void} props.onChange
- * @param {number} [props.debounce]
- * @param {string} [props.type]
- * @param {string} [props.placeholder]
- * @param {string} [props.className]
- */
-function DebouncedInput({
-  value: initialValue,
-  onChange,
-  debounce = 300,
-  ...props
-}) {
-  const [value, setValue] = useState(initialValue);
-
-  useEffect(() => {
-    setValue(initialValue);
-  }, [initialValue]);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      onChange(/** @type {string} */ (value));
-    }, debounce);
-
-    return () => clearTimeout(timeout);
-  }, [value, debounce, onChange]);
-
-  return (
-    <input
-      {...props}
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-    />
-  );
-}
-
-/**
- * Filter component that renders the appropriate filter UI based on column meta.
- * @param {object} props
- * @param {import('@tanstack/react-table').Column<any, any>} props.column
- * @param {Map<string, ColumnMeta>} [props.columnMeta]
- */
-function Filter({ column, columnMeta }) {
-  const columnFilterValue = column.getFilterValue();
-  const { filterVariant } = /** @type {{ filterVariant?: string }} */ (column.columnDef.meta ?? {});
-  const meta = columnMeta?.get(column.id);
-
-  if (filterVariant === "range") {
-    return (
-      <div className="scout-filter-range">
-        <DebouncedInput
-          type="number"
-          value={/** @type {any[]} */ (columnFilterValue)?.[0] ?? ""}
-          onChange={(value) =>
-            column.setFilterValue((/** @type {any[]} */ old) => [value, old?.[1]])
-          }
-          placeholder="Min"
-          className="scout-filter-input scout-filter-input-small"
-        />
-        <DebouncedInput
-          type="number"
-          value={/** @type {any[]} */ (columnFilterValue)?.[1] ?? ""}
-          onChange={(value) =>
-            column.setFilterValue((/** @type {any[]} */ old) => [old?.[0], value])
-          }
-          placeholder="Max"
-          className="scout-filter-input scout-filter-input-small"
-        />
-      </div>
-    );
-  }
-
-  if (filterVariant === "select" && meta && "uniqueValues" in meta && meta.uniqueValues?.length) {
-    return (
-      <MultiSelectDropdown
-        options={meta.uniqueValues}
-        value={Array.isArray(columnFilterValue) ? columnFilterValue : []}
-        onChange={(selected) =>
-          column.setFilterValue(selected.length ? selected : undefined)
-        }
-      />
-    );
-  }
-
-  return (
-    <DebouncedInput
-      type="text"
-      value={/** @type {string} */ (columnFilterValue ?? "")}
-      onChange={(value) => column.setFilterValue(value)}
-      placeholder="Sök..."
-      className="scout-filter-input"
-    />
-  );
-}
-
-/**
- * Custom filter function for range (min/max) filtering.
- * @param {import('@tanstack/react-table').Row<any>} row
- * @param {string} columnId
- * @param {any} filterValue
- */
-function rangeFilterFn(row, columnId, filterValue) {
-  const value = row.getValue(columnId);
-  const [min, max] = filterValue ?? [];
-
-  if (value === "" || value === null || value === undefined) {
-    return false;
-  }
-
-  const numValue = typeof value === "number" ? value : Number(value);
-  if (Number.isNaN(numValue)) return false;
-
-  if (min !== "" && min !== undefined && min !== null) {
-    if (numValue < Number(min)) return false;
-  }
-  if (max !== "" && max !== undefined && max !== null) {
-    if (numValue > Number(max)) return false;
-  }
-  return true;
 }
 
 /**
@@ -583,7 +393,6 @@ function createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, 
     {
       accessorKey: "name",
       header: "Kår",
-      meta: { filterVariant: "text" },
       size: 200,
       minSize: 150,
     },
@@ -592,8 +401,6 @@ function createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, 
     columns.push({
       accessorKey: "num_participants",
       header: "Deltagare",
-      meta: { filterVariant: "range" },
-      filterFn: rangeFilterFn,
       size: 200,
     });
   }
@@ -618,8 +425,7 @@ function createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, 
     if (columnId === "name" || columnId === "num_participants") return;
 
     const headerName = columnIdToName.get(columnId) ?? getDisplayName(columnId.split(PATH_SEPARATOR).pop(), sectionIdToText, questionIdToText) ?? columnId;
-    const meta = columnMeta.get(columnId);
-    const isNumeric = meta?.type === "number";
+    const colMeta = columnMeta.get(columnId);
 
     /** @type {any} */
     const colDef = {
@@ -628,14 +434,14 @@ function createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, 
       size: 200,
     };
 
-    if (isNumeric) {
-      colDef.meta = { filterVariant: "range" };
-      colDef.filterFn = rangeFilterFn;
-    } else if (meta && "uniqueValues" in meta && meta.uniqueValues?.length) {
-      colDef.meta = { filterVariant: "select" };
+    if (colMeta && "uniqueValues" in colMeta && colMeta.uniqueValues?.length) {
+      colDef.meta = {
+        dataType: {
+          type: "choice",
+          options: colMeta.uniqueValues.map((v) => ({ value: v, label: v })),
+        },
+      };
       colDef.filterFn = multiSelectFilterFn;
-    } else {
-      colDef.meta = { filterVariant: "text" };
     }
 
     columns.push(colDef);
@@ -689,13 +495,13 @@ export default function ScoutGroupTable({
   const selectedColumns = chipDrivenColumns;
 
   const columnMeta = useMemo(
-    () => getColumnMeta(scoutGroups, hierarchy),
-    [scoutGroups, hierarchy]
+    () => getColumnMeta(scoutGroups, hierarchy, questionIdToText),
+    [scoutGroups, hierarchy, questionIdToText]
   );
 
   const rows = useMemo(
-    () => transformToRows(scoutGroups, selectedColumns),
-    [scoutGroups, selectedColumns]
+    () => transformToRows(scoutGroups, selectedColumns, questionIdToText),
+    [scoutGroups, selectedColumns, questionIdToText]
   );
 
   const columns = useMemo(
