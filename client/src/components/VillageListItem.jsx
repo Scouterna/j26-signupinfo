@@ -9,7 +9,25 @@ import {
 } from "@mui/material";
 import ExpandCollapseButton from "./ExpandCollapseButton";
 import ScoutGroupListItem from "./ScoutGroupListItem";
+import { SELECTION_TYPES } from "../constants/selectionTypes";
 
+/**
+ * @typedef {{ id: string | number, name: string }} ScoutGroup
+ * @typedef {{ id: string | number, name: string, ScoutGroups: ScoutGroup[] }} Village
+ */
+
+/**
+ * @param {object} props
+ * @param {Village} props.village
+ * @param {boolean} props.isAllSelected
+ * @param {boolean} props.isPartiallySelected
+ * @param {boolean} props.isExpanded
+ * @param {(id: string | number) => void} props.toggleVillageExpansion
+ * @param {(type: string, id: string | number) => void} props.handleSelection
+ * @param {Set<string | number>} props.selectedScoutGroupIds
+ * @param {boolean} [props.renderChildrenExternally]
+ * @param {string | string[]} [props.selectionChoiceLabel]
+ */
 export default function VillageListItem({
   village,
   isAllSelected,
@@ -18,7 +36,12 @@ export default function VillageListItem({
   toggleVillageExpansion,
   handleSelection,
   selectedScoutGroupIds,
+  renderChildrenExternally = false,
+  selectionChoiceLabel,
 }) {
+  const hasChoiceTint =
+    selectionChoiceLabel && (isAllSelected || isPartiallySelected);
+
   return (
     <>
       <ListItem
@@ -34,7 +57,12 @@ export default function VillageListItem({
       >
         <ListItemButton
           onClick={() => toggleVillageExpansion(village.id)}
-          sx={{ borderRadius: "8px" }}
+          sx={{
+            borderRadius: "8px",
+            ...(hasChoiceTint && {
+              backgroundColor: "rgba(255, 255, 0, 0.25)",
+            }),
+          }}
         >
           <ListItemIcon sx={{ minWidth: 32, mr: 0 }}>
             <Checkbox
@@ -42,7 +70,7 @@ export default function VillageListItem({
               size="small"
               checked={isAllSelected}
               indeterminate={isPartiallySelected}
-              onChange={() => handleSelection("village", village.id)}
+              onChange={() => handleSelection(SELECTION_TYPES.VILLAGE, village.id)}
               onClick={(e) => e.stopPropagation()}
               sx={{ p: 0.5 }}
             />
@@ -58,18 +86,21 @@ export default function VillageListItem({
           <ExpandCollapseButton isExpanded={isExpanded} />
         </ListItemButton>
       </ListItem>
-      <Collapse in={isExpanded}>
-        <List component="div" disablePadding sx={{ paddingLeft: "32px" }}>
-          {village.ScoutGroups.map((ScoutGroup) => (
-            <ScoutGroupListItem
-              key={ScoutGroup.id}
-              ScoutGroup={ScoutGroup}
-              selectedScoutGroupIds={selectedScoutGroupIds}
-              handleSelection={handleSelection}
-            />
-          ))}
-        </List>
-      </Collapse>
+      {!renderChildrenExternally && (
+        <Collapse in={isExpanded}>
+          <List component="div" disablePadding sx={{ paddingLeft: "32px" }}>
+            {village.ScoutGroups.map((scoutGroup) => (
+              <ScoutGroupListItem
+                key={scoutGroup.id}
+                scoutGroup={scoutGroup}
+                selectedScoutGroupIds={selectedScoutGroupIds}
+                handleSelection={handleSelection}
+                selectionChoiceLabel={selectionChoiceLabel}
+              />
+            ))}
+          </List>
+        </Collapse>
+      )}
     </>
   );
 }

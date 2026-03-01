@@ -1,34 +1,59 @@
 import { useState, useMemo } from 'react';
-import useScoutGroupData from './useScoutGroupData';
+import { SELECTION_TYPES } from '../constants/selectionTypes';
 
-// This is a custom hook that encapsulates all the sidebar's logic.
-export default function useScoutGroupSelector(jsonData) {
-    // State management for the sidebar's functionality
+const EMPTY_DATA = { villages: [] };
+
+/**
+ * Hook that encapsulates all the sidebar's selection and UI logic.
+ * Accepts the lightweight villages data (from /groups endpoint) for the selector list.
+ *
+ * @param {{ villages: Array }} villagesData - Villages structure from useProjectQueries
+ */
+export default function useScoutGroupSelector(villagesData) {
+    const data = villagesData || EMPTY_DATA;
+
     const [selectedScoutGroupIds, setSelectedScoutGroupIds] = useState(new Set());
+    const [selectionChoiceLabel, setSelectionChoiceLabel] = useState(null);
     const [expandedVillageIds, setExpandedVillageIds] = useState(new Set());
     const [searchTerm, setSearchTerm] = useState('');
-    const [isCollapsed, setIsCollapsed] = useState(false);
-
-    const { statistics, totalParticipants, getStatisticData } = useScoutGroupData(jsonData, selectedScoutGroupIds);
-
-    const [selectedStatistics, setSelectedStatistics] = useState([]);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
     /**
      * Memoized list of villages filtered by the search term.
      * If the search term is empty, returns all villages.
      * Otherwise, returns villages whose name or any of their ScoutGroups' names
-     * include the search term (case-insensitive).
+     * include the search term (case-insensitive). Within each village, only
+     * matching ScoutGroups are shown (or all if the village name matches).
      *
      * @type {Array<Object>}
      */
     const filteredVillages = useMemo(() => {
-        if (!searchTerm) return jsonData.villages;
-        const lowercasedFilter = searchTerm.toLowerCase();
-        return jsonData.villages.filter(village =>
-            village.name.toLowerCase().includes(lowercasedFilter) ||
-            village.ScoutGroups.some(scoutGroup => scoutGroup.name.toLowerCase().includes(lowercasedFilter))
-        );
-    }, [searchTerm, jsonData.villages]);
+        if (!searchTerm) return data.villages;
+        const lower = searchTerm.toLowerCase();
+        return data.villages
+            .filter(village =>
+                village.name.toLowerCase().includes(lower) ||
+                village.ScoutGroups.some(sg => sg.name.toLowerCase().includes(lower))
+            )
+            .map(village => ({
+                ...village,
+                ScoutGroups: village.name.toLowerCase().includes(lower)
+                    ? village.ScoutGroups
+                    : village.ScoutGroups.filter(sg => sg.name.toLowerCase().includes(lower))
+            }));
+    }, [searchTerm, data.villages]);
+
+    /**
+     * Effective expanded village IDs for display.
+     * When search is active, all filtered villages are expanded so matches are visible.
+     * When search is empty, uses the user's manual expansion state.
+     */
+    const effectiveExpandedVillageIds = useMemo(() => {
+        if (searchTerm) {
+            return new Set(filteredVillages.map(v => v.id));
+        }
+        return expandedVillageIds;
+    }, [searchTerm, filteredVillages, expandedVillageIds]);
 
     /**
      * Toggles the expansion state of a village by its ID.
@@ -57,10 +82,11 @@ export default function useScoutGroupSelector(jsonData) {
      * @param {string|number} id - The ID of the village or scout group to select/deselect.
      */
     const handleSelection = (type, id) => {
+        setSelectionChoiceLabel(null);
         setSelectedScoutGroupIds(prev => {
             const newSet = new Set(prev);
-            if (type === 'village') {
-                const village = jsonData.villages.find(v => v.id === id);
+            if (type === SELECTION_TYPES.VILLAGE) {
+                const village = data.villages.find(v => v.id === id);
                 if (!village) return newSet;
                 const allScoutGroupInVillageSelected = village.ScoutGroups.every(t => newSet.has(t.id));
                 // If all ScoutGroups in the village are selected, deselect them; otherwise, select them. 
@@ -68,7 +94,7 @@ export default function useScoutGroupSelector(jsonData) {
                 village.ScoutGroups.forEach(t => {
                     allScoutGroupInVillageSelected ? newSet.delete(t.id) : newSet.add(t.id);
                 });
-            } else { // type === 'ScoutGroup'
+            } else { // type === SELECTION_TYPES.SCOUT_GROUP
                 newSet.has(id) ? newSet.delete(id) : newSet.add(id);
             }
             return newSet;
@@ -79,29 +105,61 @@ export default function useScoutGroupSelector(jsonData) {
      * Clears the current selection of scout group IDs.
      * Sets the selected scout group IDs to an empty set.
      */
-    const clearSelection = () => setSelectedScoutGroupIds(new Set());
+    const clearSelection = () => {
+        setSelectedScoutGroupIds(new Set());
+        setSelectionChoiceLabel(null);
+    };
 
     /**
-     * Toggles the collapsed state of the selector panel.
+     * Selects all scout groups from the currently filtered villages.
      */
-    const toggleCollapse = () => setIsCollapsed(prev => !prev);
+    const selectAll = () => {
+        const allIds = new Set();
+        filteredVillages.forEach(village => {
+            village.ScoutGroups.forEach(sg => allIds.add(sg.id));
+        });
+        setSelectedScoutGroupIds(allIds);
+        setSelectionChoiceLabel(null);
+    };
 
-    // The hook returns all the necessary values and functions for the sidebar to use
+    /**
+     * Narrows the current selection by intersecting with the given scout group IDs.
+     * When current selection is empty, uses the given ids as the new selection (first filter).
+     * Accumulates labels so multiple "Välj dessa kårer" clicks build a chain (e.g. charterbuss → 00:00).
+     * @param {Array<number>|Set<number>} ids - Scout group IDs to intersect with
+     * @param {string} [label] - Optional label describing the choice (e.g. "Charterbuss")
+     */
+    const replaceSelectionWithIds = (ids, label) => {
+        const idSet = ids instanceof Set ? ids : new Set(ids);
+        setSelectedScoutGroupIds(prev => {
+            if (prev.size === 0) return idSet;
+            return new Set([...prev].filter(id => idSet.has(id)));
+        });
+        setSelectionChoiceLabel(prev => {
+            const newLabel = label ?? null;
+            if (!newLabel) return prev;
+            return prev ? [...(Array.isArray(prev) ? prev : [prev]), newLabel] : [newLabel];
+        });
+    };
+
+    /**
+     * Toggles the drawer open/closed state (used for mobile navigation).
+     */
+    const toggleDrawer = () => setIsDrawerOpen(prev => !prev);
+
     return {
         selectedScoutGroupIds,
-        expandedVillageIds,
+        selectionChoiceLabel,
+        expandedVillageIds: effectiveExpandedVillageIds,
         searchTerm,
         setSearchTerm,
         filteredVillages,
         handleSelection,
         toggleVillageExpansion,
         clearSelection,
-        isCollapsed,
-        toggleCollapse,
-        totalParticipants,
-        statistics,
-        selectedStatistics,
-        setSelectedStatistics,
-        getStatisticData
+        selectAll,
+        replaceSelectionWithIds,
+        isDrawerOpen,
+        toggleDrawer,
     };
 }

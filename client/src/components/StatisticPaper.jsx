@@ -1,203 +1,169 @@
-import { Box, Paper, Typography, Chip } from "@mui/material";
-import React from "react";
-import PropTypes from "prop-types";
+import { useState } from "react";
+import {
+  Box,
+  Typography,
+  CircularProgress,
+  IconButton,
+  Tooltip,
+} from "@mui/material";
+import FilterListIcon from "@mui/icons-material/FilterList";
 
-import StatisticSelector from "./StatisticSelector.jsx";
+import ExpandCollapseButton from "./ExpandCollapseButton.jsx";
+import StatRow from "./StatRow.jsx";
 
-import StatisticBox from "./StatisticBox.jsx";
+/**
+ * @typedef {{ id: number, name: string }} GroupRef
+ */
 
-export default function StatisticPaper({
-  numScoutGroupsSelected,
-  totalParticipants,
-  statistics,
-  selectedStatistics,
-  setSelectedStatistics,
-  getStatisticData,
+/**
+ * Renders grouped answer counts with expandable scout group lists (lazily loaded).
+ *
+ * @param {object} props
+ * @param {Record<string, number>} props.counts - answer label -> count
+ * @param {Record<string, GroupRef[]> | null} props.groups - null until lazily loaded
+ * @param {boolean} props.isLoadingGroups
+ * @param {() => void} props.onRequestGroups - called on first expand when groups are null
+ * @param {((ids: number[], answerName: string) => void)} [props.onSelectByAnswer]
+ * @param {Record<string, string>} [props.idToDisplayText]
+ */
+function GroupedAnswerValues({
+  counts,
+  groups,
+  isLoadingGroups,
+  onRequestGroups,
+  onSelectByAnswer,
+  idToDisplayText = {},
 }) {
-  const handleStatisticChange = (event) => {
-    const {
-      target: { value },
-    } = event;
-    setSelectedStatistics(typeof value === "string" ? value.split(",") : value);
+  const getDisplayText = (/** @type {string} */ id) => idToDisplayText[id] ?? id;
+  const [expandedAnswers, setExpandedAnswers] = useState(/** @type {Record<string, boolean>} */ ({}));
+
+  const toggleExpanded = (/** @type {string} */ answerName) => {
+    if (!expandedAnswers[answerName] && groups === null) {
+      onRequestGroups();
+    }
+    setExpandedAnswers((prev) => ({
+      ...prev,
+      [answerName]: !prev[answerName],
+    }));
   };
 
-  const handleChipDelete = (statToDelete) => () => {
-    setSelectedStatistics((prevStats) =>
-      prevStats.filter((stat) => stat !== statToDelete)
-    );
-  };
+  const sortedEntries = Object.entries(counts).sort((a, b) => {
+    const countDiff = b[1] - a[1];
+    if (countDiff !== 0) return countDiff;
+    return a[0].localeCompare(b[0], "sv");
+  });
+
+  const total = sortedEntries.reduce((sum, [, count]) => sum + count, 0);
 
   return (
-    <Paper
-      elevation={3}
-      sx={{
-        padding: "24px",
-        display: "flex",
-        flexDirection: "column",
-        borderRadius: "16px",
-        height: "100%",
-        gap: "16px",
-      }}
-    >
-      <Typography variant="h5" component="h2" fontWeight="600">
-        Statistik
-      </Typography>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+      {sortedEntries.map(([answerName, count]) => {
+        const isExpanded = expandedAnswers[answerName] || false;
+        const resolvedGroups = groups?.[answerName] ?? null;
+        const canSelectByAnswer =
+          onSelectByAnswer &&
+          Array.isArray(resolvedGroups) &&
+          resolvedGroups.length > 0;
+        const displayLabel = getDisplayText(answerName) || "(tomt)";
 
-      {/* Container for StatisticBoxes and Selector */}
-      <Box sx={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-        <StatisticBox
-          title="Antal valda kårer"
-          value={numScoutGroupsSelected}
-        />
-        <StatisticBox title="Antal deltagare" value={totalParticipants} />
-        <StatisticSelector
-          title="Vald statistik"
-          value={selectedStatistics}
-          options={statistics}
-          onChange={handleStatisticChange}
-        />
-      </Box>
-
-      {/* Display selected statistics as external Chips below the selector */}
-      {selectedStatistics.length > 0 && (
-        <Box
-          sx={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 1,
-            paddingTop: "8px",
-          }}
-        >
-          {selectedStatistics.map((stat) => (
-            <Chip
-              key={stat}
-              label={stat}
-              onDelete={handleChipDelete(stat)}
-              color="primary"
-              variant="outlined"
-              size="medium"
-            />
-          ))}
-        </Box>
-      )}
-
-      {/* Display all selected statistics in boxes */}
-      {selectedStatistics.length > 0 && (
-        <Box
-          sx={{ display: "flex", flexWrap: "wrap", gap: 2, marginTop: "8px" }}
-        >
-          {selectedStatistics.map((statName) => {
-            const statData = getStatisticData(statName);
-            return (
-              <Box
-                key={statName}
-                sx={{
-                  border: "1px solid #e0e0e0",
-                  borderRadius: "8px",
-                  padding: "12px",
-                  backgroundColor: "#fafafa",
-                  minWidth: "200px",
-                  flex: "1 1 auto",
-                  maxWidth: "300px",
-                }}
-              >
-                <Typography
-                  variant="subtitle2"
-                  fontWeight="600"
-                  sx={{ marginBottom: "8px" }}
-                >
-                  {statName}
-                </Typography>
-                <Box
-                  sx={{ display: "flex", flexDirection: "column", gap: "6px" }}
-                >
-                  {Object.entries(statData).map(([key, value]) => {
-                    const hasNumericCount = Number.isFinite(value.count);
-                    const leftLabel = hasNumericCount
-                      ? value.name
-                      : value.scoutGroupName ?? "scoutgroup";
-                    const rightValue = hasNumericCount
-                      ? value.count
-                      : value.name;
-                    return (
-                      <Box key={key}>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            padding: "6px 8px",
-                            backgroundColor: "white",
-                            borderRadius: "4px",
-                          }}
-                        >
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              overflowWrap: "anywhere",
-                              wordBreak: "break-word",
-                              whiteSpace: "normal",
-                            }}
-                          >
-                            {leftLabel}
-                          </Typography>
-                          <Typography variant="body2" fontWeight="600">
-                            {rightValue}
-                          </Typography>
-                        </Box>
-                        {value.free_text_answers &&
-                          value.free_text_answers.length > 0 && (
-                            <Box sx={{ marginLeft: "16px", marginTop: "4px" }}>
-                              {value.free_text_answers.map((answer, index) => (
-                                <Box
-                                  key={index}
-                                  sx={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    padding: "4px 8px",
-                                    backgroundColor: "#f5f5f5",
-                                    borderRadius: "4px",
-                                    marginTop: "2px",
-                                    fontSize: "0.875rem",
-                                  }}
-                                >
-                                  <Typography
-                                    variant="caption"
-                                    sx={{
-                                      overflowWrap: "anywhere",
-                                      wordBreak: "break-word",
-                                      whiteSpace: "normal",
-                                    }}
-                                  >
-                                    {answer.text}
-                                  </Typography>
-                                  <Typography
-                                    variant="caption"
-                                    fontWeight="500"
-                                  >
-                                    {answer.num_answers}
-                                  </Typography>
-                                </Box>
-                              ))}
-                            </Box>
-                          )}
-                      </Box>
-                    );
-                  })}
-                </Box>
+        return (
+          <Box key={answerName}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <ExpandCollapseButton
+                isExpanded={isExpanded}
+                onClick={() => toggleExpanded(answerName)}
+                sx={{ marginRight: "4px", marginLeft: "-8px", flexShrink: 0 }}
+              />
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <StatRow label={displayLabel} value={count} total={total} />
               </Box>
-            );
-          })}
-        </Box>
-      )}
-    </Paper>
+              {canSelectByAnswer && (
+                <Tooltip title="Välj dessa kårer">
+                  <IconButton
+                    size="small"
+                    onClick={() => onSelectByAnswer(resolvedGroups.map((g) => g.id), displayLabel)}
+                    aria-label="Välj dessa kårer"
+                    sx={{ flexShrink: 0 }}
+                  >
+                    <FilterListIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
+            {isExpanded && (
+              <Box sx={{ marginLeft: "32px", marginTop: "4px" }}>
+                {isLoadingGroups ? (
+                  <CircularProgress size={16} sx={{ mt: 0.5 }} />
+                ) : resolvedGroups && resolvedGroups.length > 0 ? (
+                  resolvedGroups.map((group) => (
+                    <Box
+                      key={group.id}
+                      sx={{
+                        padding: "4px 8px",
+                        backgroundColor: "rgba(0, 0, 0, 0.02)",
+                        borderRadius: "4px",
+                        marginTop: "2px",
+                      }}
+                    >
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          overflowWrap: "anywhere",
+                          wordBreak: "break-word",
+                          whiteSpace: "normal",
+                        }}
+                      >
+                        {group.name}
+                      </Typography>
+                    </Box>
+                  ))
+                ) : (
+                  <Typography variant="caption" color="text.secondary">
+                    Inga kårer
+                  </Typography>
+                )}
+              </Box>
+            )}
+          </Box>
+        );
+      })}
+    </Box>
   );
 }
 
-StatisticPaper.propTypes = {
-  numScoutGroupsSelected: PropTypes.number.isRequired,
-  totalParticipants: PropTypes.number.isRequired,
-  statistics: PropTypes.arrayOf(PropTypes.string).isRequired,
-  selectedStatistics: PropTypes.arrayOf(PropTypes.string).isRequired,
-  setSelectedStatistics: PropTypes.func.isRequired,
-  getStatisticData: PropTypes.func.isRequired,
-};
+/**
+ * Renders values for a single question from the summary endpoint.
+ *
+ * @param {object} props
+ * @param {Record<string, number> | number} props.answerCounts
+ * @param {Record<string, GroupRef[]> | null} props.groups - null until lazily loaded
+ * @param {boolean} [props.isLoadingGroups]
+ * @param {() => void} [props.onRequestGroups]
+ * @param {((ids: number[], answerName: string) => void)} [props.onSelectByAnswer]
+ * @param {Record<string, string>} [props.idToDisplayText]
+ */
+function SubQuestionValues({
+  answerCounts,
+  groups = null,
+  isLoadingGroups = false,
+  onRequestGroups = () => {},
+  onSelectByAnswer,
+  idToDisplayText = {},
+}) {
+  if (typeof answerCounts === "number") {
+    return <StatRow label="" value={answerCounts} total={answerCounts} />;
+  }
+
+  return (
+    <GroupedAnswerValues
+      counts={answerCounts}
+      groups={groups}
+      isLoadingGroups={isLoadingGroups}
+      onRequestGroups={onRequestGroups}
+      onSelectByAnswer={onSelectByAnswer}
+      idToDisplayText={idToDisplayText}
+    />
+  );
+}
+
+export { SubQuestionValues, GroupedAnswerValues };
