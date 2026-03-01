@@ -68,7 +68,7 @@ async def app_config():
                 "id": "page_signupinfo_home",
                 "label": "SignupInfo",
                 "icon": "user-search",  # Icon from https://tabler.io/icons
-                "path": "../",  # Path is relative to the locaiton of the app-config endpoint
+                "path": "./",  # Path is relative to the locaiton of the app-config endpoint
             }
         ]
     }
