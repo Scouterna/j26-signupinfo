@@ -55,10 +55,10 @@ export async function fetchQuestions(projectId) {
 }
 
 /**
- * Fetches all groups for a project (name → id mapping).
+ * Fetches all groups for a project (id → name mapping).
  * 
  * @param {number|string} projectId
- * @returns {Promise<Object>} Dict of group_name -> group_id, sorted alphabetically
+ * @returns {Promise<Object>} Dict of group_id -> group_name, sorted alphabetically by name
  * @throws {Error} If the request fails
  */
 export async function fetchGroups(projectId) {

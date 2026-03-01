@@ -69,16 +69,16 @@ function buildChipData(questionsData) {
 }
 
 /**
- * Transforms the groups endpoint response ({name: id} dict) into the
+ * Transforms the groups endpoint response ({id: name} dict) into the
  * villages structure expected by the selector components.
  *
- * @param {Record<string, number> | undefined} groupsData
+ * @param {Record<number, string> | undefined} groupsData
  * @returns {{ villages: Array<{ id: string, name: string, ScoutGroups: Array<{ id: number, name: string }> }> }}
  */
 function buildVillagesData(groupsData) {
   if (!groupsData) return { villages: [] };
 
-  const scoutGroups = Object.entries(groupsData).map(([name, id]) => ({ id, name }));
+  const scoutGroups = Object.entries(groupsData).map(([id, name]) => ({ id: Number(id), name }));
 
   return {
     villages: [{
