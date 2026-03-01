@@ -329,32 +329,51 @@ async def get_group_summary(project_id: int, group_id: int | list[int] | None) -
     if not all(gid in project.groups for gid in group_id):
         return None
 
-    total_participants = 0
+    total_participants = sum(project.groups[gid].num_participants for gid in group_id)
     stats: dict = {}
-    for gid in group_id:
-        group = project.groups[gid]
-        total_participants += group.num_participants
-        for cat, cat_data in group.aggregated.items():
-            if cat in [
-                21325,
-                21326,
-                21330,
-            ]:  # Ugly(?) fix to remove categories "Nödkontakt", Ansvariga från kåren" and "Byindelning" from summary
-                continue
-            acc = stats.setdefault(cat, {})
-            for key, val in cat_data.items():
-                if isinstance(val, (int, float)) and not isinstance(val, bool):
-                    acc[key] = acc.get(key, 0) + val
-                elif isinstance(val, dict):
-                    key_acc = acc.setdefault(key, {})
-                    for k, v in val.items():
-                        key_acc[k] = key_acc.get(k, 0) + v
-                elif isinstance(val, list):
-                    # acc.setdefault(key, []).extend(val)
-                    pass  # Skip lists in summary?
-                elif isinstance(val, (str, bool)):
-                    key_acc = acc.setdefault(key, {})
-                    key_acc[val] = key_acc.get(val, 0) + 1
+    for secnum in ["Kön", "Avgift"]:
+        sec = stats[secnum] = {}
+        for gid in group_id:
+            val = project.groups[gid].aggregated.get(secnum, {})
+            for rval, rcnt in val.items():  # Individual choices: sum counts
+                sec[rval] = sec.get(rval, 0) + rcnt
+
+    for secnum in project.questions:
+        sec = stats[secnum] = {}
+        for qnum, qinfo in project.questions[secnum]["questions"].items():
+            if qnum in [88196, 88204, 88220, 88217, 21325, 21326, 21330]:
+                continue  # Skip some questions for the moment (decrease size)
+            if qinfo["type"] == "boolean":
+                sec[qnum] = sum(project.groups[gid].aggregated.get(secnum, {}).get(qnum) or 0 for gid in group_id)
+            elif qinfo["type"] == "choice":
+                q = sec.setdefault(qnum, {})
+                for gid in group_id:
+                    if val := project.groups[gid].aggregated.get(secnum, {}).get(qnum):
+                        if isinstance(val, dict):
+                            for rval, rcnt in val.items():  # Individual choices: sum counts
+                                q[rval] = q.get(rval, 0) + rcnt
+                        else:
+                            q[val] = q.get(val, 0) + 1  # Group choice: count groups per choice
+            elif qinfo["type"] == "text":
+                sec[qnum] = [
+                    v
+                    for gid in group_id
+                    if (v := project.groups[gid].aggregated.get(secnum, {}).get(qnum)) and isinstance(v, str)
+                ]
+            elif qinfo["type"] == "number":
+                sec[qnum] = sum(int(project.groups[gid].aggregated.get(secnum, {}).get(qnum, 0)) for gid in group_id)
+                pass
+            elif qinfo["type"] == "leader_select":
+                pass
+            elif qinfo["type"] == "other_unsupported_by_api":
+                # sec[qnum] = [
+                #     v
+                #     for gid in group_id
+                #     if (v := project.groups[gid].aggregated.get(secnum, {}).get(qnum)) and isinstance(v, str)
+                # ]
+                pass
+            else:
+                pass
 
     return {"total_participants": total_participants, "num_groups": len(group_id), "stats": stats}
 

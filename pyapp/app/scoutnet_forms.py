@@ -142,7 +142,7 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
                     for qsel in qval:
                         if qsel not in q["choices"]:
                             continue
-                        choice_counts[int(qsel)] = choice_counts.get(qsel, 0) + 1
+                        choice_counts[int(qsel)] = choice_counts.get(int(qsel), 0) + 1
 
                 elif q["type"] == "text":
                     if (
@@ -190,9 +190,6 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
                 for qnum, qval in g["questions"].items():
                     q = qdata[qnum]
                     qnum = int(qnum)  # Always store question numbers as ints
-                    if qnum == 88179:
-                        pass
-                    # qtext = q["question"]
 
                     section_id = q["section_id"]
                     secq = questions.setdefault(section_id, {"text": sections[section_id], "questions": {}})[
@@ -216,6 +213,8 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
                         group_section[qnum] = int(qval)
                     elif q["type"] == "text":
                         group_section[qnum] = qval
+                    elif q["type"] == "number":
+                        group_section[qnum] = int(qval) if qval else 0
                     else:
                         group_section[qnum] = qval
 
