@@ -16,7 +16,7 @@ const API_BASE = import.meta.env.VITE_API_URL || '/api';
  * @throws {Error} If the request fails
  */
 export async function apiFetch(endpoint, options = {}) {
-  const url = `${API_BASE}${endpoint}`;
+  const url = `${API_BASE}/${endpoint.replace(/^\.\//, '')}`;
   
   const response = await fetch(url, {
     ...options,
@@ -40,7 +40,7 @@ export async function apiFetch(endpoint, options = {}) {
  * @throws {Error} If the request fails
  */
 export async function fetchProjects() {
-  return apiFetch('/stats/projects');
+  return apiFetch('./stats/projects');
 }
 
 /**
@@ -51,7 +51,7 @@ export async function fetchProjects() {
  * @throws {Error} If the request fails
  */
 export async function fetchQuestions(projectId) {
-  return apiFetch(`/stats/${projectId}/questions`);
+  return apiFetch(`./stats/${projectId}/questions`);
 }
 
 /**
@@ -62,7 +62,7 @@ export async function fetchQuestions(projectId) {
  * @throws {Error} If the request fails
  */
 export async function fetchGroups(projectId) {
-  return apiFetch(`/stats/${projectId}/groups`);
+  return apiFetch(`./stats/${projectId}/groups`);
 }
 
 /**
@@ -75,7 +75,7 @@ export async function fetchGroups(projectId) {
  */
 export async function fetchGroupInfoSummary(projectId, groupIds) {
   const params = groupIds.map(id => `group_ids=${id}`).join('&');
-  return apiFetch(`/stats/${projectId}/groupinfo/summary?${params}`);
+  return apiFetch(`./stats/${projectId}/groupinfo/summary?${params}`);
 }
 
 /**
@@ -89,7 +89,7 @@ export async function fetchGroupInfoSummary(projectId, groupIds) {
  */
 export async function fetchQuestionGroupResponse(projectId, questionId, groupIds) {
   const params = groupIds.map(id => `group_ids=${id}`).join('&');
-  return apiFetch(`/stats/${projectId}/groupinfo/response/${questionId}?${params}`);
+  return apiFetch(`./stats/${projectId}/groupinfo/response/${questionId}?${params}`);
 }
 
 /**
@@ -101,12 +101,12 @@ export async function fetchQuestionGroupResponse(projectId, questionId, groupIds
  * @throws {Error} If any API request fails
  */
 async function fetchAllGroups(projectId) {
-  const firstPage = await apiFetch(`/stats/${projectId}/groupinfo?page=1&size=100`);
+  const firstPage = await apiFetch(`./stats/${projectId}/groupinfo?page=1&size=100`);
   let allItems = [...firstPage.items];
 
   if (firstPage.pages > 1) {
     const remaining = Array.from({ length: firstPage.pages - 1 }, (_, i) =>
-      apiFetch(`/stats/${projectId}/groupinfo?page=${i + 2}&size=100`)
+      apiFetch(`./stats/${projectId}/groupinfo?page=${i + 2}&size=100`)
     );
     const pages = await Promise.all(remaining);
     pages.forEach(p => allItems.push(...p.items));
