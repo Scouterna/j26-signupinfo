@@ -8,6 +8,55 @@ logger = logging.getLogger(__name__)
 # --- Grouped project decoder (has group_member + group sections) ---
 
 
+def _j26_question_hack_individual(q: dict) -> None:
+    if q.get("90519", None) != "61935":  # "Ålder/roll vid anmälan" is not "Jag är vårdnadshavare och anmäler mitt barn"
+        q.pop("90426", None)  # Remove  "Jag samtycker till publicering av bilder på mitt barn"
+    else:
+        if "90426" not in q:
+            q["90426"] = "0"  # count this as NO if above is true and this one does not exist in the api response.
+
+    if q.get("88181", None) != "60136":  # "Vilken åldersgrupp eller funktion tillhör du/ditt barn?" is not "Ledare"
+        for key in ("88212", "89316", "89317"):
+            q.pop(key, None)  # Remove "Extra frågor för ledare"
+
+    if q.get("90433") != "1":  # "Jag samtycker till behandling av hälsoinformation"
+        for key in ("88201", "88205", "89284", "89285", "89286", "90446", "90447", "90449"):
+            q.pop(key, None)  # Remove health relates responses if not consent
+    if q.get("90447") != "1":  # "Är du/ditt barn allergisk mot något läkemedel?"
+        q.pop("90448", None)  # Remove "Vilket/vilka läkemedel är du/ditt barn allergisk mot?"
+    if q.get("89285") != "1":  # "Tar du/ditt barn någon medicin som jamboreens sjukvårdsteam bör känna till?)"
+        q.pop("88213", None)  # Remove "Vilken medicin tar du/ditt barn som jamboreens sjukvårdsteam bör känna till?"
+    if q.get("90449") != "1":  # "Har du/ditt barn annan allergi som jamboreens sjukvårdsteam bör känna till?"
+        q.pop("90450", None)  # Remove "Beskriv din/ditt barn icke-kostrelaterade allergi"
+    if q.get("89284") != "1":  # "Har du/ditt barn behov av interntransport?"
+        q.pop("88190", None)  # Remove "Beskriv ditt/ditt barns behov av interntransport"
+    if q.get("89286") != "1":  # "Har du/ditt barn ett medicinskt behov av elektricitet vid boplatsen?""
+        q.pop("88192", None)  # Remove "Vad behöver du/ditt barn elektricitet till?"
+
+    if q.get("90424") != "1":  # "Jag samtycker till behandling av kostinformation"
+        q.pop("88199", None)  # Remove "Allergier och medicinsk specialkost"
+        q.pop("89292", None)  # Remove "Kostpreferenser"
+    if q.get("88199") != "1":  # "Allergier och medicinsk specialkost" take 1
+        for key in ("88189", "88202", "88206", "88207", "88209", "88210", "88215"):
+            q.pop(key, None)  # If not, remove related responses
+    if q.get("88199") != "1":  # "Allergier och medicinsk specialkost" take 2
+        for key in ("88218", "88219", "89287", "89288", "89289", "89290", "89291"):
+            q.pop(key, None)  # If not, remove related responses
+    if q.get("89292") != "1":  # "Kostpreferenser"
+        for key in ("89293", "89294", "89295", "89296", "89297", "89298"):
+            q.pop(key, None)  # If not, remove related responses
+
+    return
+
+
+def _j26_question_hack_group(q: dict) -> None:
+    if q.get("88180") != "60133":  # "Transportsätt för gods is not "Gods på pall"
+        for key in ("88197", "88211", "88221", "90422", "90423"):
+            q.pop(key, None)  # Remove gods related responses
+
+    return
+
+
 def _decode_project(project: ScoutnetProjectData) -> CachedProject:
     participants = {}
     questions = {}
@@ -62,6 +111,7 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
 
         # Aggregate question responses
         if p["questions"]:
+            _j26_question_hack_individual(p["questions"])  # Hack for error in J26 question forms
             group.raw_individual_answers[p["member_no"]] = p["questions"]  # Store raw individual responses
             for qnum, qval in p["questions"].items():
                 q = qdata[qnum]
@@ -133,8 +183,8 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
 
             group = groups[gid]
             if g["questions"]:
-                # Store raw group answers
-                group.raw_group_answers = g["questions"]
+                _j26_question_hack_group(g["questions"])  # Hack for error in J26 question forms
+                group.raw_group_answers = g["questions"]  # Store raw group answers
 
                 # Also compute aggregated group-level answers
                 for qnum, qval in g["questions"].items():
