@@ -89,6 +89,7 @@ class ProjectCache:
 _project_cache = ProjectCache()  # Project cache
 _cache_update_lock = asyncio.Lock()  # Scoutnet retrieve lock
 
+
 # --- Init function ---
 
 
@@ -248,26 +249,12 @@ async def _load_initial_group_map() -> None:
 # --- Functions called from the API handlers in stats.py ---
 
 
-@require_fresh_cache
-async def get_project(project_id: int) -> CachedProject | None:
-    """Return all cached data for a project."""
-    return _project_cache.projects.get(project_id)
-
-
-@require_fresh_cache
-async def get_project_group(project_id: int, group_id: int) -> CachedProject | None:
-    """Return all cached data for a group."""
-    return _project_cache.projects.get(project_id).get(group_id)
-
-
-@require_fresh_cache
 async def get_projects_info() -> dict[int, str]:
-    """Return infor about valid projects"""
+    """Return info about valid projects"""
     project_info = {proj.project_id: proj.project_name for proj in _project_cache.projects.values()}
     return project_info
 
 
-@require_fresh_cache
 async def get_project_questions(project_id: int) -> dict | None:
     """Return project questions"""
     if not (project := _project_cache.projects.get(project_id)):
@@ -282,37 +269,6 @@ async def get_project_groups(project_id: int) -> dict | None:
         return None
     groups = {p.id: p.name for p in sorted(project.groups.values(), key=lambda g: g.name.lower())}
     return groups
-
-
-@require_fresh_cache
-async def get_group_responses(project_id: int, group_id: int | list[int] | None) -> list | None:
-    """
-    Return one or more group data indictated by the group_id (single id or a list id id's).
-    """
-    if not (project := _project_cache.projects.get(project_id)):
-        return None
-
-    if group_id is None:  # Return alla groups
-        group_id = list(project.groups.keys())
-
-    if type(group_id) is int:
-        group_id = [group_id]  # Convert single group request
-
-    if not all(gid in project.groups for gid in group_id):
-        return None  # Some requested gorups are missing
-
-    data = [
-        {
-            "id": gdata.id,
-            "name": gdata.name,
-            "num_participants": gdata.num_participants,
-            "stats": gdata.aggregated,
-        }
-        for gid, gdata in project.groups.items()
-        if gid in group_id
-    ]
-
-    return data
 
 
 @require_fresh_cache
@@ -378,6 +334,78 @@ async def get_group_summary(project_id: int, group_id: int | list[int] | None) -
                 pass
 
     return {"total_participants": total_participants, "num_groups": len(group_id), "stats": stats}
+
+
+@require_fresh_cache
+async def get_group_responses(project_id: int, group_id: int | list[int] | None) -> list | None:
+    """
+    Return one or more group data indictated by the group_id (single id or a list id id's).
+    """
+    if not (project := _project_cache.projects.get(project_id)):
+        return None
+
+    if group_id is None:  # Return alla groups
+        group_id = list(project.groups.keys())
+
+    if type(group_id) is int:
+        group_id = [group_id]  # Convert single group request
+
+    if not all(gid in project.groups for gid in group_id):
+        return None  # Some requested gorups are missing
+
+    data = [
+        {
+            "id": gdata.id,
+            "name": gdata.name,
+            "num_participants": gdata.num_participants,
+            "stats": gdata.aggregated,
+        }
+        for gid, gdata in project.groups.items()
+        if gid in group_id
+    ]
+
+    return data
+
+
+async def get_question_summary(
+    project_id: int, question_id: int, group_ids: list[int] | None
+) -> dict[int, dict] | None:
+    """
+    Return ....
+    """
+    if not (project := _project_cache.projects.get(project_id)):
+        return None
+
+    if not group_ids:
+        group_ids = list(project.groups)  # All groups
+
+    section_id = next((sid for sid, sec in project.questions.items() if question_id in sec.get("questions", {})), None)
+    if not section_id:
+        return {question_id: {}}
+    type = project.questions[section_id]["questions"][question_id]["type"]
+
+    res = {}
+    for gid in group_ids:
+        if not (group := project.groups.get(gid)):
+            return None  # Non existing group!
+        resp = group.aggregated.get(section_id, {}).get(question_id)
+        if resp:
+            if type == "choice":
+                if isinstance(resp, int):
+                    res.setdefault(resp, []).append(gid)
+                elif isinstance(resp, dict):
+                    for k, v in resp.items():
+                        res.setdefault(k, []).append(gid)
+                else:
+                    pass  # Check for other possibilities?
+            elif type == "boolean":
+                res.setdefault("checked", []).append(gid)
+            elif type == "text":
+                res.setdefault("responded", []).append(gid)
+            else:
+                pass  # Check for other possibilities?
+
+    return {question_id: res}
 
 
 @require_fresh_cache
@@ -462,47 +490,6 @@ async def find_members(project_id: int, name: str, born: str, group: str) -> lis
         results.append(result)
 
     return results
-
-
-async def get_question_summary(
-    project_id: int, question_id: int, group_ids: list[int] | None
-) -> dict[int, dict] | None:
-    """
-    Return ....
-    """
-    if not (project := _project_cache.projects.get(project_id)):
-        return None
-
-    if not group_ids:
-        group_ids = list(project.groups)  # All groups
-
-    section_id = next((sid for sid, sec in project.questions.items() if question_id in sec.get("questions", {})), None)
-    if not section_id:
-        return {question_id: {}}
-    type = project.questions[section_id]["questions"][question_id]["type"]
-
-    res = {}
-    for gid in group_ids:
-        if not (group := project.groups.get(gid)):
-            return None  # Non existing group!
-        resp = group.aggregated.get(section_id, {}).get(question_id)
-        if resp:
-            if type == "choice":
-                if isinstance(resp, int):
-                    res.setdefault(resp, []).append(gid)
-                elif isinstance(resp, dict):
-                    for k, v in resp.items():
-                        res.setdefault(k, []).append(gid)
-                else:
-                    pass  # Check for other possibilities?
-            elif type == "boolean":
-                res.setdefault("checked", []).append(gid)
-            elif type == "text":
-                res.setdefault("responded", []).append(gid)
-            else:
-                pass  # Check for other possibilities?
-
-    return {question_id: res}
 
 
 # --- API routes ---
