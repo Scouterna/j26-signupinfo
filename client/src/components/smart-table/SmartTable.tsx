@@ -213,22 +213,7 @@ export function SmartTable<TData extends RowData>({ table }: Props<TData>) {
 						<SmartTableBody table={table} />
 					)}
 
-					<TableFooter>
-						{/* {table.getFooterGroups().map((footerGroup) => (
-							<TableRow key={footerGroup.id}>
-								{footerGroup.headers.map((header) => (
-									<TableCell key={header.id}>
-										{header.isPlaceholder
-											? null
-											: flexRender(
-													header.column.columnDef.footer,
-													header.getContext(),
-												)}
-									</TableCell>
-								))}
-							</TableRow>
-						))} */}
-					</TableFooter>
+				<TableFooter />
 				</Table>
 			</TableContainer>
 
@@ -296,12 +281,7 @@ function ResizeHandle({
 			onDoubleClick={() => header.column.resetSize()}
 			onMouseDown={header.getResizeHandler()}
 			onTouchStart={header.getResizeHandler()}
-			// className={cn(
-			// 	"absolute flex justify-center items-center py-2 top-0 right-0 h-full w-2 cursor-col-resize touch-none select-none",
-			// 	"after:w-0.5 after:h-full after:bg-gray-300",
-			// 	header.column.getIsResizing() && "bg-blue-100 after:invisible",
-			// )}
-			sx={{
+		sx={{
 				position: "absolute",
 				display: "flex",
 				justifyContent: "center",

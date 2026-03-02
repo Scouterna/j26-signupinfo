@@ -11,7 +11,7 @@ import { SELECTION_TYPES } from "../constants/selectionTypes";
  * @param {object} props
  * @param {{ id: string | number, name: string }} props.scoutGroup
  * @param {Set<string | number>} props.selectedScoutGroupIds
- * @param {(type: string, id: string | number) => void} props.handleSelection
+ * @param {(type: "village" | "ScoutGroup", id: string | number) => void} props.handleSelection
  * @param {string | string[]} [props.selectionChoiceLabel]
  */
 export default function ScoutGroupListItem({

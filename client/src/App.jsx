@@ -15,13 +15,12 @@ import useScoutGroupSelector from "./hooks/useScoutGroupSelector.js";
 import useApiData from "./hooks/useApiData.js";
 import useGroupSummary from "./hooks/useGroupSummary.js";
 import useUrlHashState from "./hooks/useUrlHashState.js";
-import { getSelectedScoutGroups } from "./hooks/useScoutGroupData.js";
+import { getSelectedScoutGroups } from "./utils/scoutGroupUtils.js";
 import ScoutGroupSelector, {
   DrawerToggleButton,
 } from "./components/ScoutGroupSelector.jsx";
 import StatisticsDashboard from "./components/StatisticsDashboard.jsx";
-
-const DRAWER_WIDTH = 340;
+import { DRAWER_WIDTH } from "./constants/layout.js";
 const EMPTY_DATA = { villages: [] };
 
 export default function App() {
@@ -46,7 +45,7 @@ export default function App() {
   const { viewMode, isFullscreen, setViewMode, setIsFullscreen } = useUrlHashState();
 
   const selectorState = useScoutGroupSelector(villagesData);
-  const { selectedScoutGroupIds, replaceSelectionWithIds, isDrawerOpen, toggleDrawer } =
+  const { selectedScoutGroupIds, replaceSelectionWithIds, toggleDrawer } =
     selectorState;
 
   const {

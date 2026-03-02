@@ -21,9 +21,10 @@ export default function useGroupSummary(projectId, selectedGroupIds) {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['groupSummary', projectId, ...sortedIds],
+    queryKey: ['groupSummary', projectId, sortedIds],
     queryFn: () => fetchGroupInfoSummary(/** @type {number} */ (projectId), sortedIds),
     enabled: !!projectId && sortedIds.length > 0,
+    staleTime: 5 * 60 * 1000,
   });
 
   const totalParticipants = summaryData?.total_participants ?? 0;

@@ -498,21 +498,19 @@ export default function ScoutGroupTable({
     ]
   );
 
-  const selectedColumns = chipDrivenColumns;
-
   const columnMeta = useMemo(
     () => getColumnMeta(scoutGroups, hierarchy, questionIdToText),
     [scoutGroups, hierarchy, questionIdToText]
   );
 
   const rows = useMemo(
-    () => transformToRows(scoutGroups, selectedColumns, questionIdToText),
-    [scoutGroups, selectedColumns, questionIdToText]
+    () => transformToRows(scoutGroups, chipDrivenColumns, questionIdToText),
+    [scoutGroups, chipDrivenColumns, questionIdToText]
   );
 
   const columns = useMemo(
-    () => createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, questionIdToText),
-    [selectedColumns, hierarchy, columnMeta, sectionIdToText, questionIdToText]
+    () => createColumns(chipDrivenColumns, hierarchy, columnMeta, sectionIdToText, questionIdToText),
+    [chipDrivenColumns, hierarchy, columnMeta, sectionIdToText, questionIdToText]
   );
 
   const [columnFilters, setColumnFilters] = useState(/** @type {import('@tanstack/react-table').ColumnFiltersState} */ ([]));

@@ -8,7 +8,7 @@ import BarChartIcon from "@mui/icons-material/BarChart";
 import HeroMetric from "./HeroMetric.jsx";
 import StatisticChipSelector from "./StatisticChipSelector.jsx";
 import ScoutGroupTable from "./ScoutGroupTable.jsx";
-import { SubQuestionValues } from "./StatisticPaper.jsx";
+import { SubQuestionValues } from "./QuestionAnswerValues.jsx";
 import QuestionStats from "./QuestionStats.jsx";
 import StatRow from "./StatRow.jsx";
 

@@ -1,7 +1,6 @@
-import { useRef } from "react";
+import { useRef, useMemo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
-  List,
   Typography,
   Button,
   Drawer,
@@ -15,8 +14,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import SearchField from "./SearchField.jsx";
 import VillageListItem from "./VillageListItem.jsx";
 import ScoutGroupListItem from "./ScoutGroupListItem.jsx";
-
-const DRAWER_WIDTH = 340;
+import { DRAWER_WIDTH } from "../constants/layout.js";
 
 /**
  * @typedef {{ id: string | number, name: string }} ScoutGroup
@@ -56,40 +54,45 @@ function DrawerContent({
   const parentRef = useRef(null);
 
   /** @type {Array<{ type: 'village', id: string, village: Village, isAllSelected: boolean, isPartiallySelected: boolean, isExpanded: boolean } | { type: 'scoutGroup', id: string, scoutGroup: ScoutGroup, villageId: string | number }>} */
-  const flattenedItems = [];
-  
-  filteredVillages.forEach((village) => {
-    const scoutGroupIds = village.ScoutGroups.map((sg) => sg.id);
-    const selectedInVillage = scoutGroupIds.filter((id) =>
-      selectedScoutGroupIds.has(id)
-    );
-    const isAllSelected =
-      scoutGroupIds.length > 0 &&
-      selectedInVillage.length === scoutGroupIds.length;
-    const isPartiallySelected =
-      selectedInVillage.length > 0 && !isAllSelected;
-    const isExpanded = expandedVillageIds.has(village.id);
+  const flattenedItems = useMemo(() => {
+    /** @type {Array<{ type: 'village', id: string, village: Village, isAllSelected: boolean, isPartiallySelected: boolean, isExpanded: boolean } | { type: 'scoutGroup', id: string, scoutGroup: ScoutGroup, villageId: string | number }>} */
+    const items = [];
 
-    flattenedItems.push({
-      type: /** @type {const} */ ('village'),
-      id: `village-${village.id}`,
-      village,
-      isAllSelected,
-      isPartiallySelected,
-      isExpanded,
+    filteredVillages.forEach((village) => {
+      const scoutGroupIds = village.ScoutGroups.map((sg) => sg.id);
+      const selectedInVillage = scoutGroupIds.filter((id) =>
+        selectedScoutGroupIds.has(id)
+      );
+      const isAllSelected =
+        scoutGroupIds.length > 0 &&
+        selectedInVillage.length === scoutGroupIds.length;
+      const isPartiallySelected =
+        selectedInVillage.length > 0 && !isAllSelected;
+      const isExpanded = expandedVillageIds.has(village.id);
+
+      items.push({
+        type: /** @type {const} */ ('village'),
+        id: `village-${village.id}`,
+        village,
+        isAllSelected,
+        isPartiallySelected,
+        isExpanded,
+      });
+
+      if (isExpanded) {
+        village.ScoutGroups.forEach((scoutGroup) => {
+          items.push({
+            type: /** @type {const} */ ('scoutGroup'),
+            id: `scoutGroup-${scoutGroup.id}`,
+            scoutGroup,
+            villageId: village.id,
+          });
+        });
+      }
     });
 
-    if (isExpanded) {
-      village.ScoutGroups.forEach((scoutGroup) => {
-        flattenedItems.push({
-          type: /** @type {const} */ ('scoutGroup'),
-          id: `scoutGroup-${scoutGroup.id}`,
-          scoutGroup,
-          villageId: village.id,
-        });
-      });
-    }
-  });
+    return items;
+  }, [filteredVillages, expandedVillageIds, selectedScoutGroupIds]);
 
   const rowVirtualizer = useVirtualizer({
     count: flattenedItems.length,

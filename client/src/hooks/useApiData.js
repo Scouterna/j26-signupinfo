@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { fetchVillagesData } from '../services/api';
 
 /**
@@ -6,40 +6,30 @@ import { fetchVillagesData } from '../services/api';
  */
 
 /**
- * Custom hook for fetching villages/group data from the API.
+ * TanStack Query hook for fetching the full villages/group data (with participant
+ * counts and stats) from the paginated groupinfo endpoint.
  * Waits for a valid projectId before fetching.
  *
  * @param {number|null} projectId - The project to fetch groups for
- * @returns {{ data: VillagesData|null, loading: boolean, error: Error|null, refetch: () => void }} Data fetching state and controls
+ * @returns {{ data: VillagesData|null, loading: boolean, error: Error|null, refetch: () => void }}
  */
 export default function useApiData(projectId) {
-  const [data, setData] = useState(/** @type {VillagesData|null} */ (null));
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(/** @type {Error|null} */ (null));
+	const {
+		data,
+		isFetching,
+		error,
+		refetch,
+	} = useQuery({
+		queryKey: ['villagesData', projectId],
+		queryFn: () => fetchVillagesData(/** @type {number} */ (projectId)),
+		enabled: !!projectId,
+		staleTime: Infinity,
+	});
 
-  const fetchData = useCallback(async () => {
-    if (!projectId) return;
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const villagesData = await fetchVillagesData(projectId);
-      setData(villagesData);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
-      console.error('Failed to fetch villages data:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const refetch = useCallback(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, loading, error, refetch };
+	return {
+		data: data ?? null,
+		loading: isFetching,
+		error: /** @type {Error|null} */ (error),
+		refetch,
+	};
 }

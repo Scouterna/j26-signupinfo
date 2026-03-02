@@ -18,7 +18,7 @@ export default function useQuestionGroupResponse(projectId, questionId, selected
   );
 
   const { data, isFetching, refetch } = useQuery({
-    queryKey: ['questionResponse', projectId, questionId, ...sortedIds],
+    queryKey: ['questionResponse', projectId, questionId, sortedIds],
     queryFn: () => fetchQuestionGroupResponse(/** @type {number} */ (projectId), questionId, sortedIds),
     enabled: false,
     staleTime: 5 * 60 * 1000,

@@ -107,17 +107,11 @@ export function SmartTableHeaderMenu<TData extends RowData>({
 
 	return (
 		<>
-			<Menu
-				// id="basic-menu"
-				anchorEl={anchor}
-				open={open}
-				onClose={onClose}
-				// slotProps={{
-				// 	list: {
-				// 		"aria-labelledby": "basic-button",
-				// 	},
-				// }}
-			>
+		<Menu
+			anchorEl={anchor}
+			open={open}
+			onClose={onClose}
+		>
 				{menuSections.map((section, index) => [
 					section,
 					index < menuSections.length - 1 && (

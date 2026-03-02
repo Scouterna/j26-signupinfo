@@ -32,13 +32,10 @@ function serializeHash({ viewMode, isFullscreen }) {
  * }}
  */
 export default function useUrlHashState() {
-  const [viewMode, setViewModeRaw] = useState(() => parseHash(window.location.hash).viewMode);
-  const [isFullscreen, setIsFullscreenRaw] = useState(() => parseHash(window.location.hash).isFullscreen);
-
-  // useRef holds current state so setState can compute the next value without
-  // going through a state-updater function. This avoids React StrictMode's
-  // double-invocation of updaters calling history.pushState twice.
+  // Parse once; both useState calls and the ref read from this same value.
   const stateRef = useRef(parseHash(window.location.hash));
+  const [viewMode, setViewModeRaw] = useState(stateRef.current.viewMode);
+  const [isFullscreen, setIsFullscreenRaw] = useState(stateRef.current.isFullscreen);
 
   /** Switch view mode — adds a browser history entry. */
   const setViewMode = useCallback((/** @type {"statistics"|"table"} */ mode) => {

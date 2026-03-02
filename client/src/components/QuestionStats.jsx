@@ -1,6 +1,6 @@
 import { useMemo, useCallback } from 'react';
 import useQuestionGroupResponse from '../hooks/useQuestionGroupResponse.js';
-import { SubQuestionValues } from './StatisticPaper.jsx';
+import { SubQuestionValues } from './QuestionAnswerValues.jsx';
 
 /**
  * Per-question component that owns the lazy group-loading lifecycle.

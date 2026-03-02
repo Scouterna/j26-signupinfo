@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Box,
   Chip,
@@ -169,9 +169,10 @@ export default function StatisticChipSelector({
     return selectedSubQuestions[option] === null;
   };
 
-  const sortedOptions = [...options].sort((a, b) => {
-    return Number(isChipActive(b)) - Number(isChipActive(a));
-  });
+  const sortedOptions = useMemo(
+    () => [...options].sort((a, b) => Number(isChipActive(b)) - Number(isChipActive(a))),
+    [options, selectedOptions, selectedSubQuestions], // isChipActive reads selectedOptions and selectedSubQuestions
+  );
 
   const visibleOptions = expanded
     ? options

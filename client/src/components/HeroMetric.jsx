@@ -1,4 +1,4 @@
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, alpha, useTheme } from "@mui/material";
 
 /**
  * @param {object} props
@@ -8,13 +8,8 @@ import { Box, Typography } from "@mui/material";
  * @param {"primary" | "secondary"} [props.emphasis]
  */
 export default function HeroMetric({ icon, label, value, emphasis = "primary" }) {
-  const bgColor = emphasis === "primary" 
-    ? "rgba(25, 118, 210, 0.08)" 
-    : "rgba(156, 39, 176, 0.08)";
-  
-  const iconColor = emphasis === "primary" 
-    ? "primary.main" 
-    : "secondary.main";
+  const theme = useTheme();
+  const color = theme.palette[emphasis].main;
 
   return (
     <Box
@@ -23,7 +18,7 @@ export default function HeroMetric({ icon, label, value, emphasis = "primary" })
         alignItems: "center",
         gap: 2,
         padding: "20px 24px",
-        backgroundColor: bgColor,
+        backgroundColor: alpha(color, 0.08),
         borderRadius: "12px",
         flex: "1 1 auto",
         minWidth: "200px",
@@ -35,7 +30,7 @@ export default function HeroMetric({ icon, label, value, emphasis = "primary" })
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: iconColor,
+            color: `${emphasis}.main`,
             fontSize: "2rem",
           }}
         >
