@@ -11,7 +11,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
  * @param {Answer[]} props.answers
  * @param {string} [props.parentLabel]
  */
-export default function ExpandableAnswers({ answers, parentLabel }) {
+export default function ExpandableAnswers({ answers }) {
   const [expanded, setExpanded] = useState(false);
   const totalAnswers = answers.reduce((sum, a) => sum + a.num_answers, 0);
 

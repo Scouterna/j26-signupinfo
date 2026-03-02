@@ -10,7 +10,7 @@ import "./index.css";
 const theme = createTheme({}, svSE);
 const queryClient = new QueryClient();
 
-ReactDOM.createRoot(document.getElementById("root")).render(
+ReactDOM.createRoot(/** @type {HTMLElement} */ (document.getElementById("root"))).render(
 	<React.StrictMode>
 		<QueryClientProvider client={queryClient}>
 			<ThemeProvider theme={theme}>

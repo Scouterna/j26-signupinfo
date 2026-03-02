@@ -11,7 +11,7 @@ const DELTAGARE_STAT_ID = 'num_participants';
  * Transforms the raw questions response into chip selector data.
  * Preserves section and question IDs for matching with stats/groupinfo endpoints.
  *
- * @param {Record<string, { text: string, questions: Record<string, { text: string, type?: string }> }> | undefined} questionsData
+ * @param {Record<string, import('../services/api').QuestionSection> | undefined} questionsData
  * @returns {{ statistics: string[], statisticSubQuestions: Record<string, string[]>, sectionIdToText: Record<string, string>, questionIdToText: Record<string, string>, booleanQuestionIds: Set<string> }}
  */
 function buildChipData(questionsData) {
@@ -99,7 +99,7 @@ function buildVillagesData(groupsData) {
  * TanStack Query hook that fetches project list, question metadata, and group list.
  * Uses dependent queries: questions and groups are only fetched once the project ID is known.
  *
- * @returns {{ projectId: number|null, statistics: string[], statisticSubQuestions: Object, sectionIdToText: Object, questionIdToText: Object, booleanQuestionIds: Set<string>, villagesData: Object, isLoading: boolean, error: Error|null }}
+ * @returns {{ projectId: number|null, statistics: string[], statisticSubQuestions: Record<string, string[]>, sectionIdToText: Record<string, string>, questionIdToText: Record<string, string>, booleanQuestionIds: Set<string>, villagesData: { villages: Array<{ id: string, name: string, ScoutGroups: Array<{ id: number, name: string }> }> }, groupIdToName: Record<number, string>, isLoading: boolean, error: Error|null }}
  */
 export default function useProjectQueries() {
   const {

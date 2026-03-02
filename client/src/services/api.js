@@ -1,8 +1,17 @@
 /**
  * API Service Layer
- * 
+ *
  * Fetches scout group data from the backend API and wraps it
  * in the villages structure expected by the frontend.
+ */
+
+/**
+ * @typedef {{ text: string, type?: string, choices?: Record<string, string> }} Question
+ * @typedef {{ text: string, questions: Record<string, Question> }} QuestionSection
+ * @typedef {{ total_participants: number, num_groups: number, stats: Record<string, Record<string, number> | number> }} GroupInfoSummary
+ * @typedef {{ id: number, name: string, num_participants?: number }} ScoutGroup
+ * @typedef {{ id: string, name: string, num_participants?: number, ScoutGroups: ScoutGroup[] }} Village
+ * @typedef {{ villages: Village[] }} VillagesData
  */
 
 const API_BASE = import.meta.env.VITE_API_URL || './api';
@@ -11,7 +20,7 @@ const API_BASE = import.meta.env.VITE_API_URL || './api';
  * Generic API fetch helper with error handling
  * 
  * @param {string} endpoint - API endpoint (without base URL)
- * @param {Object} options - Fetch options
+ * @param {RequestInit} options - Fetch options
  * @returns {Promise<any>} Response data
  * @throws {Error} If the request fails
  */
@@ -36,7 +45,7 @@ export async function apiFetch(endpoint, options = {}) {
 /**
  * Fetches the available projects.
  * 
- * @returns {Promise<Object>} Dict of project_id -> project_name
+ * @returns {Promise<Record<string, string>>} Dict of project_id -> project_name
  * @throws {Error} If the request fails
  */
 export async function fetchProjects() {
@@ -47,7 +56,7 @@ export async function fetchProjects() {
  * Fetches question metadata for a project.
  * 
  * @param {number|string} projectId
- * @returns {Promise<Object>} Sections with nested questions
+ * @returns {Promise<Record<string, QuestionSection>>} Sections with nested questions
  * @throws {Error} If the request fails
  */
 export async function fetchQuestions(projectId) {
@@ -58,7 +67,7 @@ export async function fetchQuestions(projectId) {
  * Fetches all groups for a project (id → name mapping).
  * 
  * @param {number|string} projectId
- * @returns {Promise<Object>} Dict of group_id -> group_name, sorted alphabetically by name
+ * @returns {Promise<Record<string, string>>} Dict of group_id -> group_name, sorted alphabetically by name
  * @throws {Error} If the request fails
  */
 export async function fetchGroups(projectId) {
@@ -70,7 +79,7 @@ export async function fetchGroups(projectId) {
  *
  * @param {number|string} projectId
  * @param {number[]} groupIds - Array of group IDs to include
- * @returns {Promise<Object>} Summary with total_participants, num_groups, stats
+ * @returns {Promise<GroupInfoSummary>} Summary with total_participants, num_groups, stats
  * @throws {Error} If the request fails
  */
 export async function fetchGroupInfoSummary(projectId, groupIds) {
@@ -84,7 +93,7 @@ export async function fetchGroupInfoSummary(projectId, groupIds) {
  * @param {number|string} projectId
  * @param {number|string} questionId
  * @param {number[]} groupIds - Array of group IDs to include
- * @returns {Promise<Object>} { questionId: { answerId: [group_ids] } }
+ * @returns {Promise<Record<string, Record<string, number[]>>>} { questionId: { answerId: [group_ids] } }
  * @throws {Error} If the request fails
  */
 export async function fetchQuestionGroupResponse(projectId, questionId, groupIds) {
@@ -97,7 +106,7 @@ export async function fetchQuestionGroupResponse(projectId, questionId, groupIds
  * Requests the first page, then fetches any remaining pages in parallel.
  * 
  * @param {number|string} projectId
- * @returns {Promise<Array>} Array of all scout group objects
+ * @returns {Promise<ScoutGroup[]>} Array of all scout group objects
  * @throws {Error} If any API request fails
  */
 async function fetchAllGroups(projectId) {
@@ -120,7 +129,7 @@ async function fetchAllGroups(projectId) {
  * matching the format expected by the frontend components.
  * 
  * @param {number|string} projectId
- * @returns {Promise<Object>} Villages data object with structure { villages: [...] }
+ * @returns {Promise<VillagesData>} Villages data object with structure { villages: [...] }
  * @throws {Error} If the API request fails
  */
 export async function fetchVillagesData(projectId) {

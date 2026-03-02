@@ -7,13 +7,13 @@ const EMPTY_DATA = { villages: [] };
  * Hook that encapsulates all the sidebar's selection and UI logic.
  * Accepts the lightweight villages data (from /groups endpoint) for the selector list.
  *
- * @param {{ villages: Array }} villagesData - Villages structure from useProjectQueries
+ * @param {import('../services/api').VillagesData} villagesData - Villages structure from useProjectQueries
  */
 export default function useScoutGroupSelector(villagesData) {
     const data = villagesData || EMPTY_DATA;
 
     const [selectedScoutGroupIds, setSelectedScoutGroupIds] = useState(new Set());
-    const [selectionChoiceLabel, setSelectionChoiceLabel] = useState(null);
+    const [selectionChoiceLabel, setSelectionChoiceLabel] = useState(/** @type {string[] | string | null} */ (null));
     const [expandedVillageIds, setExpandedVillageIds] = useState(new Set());
     const [searchTerm, setSearchTerm] = useState('');
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -24,8 +24,6 @@ export default function useScoutGroupSelector(villagesData) {
      * Otherwise, returns villages whose name or any of their ScoutGroups' names
      * include the search term (case-insensitive). Within each village, only
      * matching ScoutGroups are shown (or all if the village name matches).
-     *
-     * @type {Array<Object>}
      */
     const filteredVillages = useMemo(() => {
         if (!searchTerm) return data.villages;

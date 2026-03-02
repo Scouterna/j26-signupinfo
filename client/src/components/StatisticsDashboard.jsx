@@ -222,13 +222,14 @@ export default function StatisticsDashboard({
 
                 const activeSubQs = selectedSubQuestions[statName];
 
+                /** @type {[string, number | Record<string, number> | { counts: Record<string, number>, groups: Record<string, { id: number|string, name: string }[]> }][]} */
                 let questionEntries;
                 if (isNumParticipants) {
                   const { counts, groups } = buildNumParticipantsStatData(
                     selectedScoutGroups,
                     totalParticipants,
                   );
-                  questionEntries = [["_direct", { counts, groups }]];
+                  questionEntries = /** @type {typeof questionEntries} */ ([["_direct", { counts, groups }]]);
                 } else {
                   const sectionData = getStatisticData(statName);
                   questionEntries = Object.entries(sectionData);
@@ -311,8 +312,8 @@ export default function StatisticsDashboard({
                               )}
                               {isNumParticipants ? (
                                 <SubQuestionValues
-                                  answerCounts={questionData.counts}
-                                  groups={questionData.groups}
+                                  answerCounts={/** @type {any} */(questionData).counts}
+                                  groups={/** @type {any} */(questionData).groups}
                                   isLoadingGroups={false}
                                   onRequestGroups={() => {}}
                                   onSelectByAnswer={onReplaceSelection}

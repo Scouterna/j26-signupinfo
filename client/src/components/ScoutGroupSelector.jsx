@@ -32,7 +32,7 @@ const DRAWER_WIDTH = 340;
  * @param {Set<string | number>} props.expandedVillageIds
  * @param {string} props.searchTerm
  * @param {(term: string) => void} props.setSearchTerm
- * @param {(type: string, id: string | number) => void} props.handleSelection
+ * @param {(type: "village" | "ScoutGroup", id: string | number) => void} props.handleSelection
  * @param {(id: string | number) => void} props.toggleVillageExpansion
  * @param {() => void} props.clearSelection
  * @param {() => void} props.selectAll
@@ -55,6 +55,7 @@ function DrawerContent({
 }) {
   const parentRef = useRef(null);
 
+  /** @type {Array<{ type: 'village', id: string, village: Village, isAllSelected: boolean, isPartiallySelected: boolean, isExpanded: boolean } | { type: 'scoutGroup', id: string, scoutGroup: ScoutGroup, villageId: string | number }>} */
   const flattenedItems = [];
   
   filteredVillages.forEach((village) => {
@@ -215,7 +216,7 @@ function DrawerContent({
                     handleSelection={handleSelection}
                     selectedScoutGroupIds={selectedScoutGroupIds}
                     renderChildrenExternally={true}
-                    selectionChoiceLabel={selectionChoiceLabel}
+                    selectionChoiceLabel={selectionChoiceLabel ?? undefined}
                   />
                 ) : (
                   <div style={{ paddingLeft: "32px" }}>
@@ -223,7 +224,7 @@ function DrawerContent({
                       scoutGroup={item.scoutGroup}
                       selectedScoutGroupIds={selectedScoutGroupIds}
                       handleSelection={handleSelection}
-                      selectionChoiceLabel={selectionChoiceLabel}
+                      selectionChoiceLabel={selectionChoiceLabel ?? undefined}
                     />
                   </div>
                 )}
@@ -248,7 +249,7 @@ function DrawerContent({
  * @param {Set<string | number>} [props.expandedVillageIds]
  * @param {string} [props.searchTerm]
  * @param {(term: string) => void} [props.setSearchTerm]
- * @param {(type: string, id: string | number) => void} [props.handleSelection]
+ * @param {(type: "village" | "ScoutGroup", id: string | number) => void} [props.handleSelection]
  * @param {(id: string | number) => void} [props.toggleVillageExpansion]
  * @param {() => void} [props.clearSelection]
  * @param {() => void} [props.selectAll]

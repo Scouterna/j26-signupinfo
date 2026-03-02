@@ -15,7 +15,7 @@ import {
  * @param {string} props.title
  * @param {string[]} props.value
  * @param {string[]} props.options
- * @param {(event: import('react').ChangeEvent) => void} props.onChange
+ * @param {(event: import('@mui/material').SelectChangeEvent<string[]>) => void} props.onChange
  */
 export default function StatisticSelector({ title, value, options, onChange }) {
   const numSelected = value.length;

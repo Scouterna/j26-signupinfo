@@ -52,37 +52,37 @@ export default function StatisticChipSelector({
   idToDisplayText = {},
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [popoverAnchor, setPopoverAnchor] = useState(null);
-  const [popoverOption, setPopoverOption] = useState(null);
+  const [popoverAnchor, setPopoverAnchor] = useState(/** @type {Element | null} */ (null));
+  const [popoverOption, setPopoverOption] = useState(/** @type {string | null} */ (null));
 
-  const getSubQuestions = (option) => subQuestionMap[option] || null;
+  const getSubQuestions = (/** @type {string} */ option) => subQuestionMap[option] || null;
 
-  const isChipActive = (option) => {
+  const isChipActive = (/** @type {string} */ option) => {
     if (getSubQuestions(option)) {
       return option in selectedSubQuestions;
     }
     return selectedOptions.includes(option);
   };
 
-  const isFullySelected = (option) => {
+  const isFullySelected = (/** @type {string} */ option) => {
     if (!getSubQuestions(option)) return selectedOptions.includes(option);
     return selectedSubQuestions[option] === null;
   };
 
-  const isPartiallySelected = (option) => {
+  const isPartiallySelected = (/** @type {string} */ option) => {
     if (!getSubQuestions(option)) return false;
     const val = selectedSubQuestions[option];
     return Array.isArray(val) && val.length > 0;
   };
 
-  const handleToggle = (option) => {
+  const handleToggle = (/** @type {string} */ option) => {
     const hasSubs = !!getSubQuestions(option);
 
     if (hasSubs) {
       if (isChipActive(option)) {
-        onSubQuestionToggle(option, undefined);
+        onSubQuestionToggle?.(option, undefined);
       } else {
-        onSubQuestionToggle(option, null);
+        onSubQuestionToggle?.(option, null);
       }
     } else {
       if (selectedOptions.includes(option)) {
@@ -93,7 +93,7 @@ export default function StatisticChipSelector({
     }
   };
 
-  const handleDropdownClick = (event, option) => {
+  const handleDropdownClick = (/** @type {import('react').MouseEvent<Element>} */ event, /** @type {string} */ option) => {
     event.stopPropagation();
     setPopoverAnchor(event.currentTarget);
     setPopoverOption(option);
@@ -104,9 +104,9 @@ export default function StatisticChipSelector({
     setPopoverOption(null);
   };
 
-  const getDisplayText = (id) => idToDisplayText[id] ?? id;
+  const getDisplayText = (/** @type {string} */ id) => idToDisplayText[id] ?? id;
 
-  const getChipLabel = (option) => {
+  const getChipLabel = (/** @type {string} */ option) => {
     const subs = getSubQuestions(option);
     const displayOption = getDisplayText(option);
     if (!subs) return displayOption;
@@ -116,17 +116,18 @@ export default function StatisticChipSelector({
     return `${displayOption} (${active.length}/${subs.length})`;
   };
 
-  const handleSubQuestionCheck = (subName) => {
+  const handleSubQuestionCheck = (/** @type {string} */ subName) => {
     if (!onSubQuestionToggle || !popoverOption) return;
     const subs = getSubQuestions(popoverOption);
     if (!subs) return;
 
-    const isActive = popoverOption in selectedSubQuestions;
-    const current = isActive ? selectedSubQuestions[popoverOption] : undefined;
-
-    if (!isActive) {
+    if (!(popoverOption in selectedSubQuestions)) {
       onSubQuestionToggle(popoverOption, [subName]);
-    } else if (current === null) {
+      return;
+    }
+    const current = selectedSubQuestions[popoverOption];
+
+    if (current === null) {
       const newSelection = subs.filter((s) => s !== subName);
       onSubQuestionToggle(
         popoverOption,
@@ -156,14 +157,14 @@ export default function StatisticChipSelector({
     }
   };
 
-  const isSubQuestionChecked = (option, subName) => {
+  const isSubQuestionChecked = (/** @type {string} */ option, /** @type {string} */ subName) => {
     if (!(option in selectedSubQuestions)) return false;
     const active = selectedSubQuestions[option];
     if (active === null) return true;
     return active.includes(subName);
   };
 
-  const isAllChecked = (option) => {
+  const isAllChecked = (/** @type {string} */ option) => {
     if (!(option in selectedSubQuestions)) return false;
     return selectedSubQuestions[option] === null;
   };

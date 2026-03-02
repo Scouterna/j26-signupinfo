@@ -87,8 +87,10 @@ function buildStatsHierarchy(scoutGroups) {
     }
 
     const category = categoriesMap.get(categoryName);
+    if (!category) return;
 
     if (type === "nestedLeaf") {
+      if (!subQuestionName) return;
       if (!category.children.has(subQuestionName)) {
         category.children.set(subQuestionName, {
           name: subQuestionName,
@@ -424,7 +426,7 @@ function createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, 
   selectedColumns.forEach((columnId) => {
     if (columnId === "name" || columnId === "num_participants") return;
 
-    const headerName = columnIdToName.get(columnId) ?? getDisplayName(columnId.split(PATH_SEPARATOR).pop(), sectionIdToText, questionIdToText) ?? columnId;
+    const headerName = columnIdToName.get(columnId) ?? getDisplayName(columnId.split(PATH_SEPARATOR).pop() ?? columnId, sectionIdToText, questionIdToText) ?? columnId;
     const colMeta = columnMeta.get(columnId);
 
     /** @type {any} */
@@ -513,7 +515,7 @@ export default function ScoutGroupTable({
     [selectedColumns, hierarchy, columnMeta, sectionIdToText, questionIdToText]
   );
 
-  const [columnFilters, setColumnFilters] = useState([]);
+  const [columnFilters, setColumnFilters] = useState(/** @type {import('@tanstack/react-table').ColumnFiltersState} */ ([]));
   const [sorting, setSorting] = useState([{ id: "name", desc: false }]);
 
   const table = useReactTable({

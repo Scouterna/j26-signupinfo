@@ -8,7 +8,7 @@ import { fetchGroupInfoSummary } from '../services/api';
  *
  * @param {number|null} projectId
  * @param {Set<number>} selectedGroupIds
- * @returns {{ totalParticipants: number, getStatisticData: function, isLoading: boolean, error: Error|null }}
+ * @returns {{ totalParticipants: number, getStatisticData: (sectionId: string) => Record<string, Record<string, number> | number>, isLoading: boolean, error: Error|null }}
  */
 export default function useGroupSummary(projectId, selectedGroupIds) {
   const sortedIds = useMemo(
@@ -22,7 +22,7 @@ export default function useGroupSummary(projectId, selectedGroupIds) {
     error,
   } = useQuery({
     queryKey: ['groupSummary', projectId, ...sortedIds],
-    queryFn: () => fetchGroupInfoSummary(projectId, sortedIds),
+    queryFn: () => fetchGroupInfoSummary(/** @type {number} */ (projectId), sortedIds),
     enabled: !!projectId && sortedIds.length > 0,
   });
 
@@ -34,7 +34,7 @@ export default function useGroupSummary(projectId, selectedGroupIds) {
    * @returns {Record<string, Record<string, number> | number>}
    */
   const getStatisticData = useCallback(
-    (sectionId) => summaryData?.stats?.[sectionId] ?? {},
+    (/** @type {string} */ sectionId) => /** @type {Record<string, Record<string, number> | number>} */ (summaryData?.stats?.[sectionId] ?? {}),
     [summaryData],
   );
 

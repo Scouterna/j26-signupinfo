@@ -61,7 +61,7 @@ export default function App() {
     [statsData.villages, selectedScoutGroupIds],
   );
 
-  const [selectedStatistics, setSelectedStatistics] = useState([]);
+  const [selectedStatistics, setSelectedStatistics] = useState(/** @type {string[]} */ ([]));
 
   const loading = projectLoading || dataLoading;
   const error = projectError || dataError || summaryError;

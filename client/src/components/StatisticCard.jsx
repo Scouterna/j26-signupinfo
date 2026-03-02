@@ -9,10 +9,7 @@ import ExpandableAnswers from "./ExpandableAnswers.jsx";
  */
 export default function StatisticCard({ title, data }) {
   const entries = Object.entries(data);
-  const total = entries.reduce((sum, [, item]) => {
-    const count = Number.isFinite(item.count) ? item.count : 0;
-    return sum + count;
-  }, 0);
+  const total = entries.reduce((sum, [, item]) => sum + (item.count ?? 0), 0);
 
   return (
     <Paper
@@ -37,10 +34,10 @@ export default function StatisticCard({ title, data }) {
       <Box sx={{ display: "flex", flexDirection: "column" }}>
         {entries.map(([key, item]) => {
           const hasNumericCount = Number.isFinite(item.count);
-          const label = hasNumericCount 
-            ? item.name 
-            : (item.scoutGroupName ?? "scoutgroup");
-          const value = hasNumericCount ? item.count : 0;
+          const label = hasNumericCount
+            ? (item.name ?? '')
+            : (item.scoutGroupName ?? 'scoutgroup');
+          const value = item.count ?? 0;
           const displayName = hasNumericCount ? item.name : item.name;
 
           return (
