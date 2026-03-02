@@ -109,7 +109,7 @@ async def project_groupinfo_summary(
     Return pre-aggregated statistics across the requested groups.
     If no group_id is given, all groups are included.
     """
-    if not any(role in user.roles for role in ["j26-planning-staff", "j26-superuser"]):
+    if not any(permission in user.permissions for permission in ["signupinfo:summaries:read", "signupinfo:all:read"]):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient privileges")
 
     summary = await get_group_summary(project_id, group_ids)
@@ -119,7 +119,7 @@ async def project_groupinfo_summary(
             detail="Project or one or more groups not found.",
         )
 
-    if "j26-superuser" not in user.roles:  # Need to filter out values
+    if "signupinfo:all:read" not in user.permissions:  # Need to filter out values
         summary["stats"].pop(21334, None)  # Delete section "Hälsa"
 
     return summary
@@ -135,7 +135,7 @@ async def project_groupinfo_groupid(project_id: int, group_id: int, user: AuthUs
     """
     Return a single group responses.
     """
-    if not any(role in user.roles for role in ["j26-planning-staff", "j26-superuser"]):
+    if not any(permission in user.permissions for permission in ["signupinfo:summaries:read", "signupinfo:all:read"]):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient privileges")
 
     responses = await get_group_responses(project_id, group_id)
@@ -145,7 +145,7 @@ async def project_groupinfo_groupid(project_id: int, group_id: int, user: AuthUs
             detail="Project or group not found",
         )
 
-    if "j26-superuser" not in user.roles:  # Need to filter out values
+    if "signupinfo:all:read" not in user.permissions:  # Need to filter out values
         stats = responses[0]["stats"]
         stats.pop(21334, None)  # Delete section "Hälsa"
         stats.get(21335, {}).pop(
@@ -173,7 +173,7 @@ async def project_groupinfo(
     If none is given, all are returned.
     Response is paginated.
     """
-    if not any(role in user.roles for role in ["j26-planning-staff", "j26-superuser"]):
+    if not any(permission in user.permissions for permission in ["signupinfo:summaries:read", "signupinfo:all:read"]):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient privileges")
 
     responses = await get_group_responses(project_id, group_id)
@@ -187,7 +187,7 @@ async def project_groupinfo(
     skip = (page - 1) * size
     items = responses[skip : skip + size]
 
-    if "j26-superuser" not in user.roles:  # Need to filter out values
+    if "signupinfo:all:read" not in user.permissions:  # Need to filter out values
         for group in items:
             stats = group["stats"]
             stats.pop(21334, None)  # Delete section "Hälsa"
@@ -223,9 +223,9 @@ async def groupinfo_response_question_id(
     Return responses for a particular question and what the requested groups have answered.
     If no group_ids is given, all groups are included.
     """
-    if not any(role in user.roles for role in ["j26-planning-staff", "j26-superuser"]):
+    if not any(permission in user.permissions for permission in ["signupinfo:summaries:read", "signupinfo:all:read"]):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient privileges")
-    if "j26-superuser" not in user.roles and question_id in [
+    if "signupinfo:all:read" not in user.permissions and question_id in [
         88206,
         88190,
         88192,
@@ -265,9 +265,9 @@ async def groupinfo_response_question_id(
 async def individual_responses(project_id: int, member_id: int, user: AuthUser = Depends(require_auth_user)):
     """
     Return an individuals responses.
-    Requires the j26-superuser role
+    Requires the signupinfo:all:read permission
     """
-    if "j26-superuser" not in user.roles:
+    if "signupinfo:all:read" not in user.permissions:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient privileges")
 
     responses = await get_individual_responses(project_id, member_id)
@@ -292,9 +292,9 @@ async def individuals_by_group(
 ):
     """
     Return all individuals (with their responses) for a single group.
-    Requires the j26-superuser role
+    Requires the signupinfo:all:read permission
     """
-    if "j26-superuser" not in user.roles:
+    if "signupinfo:all:read" not in user.permissions:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient privileges")
 
     individuals = await get_individuals_by_group(project_id, group_id)

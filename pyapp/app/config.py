@@ -18,7 +18,6 @@ class Settings(BaseSettings):
     SCOUTNET_PROJECTS: list[ProjectConfig]
     SCOUTNET_BODYLIST_ID: int = 692
     SCOUTNET_BODYLIST_KEY: str = ""
-    J26_ROLES: list[str] = ["j26-staff", "j26-planning-staff", "j26-superuser"]
     PROJECT_CACHE_MAX_AGE_H: int = 24  # In hours
     SESSION_SECRET_KEY: str = "change-me"
     API_PREFIX: str = "/api"

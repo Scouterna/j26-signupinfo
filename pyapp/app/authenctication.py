@@ -21,7 +21,7 @@ class AuthUser(BaseModel):
     name: str
     preferred_username: str
     email: str | None = None
-    roles: list[str] = Field(default_factory=list)
+    permissions: list[str] = Field(default_factory=list)
     # claims: Dict[str, Any]
 
     def __str__(self) -> str:
@@ -82,23 +82,26 @@ async def decode_access_token(token: str, request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized") from exc
 
 
-def _extract_roles(claims: dict[str, Any]) -> list[str]:
-    roles = set()
+def _extract_permissions(claims: dict[str, Any]) -> list[str]:
+    permissions = set()
+
+    # Extract resource_access permissions prefixed with resource name, e.g. "j26-signupinfo:stats:read"
+    resource_access = claims.get("resource_access") or {}
+    for resource_name, resource in resource_access.items():
+        resource_roles = resource.get("roles") if isinstance(resource, dict) else []
+        permissions.update(f"{resource_name}:{role}" for role in (resource_roles or []) if isinstance(role, str))
+
+    # Extract j26-* roles from realm_access (old style)
     realm_access = claims.get("realm_access") or {}
     realm_roles = realm_access.get("roles") or []
-    roles.update(role for role in realm_roles if isinstance(role, str))
+    permissions.update(role for role in realm_roles if isinstance(role, str) and role.startswith("j26-"))
 
-    resource_access = claims.get("resource_access") or {}
-    for resource in resource_access.values():
-        resource_roles = resource.get("roles") if isinstance(resource, dict) else []
-        roles.update(role for role in (resource_roles or []) if isinstance(role, str))
-
-    return sorted(roles)
+    return sorted(permissions)
 
 
 async def require_auth_user(request: Request) -> AuthUser:
     """
-    FastAPI dependency that validates the auth cookie and returns user info + roles.
+    FastAPI dependency that validates the auth cookie and returns user info + permissions.
     """
     token = request.cookies.get("j26-auth_access-token")
     if not token:
@@ -107,22 +110,26 @@ async def require_auth_user(request: Request) -> AuthUser:
         else:  # Authentication disabled. Return a fake user
             return AuthUser(
                 subject="c6e9889e-e550-11f0-ae1a-30138b8c0e56",
-                name="Fake Super User",
+                name="Fake User",
                 preferred_username="scoutnet|1234567",
                 email="fake.user@scouterna.se",
-                roles=["j26-planning-staff"],
+                permissions=["signupinfo:summaries:read"],
+                # permissions=["signupinfo:all:read"],
             )
 
     claims = await decode_access_token(token, request)
-    roles = _extract_roles(claims)
-    if not any(role in settings.J26_ROLES for role in roles):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No suitable roles")  # No suitable roles
+    permissions = _extract_permissions(claims)
+    if "j26-planning-staff" in permissions and "signupinfo:summaries:read" not in permissions:
+        permissions.append("signupinfo:summaries:read")  # Quick patch
+    if not any(permission.startswith("signupinfo:") for permission in permissions):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="No suitable permissions"
+        )  # No suitable permissions
 
     return AuthUser(
         subject=claims.get("sub", ""),
         name=claims.get("name"),
         preferred_username=claims.get("preferred_username"),
         email=claims.get("email"),
-        roles=roles,
-        # claims=claims,
+        permissions=permissions,
     )
