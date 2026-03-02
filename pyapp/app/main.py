@@ -3,7 +3,7 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import FileResponse, JSONResponse
@@ -14,6 +14,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 # from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
+from .authenctication import AuthUser, require_auth_user
 from .config import get_settings
 from .scoutnet import scoutnet_init, scoutnet_router
 from .stats import stats_router
@@ -38,7 +39,7 @@ async def lifespan(app: FastAPI):
 # --- Initialize FastAPI app with the lifespan manager and session middleware ---
 app = FastAPI(
     title="j26-signupinfo-api",
-    version="0.3.0",
+    version="0.4.0",
     lifespan=lifespan,
     root_path=settings.ROOT_PATH,
     openapi_url=None,
@@ -59,8 +60,11 @@ app.include_router(scoutnet_router, prefix=settings.API_PREFIX)
 
 # --- Config info for app-shell ---
 @app.get("/app-config", response_model=dict, response_description="Get application configuration for j26-app")
-async def app_config():
-    # Config data should be in environment
+async def app_config(user: AuthUser = Depends(require_auth_user)):
+    """
+    Returns config info for the client. Used by the "app shell".
+    Requires an authenticated user with a signupinfo role
+    """
     return {
         "navigation": [
             {
