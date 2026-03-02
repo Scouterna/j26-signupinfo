@@ -458,6 +458,8 @@ function createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, 
  * @param {Record<string, string[] | null>} [props.selectedSubQuestions]
  * @param {Record<string, string>} [props.sectionIdToText]
  * @param {Record<string, string>} [props.questionIdToText]
+ * @param {boolean} props.isFullscreen
+ * @param {(value: boolean) => void} props.setIsFullscreen
  */
 export default function ScoutGroupTable({
   scoutGroups,
@@ -466,6 +468,8 @@ export default function ScoutGroupTable({
   selectedSubQuestions = {},
   sectionIdToText = {},
   questionIdToText = {},
+  isFullscreen,
+  setIsFullscreen,
 }) {
   const hierarchy = useMemo(
     () => buildStatsHierarchy(scoutGroups),
@@ -511,7 +515,6 @@ export default function ScoutGroupTable({
 
   const [columnFilters, setColumnFilters] = useState([]);
   const [sorting, setSorting] = useState([{ id: "name", desc: false }]);
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const table = useReactTable({
     data: rows,

@@ -14,6 +14,7 @@ import useProjectQueries from "./hooks/useProjectQueries.js";
 import useScoutGroupSelector from "./hooks/useScoutGroupSelector.js";
 import useApiData from "./hooks/useApiData.js";
 import useGroupSummary from "./hooks/useGroupSummary.js";
+import useUrlHashState from "./hooks/useUrlHashState.js";
 import { getSelectedScoutGroups } from "./hooks/useScoutGroupData.js";
 import ScoutGroupSelector, {
   DrawerToggleButton,
@@ -41,6 +42,8 @@ export default function App() {
   } = useProjectQueries();
 
   const { data, loading: dataLoading, error: dataError, refetch } = useApiData(projectId);
+
+  const { viewMode, isFullscreen, setViewMode, setIsFullscreen } = useUrlHashState();
 
   const selectorState = useScoutGroupSelector(villagesData);
   const { selectedScoutGroupIds, replaceSelectionWithIds, isDrawerOpen, toggleDrawer } =
@@ -170,6 +173,10 @@ export default function App() {
           projectId={projectId}
           selectedGroupIds={selectedScoutGroupIds}
           groupIdToName={groupIdToName}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          isFullscreen={isFullscreen}
+          setIsFullscreen={setIsFullscreen}
         />
       </Box>
     </Box>

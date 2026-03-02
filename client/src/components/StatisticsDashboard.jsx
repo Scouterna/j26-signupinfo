@@ -58,6 +58,10 @@ function buildNumParticipantsStatData(selectedScoutGroups, totalParticipants) {
  * @param {number|null} [props.projectId]
  * @param {Set<number>} [props.selectedGroupIds]
  * @param {Record<number, string>} [props.groupIdToName]
+ * @param {"statistics"|"table"} props.viewMode
+ * @param {(mode: "statistics"|"table") => void} props.setViewMode
+ * @param {boolean} props.isFullscreen
+ * @param {(value: boolean) => void} props.setIsFullscreen
  */
 export default function StatisticsDashboard({
   numScoutGroupsSelected,
@@ -75,8 +79,11 @@ export default function StatisticsDashboard({
   projectId = null,
   selectedGroupIds = new Set(),
   groupIdToName = {},
+  viewMode,
+  setViewMode,
+  isFullscreen,
+  setIsFullscreen,
 }) {
-  const [viewMode, setViewMode] = useState("statistics");
   const [selectedSubQuestions, setSelectedSubQuestions] = useState(
     /** @type {Record<string, string[] | null>} */ ({})
   );
@@ -112,7 +119,7 @@ export default function StatisticsDashboard({
 
   const handleViewModeChange = (/** @type {any} */ _event, /** @type {string | null} */ newMode) => {
     if (newMode !== null) {
-      setViewMode(newMode);
+      setViewMode(/** @type {"statistics"|"table"} */ (newMode));
     }
   };
 
@@ -369,6 +376,8 @@ export default function StatisticsDashboard({
             selectedSubQuestions={selectedSubQuestions}
             sectionIdToText={sectionIdToText}
             questionIdToText={questionIdToText}
+            isFullscreen={isFullscreen}
+            setIsFullscreen={setIsFullscreen}
           />
         ) : (
           <Box
