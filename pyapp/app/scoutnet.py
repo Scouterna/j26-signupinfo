@@ -84,10 +84,10 @@ class ProjectCache:
         return (time.time() - self.updated_at) > settings.PROJECT_CACHE_MAX_AGE_H * 3600
 
 
-# --- Project cache global ---
+# --- Globals ---
 
-_project_cache = ProjectCache()
-
+_project_cache = ProjectCache()  # Project cache
+_cache_update_lock = asyncio.Lock()  # Scoutnet retrieve lock
 
 # --- Init function ---
 
@@ -111,8 +111,10 @@ def require_fresh_cache(func):
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
         if _project_cache.is_stale:
-            logger.debug("Project cache is stale, refreshing...")
-            await _update_project_cache()
+            async with _cache_update_lock:  # Lock to prevent parallel cache updates
+                if _project_cache.is_stale:  # Re-check: another request may have refreshed while we waited
+                    logger.debug("Project cache is stale, refreshing...")
+                    await _update_project_cache()
         return await func(*args, **kwargs)
 
     return wrapper
