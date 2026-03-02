@@ -17,7 +17,7 @@ export default function StatRow({ label, value, total, showPercentage = false })
     <Box
       sx={{
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-start",
         gap: 2,
         padding: "8px 0",
       }}
@@ -25,12 +25,10 @@ export default function StatRow({ label, value, total, showPercentage = false })
       <Typography
         variant="body2"
         sx={{
-          flex: "0 0 120px",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
+          flex: 1,
+          minWidth: 0,
+          wordBreak: "break-word",
         }}
-        title={label}
       >
         {label}
       </Typography>
@@ -38,7 +36,8 @@ export default function StatRow({ label, value, total, showPercentage = false })
       {/* Mini bar chart */}
       <Box
         sx={{
-          flex: 1,
+          flex: "0 0 60px", // ← bar width: increase for a bigger bar
+          alignSelf: "center",
           height: "8px",
           backgroundColor: "rgba(0, 0, 0, 0.06)",
           borderRadius: "4px",
@@ -61,6 +60,7 @@ export default function StatRow({ label, value, total, showPercentage = false })
         fontWeight="600"
         sx={{
           flex: "0 0 50px",
+          alignSelf: "center",
           textAlign: "right",
         }}
       >

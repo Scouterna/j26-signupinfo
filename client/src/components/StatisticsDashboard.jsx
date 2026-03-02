@@ -213,7 +213,7 @@ export default function StatisticsDashboard({
           {effectiveSelectedStats.length > 0 ? (
             <Box
               sx={{
-                columnWidth: "300px",
+                columnWidth: "340px", // ← card width: increase to make cards wider
                 columnGap: "16px",
               }}
             >
@@ -238,6 +238,12 @@ export default function StatisticsDashboard({
                       activeSubQs.includes(qId)
                     );
                   }
+                  const hasNoData = (/** @type {any} */ d) =>
+                    typeof d !== "number" && (Array.isArray(d) ? d.length === 0 : Object.keys(d).length === 0);
+                  questionEntries = [...questionEntries].sort(([, a], [, b]) => {
+                    if (hasNoData(a) === hasNoData(b)) return 0;
+                    return hasNoData(a) ? 1 : -1;
+                  });
                 }
 
                 // Total for inline numeric StatRows (shared across all number-valued questions in section)
@@ -262,8 +268,8 @@ export default function StatisticsDashboard({
                   >
                     <Typography
                       variant="subtitle1"
-                      fontWeight="600"
-                      sx={{ marginBottom: "16px" }}
+                      fontWeight="700"
+                      sx={{ marginBottom: "16px", color: "#000000" }}
                     >
                       {sectionIdToText[statName] ?? statName}
                     </Typography>
@@ -277,10 +283,10 @@ export default function StatisticsDashboard({
                         sx={{
                           display: "flex",
                           flexDirection: "column",
-                          gap: "12px",
+                          gap: "2px",
                         }}
                       >
-                        {questionEntries.map(([questionId, questionData]) => {
+                        {questionEntries.map(([questionId, questionData], qIndex) => {
                           const isNumeric = typeof questionData === "number";
                           const isTextAnswers = Array.isArray(questionData);
                           const isBooleanQuestion = isNumeric && booleanQuestionIds.has(questionId);
@@ -298,19 +304,38 @@ export default function StatisticsDashboard({
                                 return acc;
                               }, {})
                             : questionData;
+                          // A question with a header but no answer data would otherwise look
+                          // like a section heading for the questions below it.
+                          const hasNoAnswers = showHeader && !isNumParticipants && !isBooleanQuestion
+                            && Object.keys(effectiveAnswerCounts).length === 0;
                           return (
-                            <Box key={questionId}>
+                            <Box
+                              key={questionId}
+                              sx={{
+                                borderRadius: "6px",
+                                backgroundColor: qIndex % 2 === 1 ? "rgba(0, 0, 0, 0.06)" : "transparent",
+                                padding: "0 8px",
+                                margin: "0 -8px",
+                              }}
+                            >
                               {showHeader && (
                                 <Typography
                                   variant="body2"
-                                  fontWeight="500"
-                                  color="text.secondary"
-                                  sx={{ marginBottom: "6px" }}
+                                  fontWeight="700"
+                                  sx={{ marginBottom: "6px", color: "#000000" }}
                                 >
                                   {questionIdToText[questionId] ?? questionId}
                                 </Typography>
                               )}
-                              {isNumParticipants ? (
+                              {hasNoAnswers ? (
+                                <Typography
+                                  variant="body2"
+                                  color="text.disabled"
+                                  sx={{ fontStyle: "italic" }}
+                                >
+                                  Inga svar
+                                </Typography>
+                              ) : isNumParticipants ? (
                                 <SubQuestionValues
                                   answerCounts={/** @type {any} */(questionData).counts}
                                   groups={/** @type {any} */(questionData).groups}
