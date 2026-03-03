@@ -12,7 +12,7 @@ const DELTAGARE_STAT_ID = 'num_participants';
  * Preserves section and question IDs for matching with stats/groupinfo endpoints.
  *
  * @param {Record<string, import('../services/api').QuestionSection> | undefined} questionsData
- * @returns {{ statistics: string[], statisticSubQuestions: Record<string, string[]>, sectionIdToText: Record<string, string>, questionIdToText: Record<string, string>, booleanQuestionIds: Set<string>, sectionQuestions: Record<string, string[]>, questionChoices: Record<string, string[]> }}
+ * @returns {{ statistics: string[], statisticSubQuestions: Record<string, string[]>, sectionIdToText: Record<string, string>, questionIdToText: Record<string, string>, booleanQuestionIds: Set<string>, sectionQuestions: Record<string, string[]>, questionChoices: Record<string, string[]>, questionTypes: Record<string, string> }}
  */
 function buildChipData(questionsData) {
   /** @type {string[]} */
@@ -33,9 +33,11 @@ function buildChipData(questionsData) {
   const sectionQuestions = {};
   /** @type {Record<string, string[]>} */
   const questionChoices = {};
+  /** @type {Record<string, string>} */
+  const questionTypes = {};
 
   if (!questionsData) {
-    return { statistics, statisticSubQuestions, sectionIdToText, questionIdToText, booleanQuestionIds, sectionQuestions, questionChoices };
+    return { statistics, statisticSubQuestions, sectionIdToText, questionIdToText, booleanQuestionIds, sectionQuestions, questionChoices, questionTypes };
   }
 
   const sectionEntries = Object.entries(questionsData);
@@ -52,6 +54,7 @@ function buildChipData(questionsData) {
     const questionIds = sortedQuestions.map(([qId]) => qId);
     for (const [qId, q] of sortedQuestions) {
       questionIdToText[qId] = q.text || qId;
+      questionTypes[qId] = q.type || '';
       if (q.type === 'boolean') {
         booleanQuestionIds.add(qId);
       }
@@ -79,6 +82,7 @@ function buildChipData(questionsData) {
     booleanQuestionIds,
     sectionQuestions,
     questionChoices,
+    questionTypes,
   };
 }
 
@@ -107,7 +111,7 @@ function buildVillagesData(groupsData) {
  * TanStack Query hook that fetches project list, question metadata, and group list.
  * Uses dependent queries: questions and groups are only fetched once the project ID is known.
  *
- * @returns {{ projectId: number|null, statistics: string[], statisticSubQuestions: Record<string, string[]>, sectionIdToText: Record<string, string>, questionIdToText: Record<string, string>, booleanQuestionIds: Set<string>, sectionQuestions: Record<string, string[]>, questionChoices: Record<string, string[]>, villagesData: { villages: Array<{ id: string, name: string, ScoutGroups: Array<{ id: number, name: string }> }> }, groupIdToName: Record<number, string>, isLoading: boolean, error: Error|null }}
+ * @returns {{ projectId: number|null, statistics: string[], statisticSubQuestions: Record<string, string[]>, sectionIdToText: Record<string, string>, questionIdToText: Record<string, string>, booleanQuestionIds: Set<string>, sectionQuestions: Record<string, string[]>, questionChoices: Record<string, string[]>, questionTypes: Record<string, string>, villagesData: { villages: Array<{ id: string, name: string, ScoutGroups: Array<{ id: number, name: string }> }> }, groupIdToName: Record<number, string>, isLoading: boolean, error: Error|null }}
  */
 export default function useProjectQueries() {
   const {
@@ -148,7 +152,7 @@ export default function useProjectQueries() {
     staleTime: Infinity,
   });
 
-  const { statistics, statisticSubQuestions, sectionIdToText, questionIdToText, booleanQuestionIds, sectionQuestions, questionChoices } = useMemo(
+  const { statistics, statisticSubQuestions, sectionIdToText, questionIdToText, booleanQuestionIds, sectionQuestions, questionChoices, questionTypes } = useMemo(
     () => buildChipData(/** @type {any} */ (questionsData)),
     [questionsData],
   );
@@ -175,6 +179,7 @@ export default function useProjectQueries() {
     booleanQuestionIds,
     sectionQuestions,
     questionChoices,
+    questionTypes,
     villagesData,
     groupIdToName,
     isLoading: projectsLoading || questionsLoading || groupsLoading,

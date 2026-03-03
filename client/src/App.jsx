@@ -38,6 +38,7 @@ export default function App() {
     booleanQuestionIds,
     sectionQuestions,
     questionChoices,
+    questionTypes,
     villagesData,
     groupIdToName,
     isLoading: projectLoading,
@@ -124,6 +125,7 @@ export default function App() {
     booleanQuestionIds,
     sectionQuestions,
     questionChoices,
+    questionTypes,
     groupIdToName,
   };
 

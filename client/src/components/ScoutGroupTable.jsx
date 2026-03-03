@@ -149,6 +149,7 @@ function getValueFromPath(stats, columnId, questionIdToText) {
   }
 
   if (current === null || current === undefined) return "";
+  if (typeof current === "boolean") return current ? 1 : 0;
   if (typeof current === "number") {
     const resolved = questionIdToText?.[String(current)];
     return resolved !== undefined ? resolved : current;
@@ -161,35 +162,52 @@ function getValueFromPath(stats, columnId, questionIdToText) {
 }
 
 /**
- * For each stat column, determines type (number vs string) and unique string values.
- * @param {ScoutGroupItem[]} scoutGroups
+ * For each stat column, determines type (number vs string) and filter options
+ * using the questions schema rather than scanning actual data values.
+ *
+ * Rules:
+ * - 3-segment path (sectionId§questionId§choiceId): participant choice question aggregated
+ *   as counts per choice option by the stats endpoint — always numeric
+ * - 2-segment path (sectionId§questionId):
+ *   - type "number" / "boolean" / no type (manual stat) → numeric
+ *   - type "choice" → string with filter options from questionChoices + questionIdToText
+ *   - type "text" / "leader_select" / "other_unsupported_by_api" → string, no filter
+ *
  * @param {Set<string>} columnIds
- * @param {Record<string, string>} [questionIdToText]
+ * @param {Record<string, string>} questionTypes
+ * @param {Record<string, string[]>} questionChoices
+ * @param {Record<string, string>} questionIdToText
  * @returns {Map<string, ColumnMeta>}
  */
-function getColumnMeta(scoutGroups, columnIds, questionIdToText) {
+function getColumnMeta(columnIds, questionTypes, questionChoices, questionIdToText) {
   /** @type {Map<string, ColumnMeta>} */
   const meta = new Map();
 
   columnIds.forEach((columnId) => {
     if (columnId === "name" || columnId === "num_participants") return;
 
-    const values = scoutGroups
-      .map((g) => getValueFromPath(g.stats, columnId, questionIdToText))
-      .filter((v) => v !== "" && v !== null && v !== undefined);
+    const parts = columnId.split(PATH_SEPARATOR);
 
-    const allNumeric =
-      values.length > 0 && values.every((v) => typeof v === "number");
-
-    if (allNumeric) {
+    if (parts.length === 3) {
       meta.set(columnId, { type: "number" });
-    } else {
-      const uniqueValues = [
-        ...new Set(
-          values.map((v) => (typeof v === "string" ? v : String(v)))
-        ),
-      ].sort((a, b) => a.localeCompare(b, "sv"));
+      return;
+    }
+
+    const qId = parts[1];
+    const qType = questionTypes[qId];
+
+    if (qType === "number" || qType === "boolean" || !qType) {
+      // boolean → stored as 1/0 by getValueFromPath
+      // no qType → manual stat column (Kön, Avgift, etc.), always numeric
+      meta.set(columnId, { type: "number" });
+    } else if (qType === "choice") {
+      const uniqueValues = (questionChoices[qId] ?? [])
+        .map((id) => questionIdToText[id] ?? id)
+        .sort((a, b) => a.localeCompare(b, "sv"));
       meta.set(columnId, { type: "string", uniqueValues });
+    } else {
+      // text, leader_select, other_unsupported_by_api → free-form string, no filter
+      meta.set(columnId, { type: "string", uniqueValues: [] });
     }
   });
 
@@ -198,11 +216,14 @@ function getColumnMeta(scoutGroups, columnIds, questionIdToText) {
 
 /**
  * Transforms scout groups into row data for the table.
+ * Coerces string values to numbers for columns that are known to be numeric,
+ * so TanStack Table sorts them correctly.
  * @param {ScoutGroupItem[]} scoutGroups
  * @param {Set<string>} selectedColumns
+ * @param {Map<string, ColumnMeta>} columnMeta
  * @param {Record<string, string>} [questionIdToText]
  */
-function transformToRows(scoutGroups, selectedColumns, questionIdToText) {
+function transformToRows(scoutGroups, selectedColumns, columnMeta, questionIdToText) {
   return scoutGroups.map((group) => {
     /** @type {Record<string, any>} */
     const row = {
@@ -213,7 +234,12 @@ function transformToRows(scoutGroups, selectedColumns, questionIdToText) {
 
     selectedColumns.forEach((columnId) => {
       if (columnId !== "name" && columnId !== "num_participants") {
-        row[columnId] = getValueFromPath(group.stats, columnId, questionIdToText);
+        let value = getValueFromPath(group.stats, columnId, questionIdToText);
+        if (columnMeta.get(columnId)?.type === "number" && typeof value === "string" && value !== "") {
+          const parsed = Number(value);
+          if (!isNaN(parsed)) value = parsed;
+        }
+        row[columnId] = value;
       }
     });
 
@@ -279,6 +305,7 @@ function createColumns(selectedColumns, columnMeta, questionIdToText) {
       accessorKey: columnId,
       header: headerName,
       size: 200,
+      ...(colMeta?.type === "number" && { sortingFn: "basic" }),
     };
 
     if (colMeta && "uniqueValues" in colMeta && colMeta.uniqueValues?.length) {
@@ -312,7 +339,7 @@ export default function ScoutGroupTable({
   isFullscreen,
   setIsFullscreen,
 }) {
-  const { sectionQuestions, questionIdToText } =
+  const { sectionQuestions, questionIdToText, questionTypes, questionChoices } =
     useProjectConfig();
 
   const chipDrivenColumns = useMemo(
@@ -332,13 +359,13 @@ export default function ScoutGroupTable({
   );
 
   const columnMeta = useMemo(
-    () => getColumnMeta(scoutGroups, chipDrivenColumns, questionIdToText),
-    [scoutGroups, chipDrivenColumns, questionIdToText]
+    () => getColumnMeta(chipDrivenColumns, questionTypes, questionChoices, questionIdToText),
+    [chipDrivenColumns, questionTypes, questionChoices, questionIdToText]
   );
 
   const rows = useMemo(
-    () => transformToRows(scoutGroups, chipDrivenColumns, questionIdToText),
-    [scoutGroups, chipDrivenColumns, questionIdToText]
+    () => transformToRows(scoutGroups, chipDrivenColumns, columnMeta, questionIdToText),
+    [scoutGroups, chipDrivenColumns, columnMeta, questionIdToText]
   );
 
   const columns = useMemo(
