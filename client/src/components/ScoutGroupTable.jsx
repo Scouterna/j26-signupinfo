@@ -25,272 +25,82 @@ const PATH_SEPARATOR = "§";
 
 /**
  * @typedef {{ id: number | string, name: string, num_participants?: number, stats?: Record<string, any> }} ScoutGroupItem
- * @typedef {{ name: string, type: "leaf", columnId: string }} LeafNode
- * @typedef {{ name: string, type: "branch", children: LeafNode[] }} BranchNode
- * @typedef {{ name: string, children: Map<string, LeafNode | BranchNode> | (LeafNode | BranchNode)[] }} CategoryNode
  * @typedef {{ type: "number" } | { type: "string", uniqueValues: string[] }} ColumnMeta
  */
 
 /**
- * Builds a hierarchical tree structure from all scout groups' stats.
- * @param {ScoutGroupItem[]} scoutGroups
- */
-function buildStatsHierarchy(scoutGroups) {
-  /** @type {Map<string, { type: string, leafName: string, categoryName: string, subQuestionName?: string }>} */
-  const pathsMap = new Map();
-
-  scoutGroups.forEach((group) => {
-    if (!group.stats || typeof group.stats !== "object") return;
-
-    Object.entries(group.stats).forEach(([categoryName, categoryData]) => {
-      if (!categoryData || typeof categoryData !== "object") return;
-
-      Object.entries(categoryData).forEach(([key, value]) => {
-        if (value === null || value === undefined) return;
-
-        if (typeof value === "object" && !Array.isArray(value)) {
-          Object.keys(value).forEach((answerKey) => {
-            const columnId = [categoryName, key, answerKey].join(PATH_SEPARATOR);
-            if (!pathsMap.has(columnId)) {
-              pathsMap.set(columnId, {
-                type: "nestedLeaf",
-                leafName: answerKey,
-                categoryName,
-                subQuestionName: key,
-              });
-            }
-          });
-        } else {
-          const columnId = [categoryName, key].join(PATH_SEPARATOR);
-          if (!pathsMap.has(columnId)) {
-            pathsMap.set(columnId, {
-              type: "directLeaf",
-              leafName: key,
-              categoryName,
-            });
-          }
-        }
-      });
-    });
-  });
-
-  /** @type {Map<string, { name: string, children: Map<string, any> }>} */
-  const categoriesMap = new Map();
-
-  pathsMap.forEach((info, columnId) => {
-    const { categoryName, subQuestionName, leafName, type } = info;
-
-    if (!categoriesMap.has(categoryName)) {
-      categoriesMap.set(categoryName, {
-        name: categoryName,
-        children: new Map(),
-      });
-    }
-
-    const category = categoriesMap.get(categoryName);
-    if (!category) return;
-
-    if (type === "nestedLeaf") {
-      if (!subQuestionName) return;
-      if (!category.children.has(subQuestionName)) {
-        category.children.set(subQuestionName, {
-          name: subQuestionName,
-          type: "branch",
-          children: [],
-        });
-      }
-      category.children.get(subQuestionName).children.push({
-        name: leafName,
-        type: "leaf",
-        columnId,
-      });
-    } else {
-      category.children.set(columnId, {
-        name: leafName,
-        type: "leaf",
-        columnId,
-      });
-    }
-  });
-
-  const hierarchy = Array.from(categoriesMap.values())
-    .map((category) => ({
-      ...category,
-      children: Array.from(category.children.values())
-        .map((child) => {
-          if (child.type === "branch") {
-            return {
-              ...child,
-              children: child.children.sort((/** @type {any} */ a, /** @type {any} */ b) =>
-                a.name.localeCompare(b.name, "sv")
-              ),
-            };
-          }
-          return child;
-        })
-        .sort((/** @type {any} */ a, /** @type {any} */ b) => a.name.localeCompare(b.name, "sv")),
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name, "sv"));
-
-  return hierarchy;
-}
-
-/**
- * Gets all leaf column IDs from a hierarchy node.
- * @param {{ children?: any[] }} node
- * @returns {string[]}
- */
-function getAllLeafIds(node) {
-  /** @type {string[]} */
-  const ids = [];
-  if (node.children) {
-    node.children.forEach((/** @type {any} */ child) => {
-      if (child.type === "leaf") {
-        ids.push(child.columnId);
-      } else if (child.type === "branch") {
-        ids.push(...getAllLeafIds(child));
-      }
-    });
-  }
-  return ids;
-}
-
-/**
- * Gets all leaf column IDs from the full hierarchy.
- * @param {any[]} hierarchy
- * @returns {string[]}
- */
-function getAllColumnIdsFromHierarchy(hierarchy) {
-  /** @type {string[]} */
-  const ids = [];
-  hierarchy.forEach((category) => {
-    ids.push(...getAllLeafIds(category));
-  });
-  return ids;
-}
-
-/**
- * Resolves a category name to the stat name used in chip selector.
- * @param {string} categoryName
- * @param {Record<string, string>} sectionIdToText
- */
-function resolveCategoryToStatName(categoryName, sectionIdToText) {
-  if (!sectionIdToText || typeof sectionIdToText !== "object") return categoryName;
-  for (const [id, text] of Object.entries(sectionIdToText)) {
-    if (text === categoryName) return id;
-  }
-  return categoryName;
-}
-
-/**
- * Resolves a sub-question name to question ID for matching.
- * @param {string} subName
- * @param {Record<string, string>} questionIdToText
- */
-function resolveSubQuestionToId(subName, questionIdToText) {
-  if (!questionIdToText || typeof questionIdToText !== "object") return subName;
-  for (const [id, text] of Object.entries(questionIdToText)) {
-    if (text === subName) return id;
-  }
-  return subName;
-}
-
-/**
- * Gets column IDs that match the chip selector selection.
- * @param {any[]} hierarchy
+ * Derives the set of column IDs from the chip selection and the questions schema.
+ * For sections not in sectionQuestions (manual stats like Kön/Avgift), falls back
+ * to scanning the stats data of the provided scout groups.
+ *
  * @param {string[]} selectedStatistics
  * @param {Record<string, string[] | null>} selectedSubQuestions
- * @param {Record<string, string[]>} statisticSubQuestions
- * @param {Record<string, string>} sectionIdToText
- * @param {Record<string, string>} questionIdToText
+ * @param {Record<string, string[]>} sectionQuestions
+ * @param {Record<string, string[]>} questionChoices
+ * @param {ScoutGroupItem[]} scoutGroups
  * @returns {Set<string>}
  */
-function getColumnIdsFromChipSelection(
-  hierarchy,
-  selectedStatistics,
-  selectedSubQuestions,
-  statisticSubQuestions,
-  sectionIdToText,
-  questionIdToText
-) {
-  const ids = new Set(["name"]);
+function getColumnIds(selectedStatistics, selectedSubQuestions, sectionQuestions, questionChoices, scoutGroups) {
+  const ids = new Set(/** @type {string[]} */ (["name"]));
+
   if (selectedStatistics.includes("num_participants")) {
     ids.add("num_participants");
   }
-  const hasSubQuestions = (/** @type {string} */ statName) => statName in statisticSubQuestions;
 
-  hierarchy.forEach((category) => {
-    const rawStatName = category.name;
-    const statName = resolveCategoryToStatName(rawStatName, sectionIdToText);
-    const isSimpleStat =
-      (selectedStatistics.includes(statName) || selectedStatistics.includes(rawStatName)) &&
-      !hasSubQuestions(statName) &&
-      !hasSubQuestions(rawStatName);
-    const isSubStat = statName in selectedSubQuestions || rawStatName in selectedSubQuestions;
-    const effectiveStatName = statName in selectedSubQuestions ? statName : rawStatName;
+  /**
+   * Adds column IDs for a section, optionally filtered to specific question IDs.
+   * Falls back to scanning stats data for manual sections not in the questions schema.
+   * @param {string} sectionId
+   * @param {string[] | null | undefined} activeSubQs - null = all, array = filtered, undefined = all
+   */
+  const addSectionColumns = (sectionId, activeSubQs) => {
+    const allQIds = sectionQuestions[sectionId];
 
-    if (!isSimpleStat && !isSubStat) return;
-
-    if (isSimpleStat) {
-      getAllLeafIds(category).forEach((id) => ids.add(id));
+    if (!allQIds) {
+      // Manual stat not in questions endpoint — scan stats data for this section only
+      scoutGroups.forEach((group) => {
+        const sectionData = group.stats?.[sectionId];
+        if (!sectionData || typeof sectionData !== "object") return;
+        Object.entries(sectionData).forEach(([key, value]) => {
+          if (value === null || value === undefined) return;
+          if (typeof value === "object" && !Array.isArray(value)) {
+            Object.keys(value).forEach((answerKey) => {
+              ids.add([sectionId, key, answerKey].join(PATH_SEPARATOR));
+            });
+          } else {
+            ids.add([sectionId, key].join(PATH_SEPARATOR));
+          }
+        });
+      });
       return;
     }
 
-    const activeSubQs = selectedSubQuestions[effectiveStatName];
-    const includeChild = (/** @type {string} */ subName) => {
-      if (activeSubQs === null) return true;
-      if (!Array.isArray(activeSubQs)) return false;
-      const resolvedId = resolveSubQuestionToId(subName, questionIdToText);
-      return activeSubQs.includes(subName) || activeSubQs.includes(resolvedId);
-    };
+    const qIds = Array.isArray(activeSubQs)
+      ? allQIds.filter((q) => activeSubQs.includes(q))
+      : allQIds;
 
-    category.children.forEach((/** @type {any} */ child) => {
-      if (child.type === "leaf") {
-        if (includeChild(child.name)) ids.add(child.columnId);
-      } else if (child.type === "branch") {
-        if (includeChild(child.name)) {
-          getAllLeafIds(child).forEach((id) => ids.add(id));
-        }
+    for (const qId of qIds) {
+      const choices = questionChoices[qId];
+      if (choices?.length) {
+        choices.forEach((cId) => ids.add([sectionId, qId, cId].join(PATH_SEPARATOR)));
+      } else {
+        ids.add([sectionId, qId].join(PATH_SEPARATOR));
       }
-    });
-  });
+    }
+  };
+
+  // Simple stats: sections without sub-questions, selected via selectedStatistics
+  for (const sectionId of selectedStatistics) {
+    if (sectionId === "num_participants") continue;
+    addSectionColumns(sectionId, undefined);
+  }
+
+  // Sub-question stats: sections with sub-questions, selected via selectedSubQuestions
+  for (const [sectionId, activeSubQs] of Object.entries(selectedSubQuestions)) {
+    addSectionColumns(sectionId, activeSubQs);
+  }
 
   return ids;
-}
-
-/**
- * For each stat column, determines type (number vs string) and unique string values.
- * @param {ScoutGroupItem[]} scoutGroups
- * @param {any[]} hierarchy
- * @param {Record<string, string>} [questionIdToText]
- * @returns {Map<string, ColumnMeta>}
- */
-function getColumnMeta(scoutGroups, hierarchy, questionIdToText) {
-  const columnIds = getAllColumnIdsFromHierarchy(hierarchy);
-  /** @type {Map<string, ColumnMeta>} */
-  const meta = new Map();
-
-  columnIds.forEach((columnId) => {
-    const values = scoutGroups
-      .map((g) => getValueFromPath(g.stats, columnId, questionIdToText))
-      .filter((v) => v !== "" && v !== null && v !== undefined);
-
-    const allNumeric =
-      values.length > 0 && values.every((v) => typeof v === "number");
-
-    if (allNumeric) {
-      meta.set(columnId, { type: "number" });
-    } else {
-      const uniqueValues = [
-        ...new Set(
-          values.map((v) => (typeof v === "string" ? v : String(v)))
-        ),
-      ].sort((a, b) => a.localeCompare(b, "sv"));
-      meta.set(columnId, { type: "string", uniqueValues });
-    }
-  });
-
-  return meta;
 }
 
 /**
@@ -323,6 +133,42 @@ function getValueFromPath(stats, columnId, questionIdToText) {
   }
   if (Array.isArray(current)) return current.join("\n");
   return "";
+}
+
+/**
+ * For each stat column, determines type (number vs string) and unique string values.
+ * @param {ScoutGroupItem[]} scoutGroups
+ * @param {Set<string>} columnIds
+ * @param {Record<string, string>} [questionIdToText]
+ * @returns {Map<string, ColumnMeta>}
+ */
+function getColumnMeta(scoutGroups, columnIds, questionIdToText) {
+  /** @type {Map<string, ColumnMeta>} */
+  const meta = new Map();
+
+  columnIds.forEach((columnId) => {
+    if (columnId === "name" || columnId === "num_participants") return;
+
+    const values = scoutGroups
+      .map((g) => getValueFromPath(g.stats, columnId, questionIdToText))
+      .filter((v) => v !== "" && v !== null && v !== undefined);
+
+    const allNumeric =
+      values.length > 0 && values.every((v) => typeof v === "number");
+
+    if (allNumeric) {
+      meta.set(columnId, { type: "number" });
+    } else {
+      const uniqueValues = [
+        ...new Set(
+          values.map((v) => (typeof v === "string" ? v : String(v)))
+        ),
+      ].sort((a, b) => a.localeCompare(b, "sv"));
+      meta.set(columnId, { type: "string", uniqueValues });
+    }
+  });
+
+  return meta;
 }
 
 /**
@@ -372,25 +218,12 @@ function multiSelectFilterFn(row, columnId, filterValue) {
 }
 
 /**
- * Resolves an ID to display text using the provided maps.
- * @param {string} id
- * @param {Record<string, string>} [sectionIdToText]
- * @param {Record<string, string>} [questionIdToText]
- */
-function getDisplayName(id, sectionIdToText, questionIdToText) {
-  return sectionIdToText?.[id] ?? questionIdToText?.[id] ?? id;
-}
-
-/**
  * Creates column definitions for TanStack Table.
  * @param {Set<string>} selectedColumns
- * @param {any[]} hierarchy
  * @param {Map<string, ColumnMeta>} columnMeta
- * @param {Record<string, string>} sectionIdToText
  * @param {Record<string, string>} questionIdToText
  */
-function createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, questionIdToText) {
-  const selectedSet = new Set(selectedColumns);
+function createColumns(selectedColumns, columnMeta, questionIdToText) {
   /** @type {any[]} */
   const columns = [
     {
@@ -400,7 +233,8 @@ function createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, 
       minSize: 150,
     },
   ];
-  if (selectedSet.has("num_participants")) {
+
+  if (selectedColumns.has("num_participants")) {
     columns.push({
       accessorKey: "num_participants",
       header: "Deltagare",
@@ -408,26 +242,11 @@ function createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, 
     });
   }
 
-  /** @type {Map<string, string>} */
-  const columnIdToName = new Map();
-  hierarchy.forEach((category) => {
-    category.children.forEach((/** @type {any} */ child) => {
-      if (child.type === "leaf") {
-        const displayName = getDisplayName(child.name, sectionIdToText, questionIdToText);
-        columnIdToName.set(child.columnId, displayName);
-      } else if (child.type === "branch") {
-        child.children.forEach((/** @type {any} */ leaf) => {
-          const displayName = getDisplayName(leaf.name, sectionIdToText, questionIdToText);
-          columnIdToName.set(leaf.columnId, displayName);
-        });
-      }
-    });
-  });
-
   selectedColumns.forEach((columnId) => {
     if (columnId === "name" || columnId === "num_participants") return;
 
-    const headerName = columnIdToName.get(columnId) ?? getDisplayName(columnId.split(PATH_SEPARATOR).pop() ?? columnId, sectionIdToText, questionIdToText) ?? columnId;
+    const lastSegment = columnId.split(PATH_SEPARATOR).pop() ?? columnId;
+    const headerName = questionIdToText[lastSegment] ?? lastSegment;
     const colMeta = columnMeta.get(columnId);
 
     /** @type {any} */
@@ -468,36 +287,30 @@ export default function ScoutGroupTable({
   isFullscreen,
   setIsFullscreen,
 }) {
-  const { statisticSubQuestions = {}, sectionIdToText = {}, questionIdToText = {} } =
+  const { sectionQuestions, questionChoices, questionIdToText } =
     useProjectConfig();
-  const hierarchy = useMemo(
-    () => buildStatsHierarchy(scoutGroups),
-    [scoutGroups]
-  );
 
   const chipDrivenColumns = useMemo(
     () =>
-      getColumnIdsFromChipSelection(
-        hierarchy,
+      getColumnIds(
         selectedStatistics,
         selectedSubQuestions,
-        statisticSubQuestions,
-        sectionIdToText,
-        questionIdToText
+        sectionQuestions,
+        questionChoices,
+        scoutGroups
       ),
     [
-      hierarchy,
       selectedStatistics,
       selectedSubQuestions,
-      statisticSubQuestions,
-      sectionIdToText,
-      questionIdToText,
+      sectionQuestions,
+      questionChoices,
+      scoutGroups,
     ]
   );
 
   const columnMeta = useMemo(
-    () => getColumnMeta(scoutGroups, hierarchy, questionIdToText),
-    [scoutGroups, hierarchy, questionIdToText]
+    () => getColumnMeta(scoutGroups, chipDrivenColumns, questionIdToText),
+    [scoutGroups, chipDrivenColumns, questionIdToText]
   );
 
   const rows = useMemo(
@@ -506,8 +319,8 @@ export default function ScoutGroupTable({
   );
 
   const columns = useMemo(
-    () => createColumns(chipDrivenColumns, hierarchy, columnMeta, sectionIdToText, questionIdToText),
-    [chipDrivenColumns, hierarchy, columnMeta, sectionIdToText, questionIdToText]
+    () => createColumns(chipDrivenColumns, columnMeta, questionIdToText),
+    [chipDrivenColumns, columnMeta, questionIdToText]
   );
 
   const [columnFilters, setColumnFilters] = useState(/** @type {import('@tanstack/react-table').ColumnFiltersState} */ ([]));

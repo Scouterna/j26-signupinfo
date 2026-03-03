@@ -11,6 +11,8 @@ import { createContext, useContext } from "react";
  *   sectionIdToText: Record<string, string>,
  *   questionIdToText: Record<string, string>,
  *   booleanQuestionIds: Set<string>,
+ *   sectionQuestions: Record<string, string[]>,
+ *   questionChoices: Record<string, string[]>,
  *   groupIdToName: Record<number, string>,
  * }} ProjectConfig
  */
@@ -22,6 +24,8 @@ const ProjectConfigContext = createContext(/** @type {ProjectConfig} */ ({
   sectionIdToText: {},
   questionIdToText: {},
   booleanQuestionIds: new Set(),
+  sectionQuestions: {},
+  questionChoices: {},
   groupIdToName: {},
 }));
 

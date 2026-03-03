@@ -60,7 +60,7 @@ export default function StatisticCard({
   selectedScoutGroups,
   totalParticipants,
 }) {
-  const { sectionIdToText } = useProjectConfig();
+  const { sectionIdToText, sectionQuestions } = useProjectConfig();
 
   const isNumParticipants = statName === "num_participants";
 
@@ -74,7 +74,10 @@ export default function StatisticCard({
     questionEntries = [["_direct", { counts, groups }]];
   } else {
     const sectionData = getStatisticData(statName);
-    questionEntries = Object.entries(sectionData);
+    const orderedIds = sectionQuestions[statName] ?? Object.keys(sectionData);
+    questionEntries = orderedIds
+      .filter((qId) => qId in sectionData)
+      .map((qId) => /** @type {[string, any]} */ ([qId, sectionData[qId]]));
     if (Array.isArray(activeSubQs)) {
       questionEntries = questionEntries.filter(([qId]) => activeSubQs.includes(qId));
     }

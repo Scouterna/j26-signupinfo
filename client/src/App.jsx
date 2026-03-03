@@ -36,6 +36,8 @@ export default function App() {
     sectionIdToText,
     questionIdToText,
     booleanQuestionIds,
+    sectionQuestions,
+    questionChoices,
     villagesData,
     groupIdToName,
     isLoading: projectLoading,
@@ -80,19 +82,24 @@ export default function App() {
 
   // Error state
   if (error) {
+    const isUnauthorized = error.status === 401;
     return (
       <Box sx={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <CssBaseline />
         <Box sx={{ textAlign: "center", maxWidth: 400, px: 2 }}>
           <Typography variant="h6" color="error" gutterBottom>
-            Något gick fel
+            {isUnauthorized ? "Inte inloggad" : "Något gick fel"}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {error.message || "Kunde inte ladda data. Försök igen senare."}
+          <Typography variant="body2" color="text.secondary">
+            {isUnauthorized
+              ? "Du behöver logga in för att se den här sidan."
+              : error.message || "Kunde inte ladda data. Försök igen senare."}
           </Typography>
-          <Button variant="contained" onClick={refetch}>
-            Försök igen
-          </Button>
+          {!isUnauthorized && (
+            <Button variant="contained" sx={{ mt: 2 }} onClick={refetch}>
+              Försök igen
+            </Button>
+          )}
         </Box>
       </Box>
     );
@@ -115,6 +122,8 @@ export default function App() {
     sectionIdToText,
     questionIdToText,
     booleanQuestionIds,
+    sectionQuestions,
+    questionChoices,
     groupIdToName,
   };
 
