@@ -22,7 +22,6 @@ class AuthUser(BaseModel):
     preferred_username: str
     email: str | None = None
     permissions: list[str] = Field(default_factory=list)
-    # claims: Dict[str, Any]
 
     def __str__(self) -> str:
         uid = self.preferred_username or self.subject
@@ -85,11 +84,11 @@ async def decode_access_token(token: str, request: Request) -> dict[str, Any]:
 def _extract_permissions(claims: dict[str, Any]) -> list[str]:
     permissions = set()
 
-    # Extract resource_access permissions prefixed with resource name, e.g. "j26-signupinfo:stats:read"
+    # Extract resource_access permissions prefixed with resource name, e.g. "j26-j26-signupinfo:stats:read"
     resource_access = claims.get("resource_access") or {}
     for resource_name, resource in resource_access.items():
-        resource_roles = resource.get("roles") if isinstance(resource, dict) else []
-        permissions.update(f"{resource_name}:{role}" for role in (resource_roles or []) if isinstance(role, str))
+        resource_roles = (resource.get("roles") or []) if isinstance(resource, dict) else []
+        permissions.update(f"{resource_name}:{role}" for role in resource_roles if isinstance(role, str))
 
     # Extract j26-* roles from realm_access (old style)
     realm_access = claims.get("realm_access") or {}
@@ -113,23 +112,23 @@ async def require_auth_user(request: Request) -> AuthUser:
                 name="Fake User",
                 preferred_username="scoutnet|1234567",
                 email="fake.user@scouterna.se",
-                permissions=["signupinfo:summaries:read"],
-                # permissions=["signupinfo:all:read"],
+                permissions=["j26-signupinfo:summaries:read"],
+                # permissions=["j26-signupinfo:all:read"],
             )
 
     claims = await decode_access_token(token, request)
     permissions = _extract_permissions(claims)
-    if "j26-planning-staff" in permissions and "signupinfo:summaries:read" not in permissions:
-        permissions.append("signupinfo:summaries:read")  # Quick patch
-    if not any(permission.startswith("signupinfo:") for permission in permissions):
+    if "j26-planning-staff" in permissions and "j26-signupinfo:summaries:read" not in permissions:
+        permissions.append("j26-signupinfo:summaries:read")  # TODO: remove when not needed anymore
+    if not any(permission.startswith("j26-signupinfo:") for permission in permissions):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="No suitable permissions"
         )  # No suitable permissions
 
     return AuthUser(
         subject=claims.get("sub", ""),
-        name=claims.get("name"),
-        preferred_username=claims.get("preferred_username"),
+        name=claims.get("name") or "",
+        preferred_username=claims.get("preferred_username") or "",
         email=claims.get("email"),
         permissions=permissions,
     )
