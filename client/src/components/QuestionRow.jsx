@@ -64,7 +64,7 @@ export default function QuestionRow({ questionId, questionData, qIndex, numericT
 
       {hasNoAnswers ? (
         <Typography variant="body2" color="text.disabled" sx={{ fontStyle: "italic" }}>
-          Inga svar
+          Ingen data tillgänglig
         </Typography>
       ) : isNumParticipants ? (
         <SubQuestionValues

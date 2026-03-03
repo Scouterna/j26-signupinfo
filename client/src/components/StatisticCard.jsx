@@ -75,11 +75,18 @@ export default function StatisticCard({
   } else {
     const sectionData = getStatisticData(statName);
     const orderedIds = sectionQuestions[statName] ?? Object.keys(sectionData);
-    questionEntries = orderedIds
-      .filter((qId) => qId in sectionData)
-      .map((qId) => /** @type {[string, any]} */ ([qId, sectionData[qId]]));
     if (Array.isArray(activeSubQs)) {
-      questionEntries = questionEntries.filter(([qId]) => activeSubQs.includes(qId));
+      const dataMap = new Map(
+        orderedIds
+          .filter((qId) => qId in sectionData)
+          .map((qId) => /** @type {[string, any]} */ ([qId, sectionData[qId]]))
+      );
+      questionEntries = activeSubQs.map(
+        (qId) => /** @type {[string, any]} */ ([qId, dataMap.get(qId) ?? {}])
+      );
+    } else {
+      questionEntries = orderedIds
+        .map((qId) => /** @type {[string, any]} */ ([qId, qId in sectionData ? sectionData[qId] : {}]));
     }
     questionEntries = [...questionEntries].sort(([, a], [, b]) => {
       if (hasNoData(a) === hasNoData(b)) return 0;

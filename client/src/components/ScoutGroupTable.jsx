@@ -30,17 +30,18 @@ const PATH_SEPARATOR = "§";
 
 /**
  * Derives the set of column IDs from the chip selection and the questions schema.
+ * Uses sectionQuestions for section→question mapping, but inspects actual stats
+ * values to determine per-choice vs scalar column structure.
  * For sections not in sectionQuestions (manual stats like Kön/Avgift), falls back
  * to scanning the stats data of the provided scout groups.
  *
  * @param {string[]} selectedStatistics
  * @param {Record<string, string[] | null>} selectedSubQuestions
  * @param {Record<string, string[]>} sectionQuestions
- * @param {Record<string, string[]>} questionChoices
  * @param {ScoutGroupItem[]} scoutGroups
  * @returns {Set<string>}
  */
-function getColumnIds(selectedStatistics, selectedSubQuestions, sectionQuestions, questionChoices, scoutGroups) {
+function getColumnIds(selectedStatistics, selectedSubQuestions, sectionQuestions, scoutGroups) {
   const ids = new Set(/** @type {string[]} */ (["name"]));
 
   if (selectedStatistics.includes("num_participants")) {
@@ -49,7 +50,10 @@ function getColumnIds(selectedStatistics, selectedSubQuestions, sectionQuestions
 
   /**
    * Adds column IDs for a section, optionally filtered to specific question IDs.
-   * Falls back to scanning stats data for manual sections not in the questions schema.
+   * Uses the questions schema for section→question mapping, but inspects actual
+   * stats values to determine whether a question stores aggregated choice counts
+   * (object → one column per choice key) or a scalar (one column per question).
+   * Falls back to a full stats scan for manual sections not in the questions schema.
    * @param {string} sectionId
    * @param {string[] | null | undefined} activeSubQs - null = all, array = filtered, undefined = all
    */
@@ -80,9 +84,30 @@ function getColumnIds(selectedStatistics, selectedSubQuestions, sectionQuestions
       : allQIds;
 
     for (const qId of qIds) {
-      const choices = questionChoices[qId];
-      if (choices?.length) {
-        choices.forEach((cId) => ids.add([sectionId, qId, cId].join(PATH_SEPARATOR)));
+      // Inspect actual stats data to determine value shape: object = per-choice counts,
+      // scalar = single answer. Only collect choice keys that appear in the data.
+      /** @type {Set<string> | null} */
+      let choiceKeysInData = null;
+      for (const group of scoutGroups) {
+        const val = group.stats?.[sectionId]?.[qId];
+        if (val !== null && val !== undefined) {
+          if (typeof val === "object" && !Array.isArray(val)) {
+            choiceKeysInData = choiceKeysInData ?? new Set();
+            Object.keys(val).forEach((k) => /** @type {Set<string>} */ (choiceKeysInData).add(k));
+          }
+          break;
+        }
+      }
+
+      if (choiceKeysInData !== null) {
+        // Collect any additional choice keys from all groups (not just the first)
+        scoutGroups.forEach((group) => {
+          const val = group.stats?.[sectionId]?.[qId];
+          if (val && typeof val === "object" && !Array.isArray(val)) {
+            Object.keys(val).forEach((k) => /** @type {Set<string>} */ (choiceKeysInData).add(k));
+          }
+        });
+        choiceKeysInData.forEach((cId) => ids.add([sectionId, qId, cId].join(PATH_SEPARATOR)));
       } else {
         ids.add([sectionId, qId].join(PATH_SEPARATOR));
       }
@@ -287,7 +312,7 @@ export default function ScoutGroupTable({
   isFullscreen,
   setIsFullscreen,
 }) {
-  const { sectionQuestions, questionChoices, questionIdToText } =
+  const { sectionQuestions, questionIdToText } =
     useProjectConfig();
 
   const chipDrivenColumns = useMemo(
@@ -296,14 +321,12 @@ export default function ScoutGroupTable({
         selectedStatistics,
         selectedSubQuestions,
         sectionQuestions,
-        questionChoices,
         scoutGroups
       ),
     [
       selectedStatistics,
       selectedSubQuestions,
       sectionQuestions,
-      questionChoices,
       scoutGroups,
     ]
   );
