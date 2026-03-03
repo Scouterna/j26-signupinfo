@@ -6,21 +6,21 @@ import {
   Checkbox,
 } from "@mui/material";
 import { SELECTION_TYPES } from "../constants/selectionTypes";
+import { useGroupSelection } from "../context/GroupSelectionContext.jsx";
 
 /**
  * @param {object} props
  * @param {{ id: string | number, name: string }} props.scoutGroup
- * @param {Set<string | number>} props.selectedScoutGroupIds
  * @param {(type: "village" | "ScoutGroup", id: string | number) => void} props.handleSelection
  * @param {string | string[]} [props.selectionChoiceLabel]
  */
 export default function ScoutGroupListItem({
   scoutGroup,
-  selectedScoutGroupIds,
   handleSelection,
   selectionChoiceLabel,
 }) {
-  const isSelected = selectedScoutGroupIds.has(scoutGroup.id);
+  const { selectedGroupIds } = useGroupSelection();
+  const isSelected = selectedGroupIds.has(scoutGroup.id);
   const hasChoiceTint = isSelected && selectionChoiceLabel;
 
   return (
@@ -37,7 +37,7 @@ export default function ScoutGroupListItem({
           <Checkbox
             edge="start"
             size="small"
-            checked={selectedScoutGroupIds.has(scoutGroup.id)}
+            checked={isSelected}
             sx={{ p: 0.5 }}
           />
         </ListItemIcon>

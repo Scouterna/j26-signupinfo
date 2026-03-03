@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import {
   CssBaseline,
   Box,
@@ -14,13 +14,15 @@ import useProjectQueries from "./hooks/useProjectQueries.js";
 import useScoutGroupSelector from "./hooks/useScoutGroupSelector.js";
 import useApiData from "./hooks/useApiData.js";
 import useGroupSummary from "./hooks/useGroupSummary.js";
-import useUrlHashState from "./hooks/useUrlHashState.js";
 import { getSelectedScoutGroups } from "./utils/scoutGroupUtils.js";
 import ScoutGroupSelector, {
   DrawerToggleButton,
 } from "./components/ScoutGroupSelector.jsx";
 import StatisticsDashboard from "./components/StatisticsDashboard.jsx";
 import { DRAWER_WIDTH } from "./constants/layout.js";
+import ProjectConfigContext from "./context/ProjectConfigContext.jsx";
+import GroupSelectionContext from "./context/GroupSelectionContext.jsx";
+
 const EMPTY_DATA = { villages: [] };
 
 export default function App() {
@@ -42,8 +44,6 @@ export default function App() {
 
   const { data, loading: dataLoading, error: dataError, refetch } = useApiData(projectId);
 
-  const { viewMode, isFullscreen, setViewMode, setIsFullscreen } = useUrlHashState();
-
   const selectorState = useScoutGroupSelector(villagesData);
   const { selectedScoutGroupIds, replaceSelectionWithIds, toggleDrawer } =
     selectorState;
@@ -59,8 +59,6 @@ export default function App() {
     () => getSelectedScoutGroups(statsData.villages, selectedScoutGroupIds),
     [statsData.villages, selectedScoutGroupIds],
   );
-
-  const [selectedStatistics, setSelectedStatistics] = useState(/** @type {string[]} */ ([]));
 
   const loading = projectLoading || dataLoading;
   const error = projectError || dataError || summaryError;
@@ -110,74 +108,78 @@ export default function App() {
     );
   }
 
+  const projectConfig = {
+    projectId,
+    statistics,
+    statisticSubQuestions,
+    sectionIdToText,
+    questionIdToText,
+    booleanQuestionIds,
+    groupIdToName,
+  };
+
+  const groupSelection = {
+    selectedGroupIds: selectedScoutGroupIds,
+    onReplaceSelection: replaceSelectionWithIds,
+  };
+
   return (
-    <Box sx={{ display: "flex", height: "100%" }}>
-      <CssBaseline />
+    <ProjectConfigContext.Provider value={projectConfig}>
+      <GroupSelectionContext.Provider value={groupSelection}>
+        <Box sx={{ display: "flex", height: "100%" }}>
+          <CssBaseline />
 
-      {/* Mobile app bar with drawer toggle */}
-      {!isLargeScreen && (
-        <AppBar
-          position="fixed"
-          sx={{
-            bgcolor: "background.paper",
-            color: "text.primary",
-          }}
-          elevation={1}
-        >
-          <Toolbar>
-            <DrawerToggleButton
-              onClick={toggleDrawer}
-              selectedCount={selectedScoutGroupIds.size}
+          {/* Mobile app bar with drawer toggle */}
+          {!isLargeScreen && (
+            <AppBar
+              position="fixed"
+              sx={{
+                bgcolor: "background.paper",
+                color: "text.primary",
+              }}
+              elevation={1}
+            >
+              <Toolbar>
+                <DrawerToggleButton
+                  onClick={toggleDrawer}
+                  selectedCount={selectedScoutGroupIds.size}
+                />
+                <Typography variant="h6" noWrap component="div">
+                  Anmälningsstatistik
+                </Typography>
+              </Toolbar>
+            </AppBar>
+          )}
+
+          {/* Scout group selector drawer */}
+          <ScoutGroupSelector {...selectorState} />
+
+          {/* Main content area */}
+          <Box
+            component="main"
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              flexGrow: 1,
+              flexShrink: 1,
+              minWidth: 0,
+              p: { xs: 2, lg: 4 },
+              width: { xs: "100%", lg: `calc(100% - ${DRAWER_WIDTH}px)` },
+              mt: { xs: "64px", lg: 0 },
+              height: { lg: "100vh" },
+              boxSizing: "border-box",
+              overflow: "auto",
+            }}
+          >
+            <StatisticsDashboard
+              numScoutGroupsSelected={selectedScoutGroupIds.size}
+              totalParticipants={totalParticipants}
+              getStatisticData={getStatisticData}
+              selectedScoutGroups={selectedScoutGroups}
             />
-            <Typography variant="h6" noWrap component="div">
-              Anmälningsstatistik
-            </Typography>
-          </Toolbar>
-        </AppBar>
-      )}
-
-      {/* Scout group selector drawer */}
-      <ScoutGroupSelector {...selectorState} />
-
-      {/* Main content area */}
-      <Box
-        component="main"
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          flexGrow: 1,
-          flexShrink: 1,
-          minWidth: 0,
-          p: { xs: 2, lg: 4 },
-          width: { xs: "100%", lg: `calc(100% - ${DRAWER_WIDTH}px)` },
-          mt: { xs: "64px", lg: 0 },
-          height: { lg: "100vh" },
-          boxSizing: "border-box",
-          overflow: "auto",
-        }}
-      >
-        <StatisticsDashboard
-          numScoutGroupsSelected={selectedScoutGroupIds.size}
-          totalParticipants={totalParticipants}
-          statistics={statistics}
-          statisticSubQuestions={statisticSubQuestions}
-          sectionIdToText={sectionIdToText}
-          questionIdToText={questionIdToText}
-          booleanQuestionIds={booleanQuestionIds}
-          selectedStatistics={selectedStatistics}
-          setSelectedStatistics={setSelectedStatistics}
-          getStatisticData={getStatisticData}
-          selectedScoutGroups={selectedScoutGroups}
-          onReplaceSelection={replaceSelectionWithIds}
-          projectId={projectId}
-          selectedGroupIds={selectedScoutGroupIds}
-          groupIdToName={groupIdToName}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          isFullscreen={isFullscreen}
-          setIsFullscreen={setIsFullscreen}
-        />
-      </Box>
-    </Box>
+          </Box>
+        </Box>
+      </GroupSelectionContext.Provider>
+    </ProjectConfigContext.Provider>
   );
 }

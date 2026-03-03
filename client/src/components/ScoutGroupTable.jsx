@@ -19,6 +19,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { SmartTable } from "./smart-table/SmartTable";
+import { useProjectConfig } from "../context/ProjectConfigContext.jsx";
 
 const PATH_SEPARATOR = "§";
 
@@ -456,23 +457,19 @@ function createColumns(selectedColumns, hierarchy, columnMeta, sectionIdToText, 
  * @param {object} props
  * @param {ScoutGroupItem[]} props.scoutGroups
  * @param {string[]} [props.selectedStatistics]
- * @param {Record<string, string[]>} [props.statisticSubQuestions]
  * @param {Record<string, string[] | null>} [props.selectedSubQuestions]
- * @param {Record<string, string>} [props.sectionIdToText]
- * @param {Record<string, string>} [props.questionIdToText]
  * @param {boolean} props.isFullscreen
  * @param {(value: boolean) => void} props.setIsFullscreen
  */
 export default function ScoutGroupTable({
   scoutGroups,
   selectedStatistics = [],
-  statisticSubQuestions = {},
   selectedSubQuestions = {},
-  sectionIdToText = {},
-  questionIdToText = {},
   isFullscreen,
   setIsFullscreen,
 }) {
+  const { statisticSubQuestions = {}, sectionIdToText = {}, questionIdToText = {} } =
+    useProjectConfig();
   const hierarchy = useMemo(
     () => buildStatsHierarchy(scoutGroups),
     [scoutGroups]

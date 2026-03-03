@@ -15,6 +15,7 @@ import SearchField from "./SearchField.jsx";
 import VillageListItem from "./VillageListItem.jsx";
 import ScoutGroupListItem from "./ScoutGroupListItem.jsx";
 import { DRAWER_WIDTH } from "../constants/layout.js";
+import { useGroupSelection } from "../context/GroupSelectionContext.jsx";
 
 /**
  * @typedef {{ id: string | number, name: string }} ScoutGroup
@@ -25,7 +26,6 @@ import { DRAWER_WIDTH } from "../constants/layout.js";
  * Content displayed inside the drawer.
  * @param {object} props
  * @param {Village[]} props.filteredVillages
- * @param {Set<string | number>} props.selectedScoutGroupIds
  * @param {string | string[] | null} [props.selectionChoiceLabel]
  * @param {Set<string | number>} props.expandedVillageIds
  * @param {string} props.searchTerm
@@ -39,7 +39,6 @@ import { DRAWER_WIDTH } from "../constants/layout.js";
  */
 function DrawerContent({
   filteredVillages,
-  selectedScoutGroupIds,
   selectionChoiceLabel,
   expandedVillageIds,
   searchTerm,
@@ -51,6 +50,7 @@ function DrawerContent({
   onClose,
   showCloseButton,
 }) {
+  const { selectedGroupIds } = useGroupSelection();
   const parentRef = useRef(null);
 
   /** @type {Array<{ type: 'village', id: string, village: Village, isAllSelected: boolean, isPartiallySelected: boolean, isExpanded: boolean } | { type: 'scoutGroup', id: string, scoutGroup: ScoutGroup, villageId: string | number }>} */
@@ -61,7 +61,7 @@ function DrawerContent({
     filteredVillages.forEach((village) => {
       const scoutGroupIds = village.ScoutGroups.map((sg) => sg.id);
       const selectedInVillage = scoutGroupIds.filter((id) =>
-        selectedScoutGroupIds.has(id)
+        selectedGroupIds.has(id)
       );
       const isAllSelected =
         scoutGroupIds.length > 0 &&
@@ -92,7 +92,7 @@ function DrawerContent({
     });
 
     return items;
-  }, [filteredVillages, expandedVillageIds, selectedScoutGroupIds]);
+  }, [filteredVillages, expandedVillageIds, selectedGroupIds]);
 
   const rowVirtualizer = useVirtualizer({
     count: flattenedItems.length,
@@ -128,9 +128,9 @@ function DrawerContent({
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Button
             size="small"
-            onClick={selectedScoutGroupIds.size > 0 ? clearSelection : selectAll}
+            onClick={selectedGroupIds.size > 0 ? clearSelection : selectAll}
           >
-            {selectedScoutGroupIds.size > 0 ? "Rensa" : "Välj alla"}
+            {selectedGroupIds.size > 0 ? "Rensa" : "Välj alla"}
           </Button>
           {showCloseButton && (
             <IconButton onClick={onClose} aria-label="Stäng meny">
@@ -217,7 +217,6 @@ function DrawerContent({
                     isExpanded={item.isExpanded}
                     toggleVillageExpansion={toggleVillageExpansion}
                     handleSelection={handleSelection}
-                    selectedScoutGroupIds={selectedScoutGroupIds}
                     renderChildrenExternally={true}
                     selectionChoiceLabel={selectionChoiceLabel ?? undefined}
                   />
@@ -225,7 +224,6 @@ function DrawerContent({
                   <div style={{ paddingLeft: "32px" }}>
                     <ScoutGroupListItem
                       scoutGroup={item.scoutGroup}
-                      selectedScoutGroupIds={selectedScoutGroupIds}
                       handleSelection={handleSelection}
                       selectionChoiceLabel={selectionChoiceLabel ?? undefined}
                     />
@@ -247,7 +245,6 @@ function DrawerContent({
  *
  * @param {object} props
  * @param {Village[]} [props.filteredVillages]
- * @param {Set<string | number>} [props.selectedScoutGroupIds]
  * @param {string | string[] | null} [props.selectionChoiceLabel]
  * @param {Set<string | number>} [props.expandedVillageIds]
  * @param {string} [props.searchTerm]
@@ -261,7 +258,6 @@ function DrawerContent({
  */
 export default function ScoutGroupSelector({
   filteredVillages = [],
-  selectedScoutGroupIds = new Set(),
   selectionChoiceLabel = null,
   expandedVillageIds = new Set(),
   searchTerm = "",
@@ -279,7 +275,6 @@ export default function ScoutGroupSelector({
   const drawerContent = (
     <DrawerContent
       filteredVillages={filteredVillages}
-      selectedScoutGroupIds={selectedScoutGroupIds}
       selectionChoiceLabel={selectionChoiceLabel}
       expandedVillageIds={expandedVillageIds}
       searchTerm={searchTerm}

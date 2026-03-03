@@ -8,106 +8,56 @@ import BarChartIcon from "@mui/icons-material/BarChart";
 import HeroMetric from "./HeroMetric.jsx";
 import StatisticChipSelector from "./StatisticChipSelector.jsx";
 import ScoutGroupTable from "./ScoutGroupTable.jsx";
-import { SubQuestionValues } from "./QuestionAnswerValues.jsx";
-import QuestionStats from "./QuestionStats.jsx";
-import StatRow from "./StatRow.jsx";
+import StatisticCard from "./StatisticCard.jsx";
+import useUrlHashState from "../hooks/useUrlHashState.js";
+import { useProjectConfig } from "../context/ProjectConfigContext.jsx";
 
 /**
  * @typedef {{ id: number | string, name: string, num_participants?: number, stats?: Record<string, any> }} ScoutGroupItem
  */
 
 /**
- * Build counts and pre-resolved groups for "Deltagare" (num_participants).
- * @param {ScoutGroupItem[]} selectedScoutGroups
- * @param {number} totalParticipants
- * @returns {{ counts: Record<string, number>, groups: Record<string, { id: number|string, name: string }[]> }}
- */
-function buildNumParticipantsStatData(selectedScoutGroups, totalParticipants) {
-  /** @type {Record<string, number>} */
-  const counts = {};
-  /** @type {Record<string, { id: number|string, name: string }[]>} */
-  const groups = {};
-
-  if (selectedScoutGroups.length === 0) {
-    counts["Totalt"] = totalParticipants;
-    groups["Totalt"] = [];
-  } else {
-    for (const g of selectedScoutGroups) {
-      const label = g.name ?? String(g.id);
-      counts[label] = g.num_participants ?? 0;
-      groups[label] = [{ id: g.id, name: g.name }];
-    }
-  }
-  return { counts, groups };
-}
-
-/**
  * @param {object} props
  * @param {number} props.numScoutGroupsSelected
  * @param {number} props.totalParticipants
- * @param {string[]} props.statistics
- * @param {Record<string, string[]>} [props.statisticSubQuestions]
- * @param {Record<string, string>} [props.sectionIdToText]
- * @param {Record<string, string>} [props.questionIdToText]
- * @param {Set<string>} [props.booleanQuestionIds]
- * @param {string[]} props.selectedStatistics
- * @param {(stats: string[]) => void} props.setSelectedStatistics
  * @param {(sectionId: string) => Record<string, Record<string, number> | number>} props.getStatisticData
  * @param {ScoutGroupItem[]} props.selectedScoutGroups
- * @param {((ids: number[], answerName: string) => void)} [props.onReplaceSelection]
- * @param {number|null} [props.projectId]
- * @param {Set<number>} [props.selectedGroupIds]
- * @param {Record<number, string>} [props.groupIdToName]
- * @param {"statistics"|"table"} props.viewMode
- * @param {(mode: "statistics"|"table") => void} props.setViewMode
- * @param {boolean} props.isFullscreen
- * @param {(value: boolean) => void} props.setIsFullscreen
  */
 export default function StatisticsDashboard({
   numScoutGroupsSelected,
   totalParticipants,
-  statistics,
-  statisticSubQuestions = {},
-  sectionIdToText = {},
-  questionIdToText = {},
-  booleanQuestionIds = new Set(),
-  selectedStatistics,
-  setSelectedStatistics,
   getStatisticData,
   selectedScoutGroups,
-  onReplaceSelection,
-  projectId = null,
-  selectedGroupIds = new Set(),
-  groupIdToName = {},
-  viewMode,
-  setViewMode,
-  isFullscreen,
-  setIsFullscreen,
 }) {
+  const { statistics, statisticSubQuestions } = useProjectConfig();
+
+  const { viewMode, isFullscreen, setViewMode, setIsFullscreen } = useUrlHashState();
+
+  const [selectedStatistics, setSelectedStatistics] = useState(
+    /** @type {string[]} */ ([])
+  );
   const [selectedSubQuestions, setSelectedSubQuestions] = useState(
     /** @type {Record<string, string[] | null>} */ ({})
   );
 
-  const handleSubQuestionToggle = useCallback((/** @type {string} */ statName, /** @type {string[] | null | undefined} */ subQuestionNames) => {
-    setSelectedSubQuestions((prev) => {
-      const next = { ...prev };
-      if (subQuestionNames === undefined) {
-        delete next[statName];
-      } else {
-        next[statName] = subQuestionNames;
-      }
-      return next;
-    });
-  }, []);
+  const handleSubQuestionToggle = useCallback(
+    (/** @type {string} */ statName, /** @type {string[] | null | undefined} */ subQuestionNames) => {
+      setSelectedSubQuestions((prev) => {
+        const next = { ...prev };
+        if (subQuestionNames === undefined) {
+          delete next[statName];
+        } else {
+          next[statName] = subQuestionNames;
+        }
+        return next;
+      });
+    },
+    []
+  );
 
   const handleClearAllSubQuestions = useCallback(() => {
     setSelectedSubQuestions({});
   }, []);
-
-  const idToDisplayText = useMemo(
-    () => ({ ...sectionIdToText, ...questionIdToText }),
-    [sectionIdToText, questionIdToText]
-  );
 
   const effectiveSelectedStats = useMemo(() => {
     const nonSubSelected = selectedStatistics.filter(
@@ -117,7 +67,10 @@ export default function StatisticsDashboard({
     return [...nonSubSelected, ...subSelected];
   }, [selectedStatistics, selectedSubQuestions, statisticSubQuestions]);
 
-  const handleViewModeChange = (/** @type {any} */ _event, /** @type {string | null} */ newMode) => {
+  const handleViewModeChange = (
+    /** @type {any} */ _event,
+    /** @type {string | null} */ newMode
+  ) => {
     if (newMode !== null) {
       setViewMode(/** @type {"statistics"|"table"} */ (newMode));
     }
@@ -164,14 +117,8 @@ export default function StatisticsDashboard({
         </ToggleButtonGroup>
       </Box>
 
-      {/* Hero Metrics Section */}
-      <Box
-        sx={{
-          display: "flex",
-          gap: 2,
-          flexWrap: "wrap",
-        }}
-      >
+      {/* Hero Metrics */}
+      <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
         <HeroMetric
           icon={<GroupsIcon fontSize="large" />}
           label="Valda kårer"
@@ -198,18 +145,15 @@ export default function StatisticsDashboard({
           options={statistics}
           selectedOptions={selectedStatistics}
           onToggle={setSelectedStatistics}
-          subQuestionMap={statisticSubQuestions}
           selectedSubQuestions={selectedSubQuestions}
           onSubQuestionToggle={handleSubQuestionToggle}
           onClearAllSubQuestions={handleClearAllSubQuestions}
-          idToDisplayText={idToDisplayText}
         />
       </Box>
 
       {/* Statistics view */}
       {viewMode === "statistics" && (
         <>
-          {/* Selected Statistics Cards */}
           {effectiveSelectedStats.length > 0 ? (
             <Box
               sx={{
@@ -217,161 +161,18 @@ export default function StatisticsDashboard({
                 columnGap: "16px",
               }}
             >
-              {effectiveSelectedStats.map((statName) => {
-                const isNumParticipants = statName === "num_participants";
-
-                const activeSubQs = selectedSubQuestions[statName];
-
-                /** @type {[string, number | Record<string, number> | { counts: Record<string, number>, groups: Record<string, { id: number|string, name: string }[]> }][]} */
-                let questionEntries;
-                if (isNumParticipants) {
-                  const { counts, groups } = buildNumParticipantsStatData(
-                    selectedScoutGroups,
-                    totalParticipants,
-                  );
-                  questionEntries = /** @type {typeof questionEntries} */ ([["_direct", { counts, groups }]]);
-                } else {
-                  const sectionData = getStatisticData(statName);
-                  questionEntries = Object.entries(sectionData);
-                  if (Array.isArray(activeSubQs)) {
-                    questionEntries = questionEntries.filter(([qId]) =>
-                      activeSubQs.includes(qId)
-                    );
-                  }
-                  const hasNoData = (/** @type {any} */ d) =>
-                    typeof d !== "number" && (Array.isArray(d) ? d.length === 0 : Object.keys(d).length === 0);
-                  questionEntries = [...questionEntries].sort(([, a], [, b]) => {
-                    if (hasNoData(a) === hasNoData(b)) return 0;
-                    return hasNoData(a) ? 1 : -1;
-                  });
-                }
-
-                // Total for inline numeric StatRows (shared across all number-valued questions in section)
-                const numericTotal = isNumParticipants
-                  ? 0
-                  : questionEntries.reduce(
-                      (sum, [, v]) => (typeof v === "number" ? sum + v : sum),
-                      0,
-                    );
-
-                return (
-                  <Box
-                    key={statName}
-                    sx={{
-                      padding: "20px",
-                      borderRadius: "12px",
-                      border: "1px solid",
-                      borderColor: "divider",
-                      breakInside: "avoid",
-                      marginBottom: "16px",
-                    }}
-                  >
-                    <Typography
-                      variant="subtitle1"
-                      fontWeight="700"
-                      sx={{ marginBottom: "16px", color: "#000000" }}
-                    >
-                      {sectionIdToText[statName] ?? statName}
-                    </Typography>
-
-                    {questionEntries.length === 0 ? (
-                      <Typography variant="body2" color="text.secondary">
-                        Ingen data tillgänglig
-                      </Typography>
-                    ) : (
-                      <Box
-                        sx={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "2px",
-                        }}
-                      >
-                        {questionEntries.map(([questionId, questionData], qIndex) => {
-                          const isNumeric = typeof questionData === "number";
-                          const isTextAnswers = Array.isArray(questionData);
-                          const isBooleanQuestion = isNumeric && booleanQuestionIds.has(questionId);
-                          const showHeader = questionId !== "_direct" && !isNumeric;
-                          // For boolean questions the question label becomes the row label by
-                          // overriding "checked" (the API answer key) with the question text.
-                          const effectiveIdToDisplayText = isBooleanQuestion
-                            ? { ...idToDisplayText, checked: questionIdToText[questionId] ?? questionId }
-                            : idToDisplayText;
-                          // Convert free-text answer arrays to a frequency count map for display.
-                          const effectiveAnswerCounts = isTextAnswers
-                            ? questionData.reduce((acc, text) => {
-                                const key = text || "(tomt)";
-                                acc[key] = (acc[key] || 0) + 1;
-                                return acc;
-                              }, {})
-                            : questionData;
-                          // A question with a header but no answer data would otherwise look
-                          // like a section heading for the questions below it.
-                          const hasNoAnswers = showHeader && !isNumParticipants && !isBooleanQuestion
-                            && Object.keys(effectiveAnswerCounts).length === 0;
-                          return (
-                            <Box
-                              key={questionId}
-                              sx={{
-                                borderRadius: "6px",
-                                backgroundColor: qIndex % 2 === 1 ? "rgba(0, 0, 0, 0.06)" : "transparent",
-                                padding: "0 8px",
-                                margin: "0 -8px",
-                              }}
-                            >
-                              {showHeader && (
-                                <Typography
-                                  variant="body2"
-                                  fontWeight="700"
-                                  sx={{ marginBottom: "6px", color: "#000000" }}
-                                >
-                                  {questionIdToText[questionId] ?? questionId}
-                                </Typography>
-                              )}
-                              {hasNoAnswers ? (
-                                <Typography
-                                  variant="body2"
-                                  color="text.disabled"
-                                  sx={{ fontStyle: "italic" }}
-                                >
-                                  Inga svar
-                                </Typography>
-                              ) : isNumParticipants ? (
-                                <SubQuestionValues
-                                  answerCounts={/** @type {any} */(questionData).counts}
-                                  groups={/** @type {any} */(questionData).groups}
-                                  isLoadingGroups={false}
-                                  onRequestGroups={() => {}}
-                                  onSelectByAnswer={onReplaceSelection}
-                                  idToDisplayText={questionIdToText}
-                                />
-                              ) : (isNumeric && !isBooleanQuestion) ? (
-                                <StatRow
-                                  label={questionIdToText[questionId] ?? questionId}
-                                  value={questionData}
-                                  total={numericTotal}
-                                />
-                              ) : (
-                                <QuestionStats
-                                  questionId={questionId}
-                                  answerCounts={isBooleanQuestion ? { checked: questionData } : effectiveAnswerCounts}
-                                  projectId={projectId}
-                                  selectedGroupIds={selectedGroupIds}
-                                  groupIdToName={groupIdToName}
-                                  onSelectByAnswer={isTextAnswers ? undefined : onReplaceSelection}
-                                  idToDisplayText={effectiveIdToDisplayText}
-                                />
-                              )}
-                            </Box>
-                          );
-                        })}
-                      </Box>
-                    )}
-                  </Box>
-                );
-              })}
+              {effectiveSelectedStats.map((statName) => (
+                <StatisticCard
+                  key={statName}
+                  statName={statName}
+                  activeSubQs={selectedSubQuestions[statName]}
+                  getStatisticData={getStatisticData}
+                  selectedScoutGroups={selectedScoutGroups}
+                  totalParticipants={totalParticipants}
+                />
+              ))}
             </Box>
           ) : (
-            /* Empty state */
             <Box
               sx={{
                 display: "flex",
@@ -393,15 +194,12 @@ export default function StatisticsDashboard({
       )}
 
       {/* Table view */}
-      {viewMode === "table" && (
-        selectedScoutGroups.length > 0 ? (
+      {viewMode === "table" &&
+        (selectedScoutGroups.length > 0 ? (
           <ScoutGroupTable
             scoutGroups={selectedScoutGroups}
             selectedStatistics={selectedStatistics}
-            statisticSubQuestions={statisticSubQuestions}
             selectedSubQuestions={selectedSubQuestions}
-            sectionIdToText={sectionIdToText}
-            questionIdToText={questionIdToText}
             isFullscreen={isFullscreen}
             setIsFullscreen={setIsFullscreen}
           />
@@ -422,8 +220,7 @@ export default function StatisticsDashboard({
               Välj kårer i sidopanelen för att visa tabellen
             </Typography>
           </Box>
-        )
-      )}
+        ))}
     </Box>
   );
 }

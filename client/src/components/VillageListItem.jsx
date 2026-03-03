@@ -24,7 +24,6 @@ import { SELECTION_TYPES } from "../constants/selectionTypes";
  * @param {boolean} props.isExpanded
  * @param {(id: string | number) => void} props.toggleVillageExpansion
  * @param {(type: "village" | "ScoutGroup", id: string | number) => void} props.handleSelection
- * @param {Set<string | number>} props.selectedScoutGroupIds
  * @param {boolean} [props.renderChildrenExternally]
  * @param {string | string[]} [props.selectionChoiceLabel]
  */
@@ -35,7 +34,6 @@ export default function VillageListItem({
   isExpanded,
   toggleVillageExpansion,
   handleSelection,
-  selectedScoutGroupIds,
   renderChildrenExternally = false,
   selectionChoiceLabel,
 }) {
@@ -93,7 +91,6 @@ export default function VillageListItem({
               <ScoutGroupListItem
                 key={scoutGroup.id}
                 scoutGroup={scoutGroup}
-                selectedScoutGroupIds={selectedScoutGroupIds}
                 handleSelection={handleSelection}
                 selectionChoiceLabel={selectionChoiceLabel}
               />

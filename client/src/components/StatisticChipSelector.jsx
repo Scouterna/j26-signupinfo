@@ -16,6 +16,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ClearIcon from "@mui/icons-material/Clear";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import { useProjectConfig } from "../context/ProjectConfigContext.jsx";
 
 const MAX_VISIBLE = 8;
 
@@ -35,22 +36,25 @@ const MAX_VISIBLE = 8;
  * @param {string[]} props.options
  * @param {string[]} props.selectedOptions
  * @param {(selected: string[]) => void} props.onToggle
- * @param {Record<string, string[]>} [props.subQuestionMap]
  * @param {Record<string, string[] | null>} [props.selectedSubQuestions]
  * @param {(statName: string, subQuestionNames: string[] | null | undefined) => void} [props.onSubQuestionToggle]
  * @param {() => void} [props.onClearAllSubQuestions]
- * @param {Record<string, string>} [props.idToDisplayText]
  */
 export default function StatisticChipSelector({
   options,
   selectedOptions,
   onToggle,
-  subQuestionMap = {},
   selectedSubQuestions = {},
   onSubQuestionToggle,
   onClearAllSubQuestions,
-  idToDisplayText = {},
 }) {
+  const { statisticSubQuestions, sectionIdToText, questionIdToText } = useProjectConfig();
+  const subQuestionMap = statisticSubQuestions;
+  const idToDisplayText = useMemo(
+    () => ({ ...sectionIdToText, ...questionIdToText }),
+    [sectionIdToText, questionIdToText]
+  );
+
   const [expanded, setExpanded] = useState(false);
   const [popoverAnchor, setPopoverAnchor] = useState(/** @type {Element | null} */ (null));
   const [popoverOption, setPopoverOption] = useState(/** @type {string | null} */ (null));

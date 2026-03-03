@@ -1,34 +1,51 @@
 import { useMemo, useCallback } from 'react';
 import useQuestionGroupResponse from '../hooks/useQuestionGroupResponse.js';
 import { SubQuestionValues } from './QuestionAnswerValues.jsx';
+import { useProjectConfig } from '../context/ProjectConfigContext.jsx';
+import { useGroupSelection } from '../context/GroupSelectionContext.jsx';
 
 /**
  * Per-question component that owns the lazy group-loading lifecycle.
  * This needs to be its own component so each question gets its own hook instance.
  *
+ * Reads projectId, groupIdToName, questionIdToText, sectionIdToText, and
+ * booleanQuestionIds from ProjectConfigContext. Reads selectedGroupIds from
+ * GroupSelectionContext.
+ *
  * @param {object} props
  * @param {string} props.questionId
  * @param {Record<string, number> | number} props.answerCounts
- * @param {number|null} props.projectId
- * @param {Set<number>} props.selectedGroupIds
- * @param {Record<number, string>} props.groupIdToName
- * @param {((ids: number[], answerName: string) => void)} [props.onSelectByAnswer]
- * @param {Record<string, string>} [props.idToDisplayText]
+ * @param {((ids: number[], answerName: string) => void) | undefined} [props.onSelectByAnswer]
  */
 export default function QuestionStats({
   questionId,
   answerCounts,
-  projectId,
-  selectedGroupIds,
-  groupIdToName,
   onSelectByAnswer,
-  idToDisplayText = {},
 }) {
+  const {
+    projectId,
+    groupIdToName,
+    questionIdToText,
+    sectionIdToText,
+    booleanQuestionIds,
+  } = useProjectConfig();
+  const { selectedGroupIds } = useGroupSelection();
+
   const { data: responseData, isLoading, refetch } = useQuestionGroupResponse(
     projectId,
     questionId,
     selectedGroupIds,
   );
+
+  const idToDisplayText = useMemo(
+    () => ({ ...sectionIdToText, ...questionIdToText }),
+    [sectionIdToText, questionIdToText]
+  );
+
+  const effectiveIdToDisplayText = useMemo(() => {
+    if (!booleanQuestionIds.has(questionId)) return idToDisplayText;
+    return { ...idToDisplayText, checked: questionIdToText[questionId] ?? questionId };
+  }, [booleanQuestionIds, questionId, idToDisplayText, questionIdToText]);
 
   const groups = useMemo(() => {
     if (!responseData) return null;
@@ -53,7 +70,7 @@ export default function QuestionStats({
       isLoadingGroups={isLoading}
       onRequestGroups={onRequestGroups}
       onSelectByAnswer={onSelectByAnswer}
-      idToDisplayText={idToDisplayText}
+      idToDisplayText={effectiveIdToDisplayText}
     />
   );
 }
