@@ -12,7 +12,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import httpx
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from .authenctication import AuthUser, require_auth_user
 from .config import ProjectConfig, get_settings
@@ -25,6 +25,7 @@ logging.getLogger("asyncio").setLevel(logging.ERROR)
 
 PROJECT_API = "https://www.scoutnet.se/api/project/get"
 CACHE_DIR = Path(".dev_cache")
+CACHE_FILE = settings.PERSIST_DIR / "project_cache.json"
 
 
 class ScoutnetRequestError(RuntimeError):
@@ -83,6 +84,43 @@ _project_cache = ProjectCache()  # Project cache
 _refresh_task: asyncio.Task | None = None  # Nightly cache refresh task
 
 
+# --- Disk cache persistence ---
+
+
+def _save_cache_to_disk(path: Path) -> None:
+    from dataclasses import asdict
+
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(asdict(_project_cache)))
+        tmp.rename(path)
+        logger.info("Saved cache to disk: %d projects", len(_project_cache.projects))
+    except Exception as exc:
+        logger.warning("Failed to save cache to disk: %s", exc)
+
+
+def _load_cache_from_disk(path: Path) -> bool:
+    try:
+        data = json.loads(path.read_text())
+        _project_cache.group_map = {int(k): v for k, v in data["group_map"].items()}
+        _project_cache.projects = {
+            int(pid): CachedProject(
+                project_id=p["project_id"],
+                project_name=p["project_name"],
+                participants=p["participants"],
+                questions=p["questions"],
+                groups={int(gid): CachedGroup(**g) for gid, g in p["groups"].items()},
+            )
+            for pid, p in data["projects"].items()
+        }
+        logger.info("Loaded cache from disk: %d projects", len(_project_cache.projects))
+        return True
+    except Exception as exc:
+        logger.warning("Failed to load cache from disk: %s", exc)
+        return False
+
+
 # --- Init / shutdown ---
 
 
@@ -106,11 +144,15 @@ async def _scheduled_cache_refresh() -> None:
 async def scoutnet_init() -> None:
     global _refresh_task
     await _load_initial_group_map()  # Retrive an initial group map
+    disk_cache_loaded = _load_cache_from_disk(CACHE_FILE)
     try:
         await _update_project_cache()  # Fill cache at start
     except ScoutnetRequestError:
-        logger.critical("Initial cache load failed, shutting down")
-        os._exit(1)  # Kill app without a stack trace. K8S will eventually restart it.
+        if disk_cache_loaded:
+            logger.warning("Scoutnet unavailable at startup — serving stale disk cache")
+        else:
+            logger.critical("Initial cache load failed and no disk cache, shutting down")
+            os._exit(1)  # Kill app without a stack trace. K8S will eventually restart it.
     _refresh_task = asyncio.create_task(_scheduled_cache_refresh())
 
 
@@ -222,7 +264,7 @@ async def _update_project_cache() -> None:
     all_data = await _get_all_projectdata_from_scoutnet()
     scoutnet_forms_decoder(all_data, _project_cache)
     logger.info("Finish cache update")
-    return
+    _save_cache_to_disk(CACHE_FILE)
 
 
 async def _load_initial_group_map() -> None:
@@ -235,12 +277,12 @@ async def _load_initial_group_map() -> None:
         except Exception:
             logger.warning("Failed to fetch group_map from Scoutnet, falling back to local file")
     if not group_map:
-        try:  # Check local file instead
-            map_file = Path(__file__).resolve().parent.parent / "group_map.json"
-            raw = json.loads(map_file.read_text(encoding="utf-8"))
-            group_map = {int(k): v for k, v in raw.items()}
+        try:  # Fall back to persisted disk cache
+            data = json.loads(CACHE_FILE.read_text())
+            group_map = {int(k): v for k, v in data["group_map"].items()}
+            logger.info("Loaded group_map from disk cache")
         except Exception:
-            logger.warning("Failed to load group_map from local file, using empty initial map")
+            logger.warning("Failed to load group_map from disk cache, using empty initial map")
 
     _project_cache.group_map = group_map
     logger.info("Loaded group_map with %d entries", len(_project_cache.group_map))
@@ -501,5 +543,8 @@ async def scoutnet_refresh(user: AuthUser = Depends(require_auth_user)):
     """
     Refetches all data from Scoutnet and fills cache
     """
-    await _update_project_cache()
+    try:
+        await _update_project_cache()
+    except Exception:
+        raise HTTPException(status_code=500, detail="Cache refresh failed - Scoutnet unavailable")
     return

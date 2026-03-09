@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -20,6 +21,7 @@ class Settings(BaseSettings):
     SCOUTNET_BODYLIST_KEY: str = ""
     API_PREFIX: str = "/api"
     AUTH_DISABLED: bool = False
+    PERSIST_DIR: Path = Path("/app/persist")  # Must match volume mountPath
 
     model_config = SettingsConfigDict(env_file=".env")
 
