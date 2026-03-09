@@ -13,7 +13,7 @@ from prometheus_fastapi_instrumentator import Instrumentator, metrics
 
 from .authenctication import AuthUser, require_auth_user
 from .config import get_settings
-from .scoutnet import scoutnet_init, scoutnet_router
+from .scoutnet import scoutnet_init, scoutnet_router, scoutnet_shutdown
 from .stats import stats_router
 
 # --- Create instrumentor, settings and logger objects ---
@@ -42,6 +42,7 @@ async def lifespan(app: FastAPI):
 
     await scoutnet_init()  # Do some init
     yield  # Run FastAPI!
+    await scoutnet_shutdown()
 
 
 # --- Initialize FastAPI app with the lifespan manager and session middleware ---

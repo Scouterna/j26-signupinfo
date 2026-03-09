@@ -247,4 +247,3 @@ def scoutnet_forms_decoder(all_project_data: list[ScoutnetProjectData], cache: P
         pass
 
     cache.projects = projects
-    cache.mark_updated()

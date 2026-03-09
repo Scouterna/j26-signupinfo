@@ -3,9 +3,13 @@ import functools
 import hashlib
 import json
 import logging
+import os
 import time
+from contextlib import suppress
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import httpx
 from fastapi import APIRouter, Depends, status
@@ -21,6 +25,11 @@ logging.getLogger("asyncio").setLevel(logging.ERROR)
 
 PROJECT_API = "https://www.scoutnet.se/api/project/get"
 CACHE_DIR = Path(".dev_cache")
+
+
+class ScoutnetRequestError(RuntimeError):
+    pass
+
 
 # --- Data classes ---
 
@@ -65,60 +74,51 @@ class ProjectCache:
     """Global cache for decoded Scoutnet project data."""
 
     projects: dict = field(default_factory=dict)  # project_id -> CachedProject
-    group_map: dict[int, str] = field(default_factory=dict)
-    updated_at: float = 0  # 0 = never updated
-
-    def mark_updated(self):
-        """Call this after updating any data fields."""
-        self.updated_at = time.time()
-
-    @property
-    def is_loaded(self) -> bool:
-        return self.updated_at > 0
-
-    @property
-    def is_stale(self) -> bool:
-        """Check if cache is stale (never loaded or older than max age)."""
-        if not self.is_loaded:
-            return True
-        return (time.time() - self.updated_at) > settings.PROJECT_CACHE_MAX_AGE_H * 3600
+    group_map: dict[int, str] = field(default_factory=dict)  # A non project related map of all groups in Scoutnet
 
 
 # --- Globals ---
 
 _project_cache = ProjectCache()  # Project cache
-_cache_update_lock = asyncio.Lock()  # Scoutnet retrieve lock
+_refresh_task: asyncio.Task | None = None  # Nightly cache refresh task
 
 
-# --- Init function ---
+# --- Init / shutdown ---
+
+
+async def _scheduled_cache_refresh() -> None:
+    while True:
+        now = datetime.now(tz=ZoneInfo("Europe/Stockholm"))
+        next_run = now.replace(hour=3, minute=0, second=0, microsecond=0)
+        if next_run <= now:
+            next_run += timedelta(days=1)
+        await asyncio.sleep((next_run - now).total_seconds())
+        logger.info("Running scheduled cache refresh")
+        while True:  # Retry loop: keep retrying every hour until successful
+            try:
+                await _update_project_cache()
+                break
+            except Exception:
+                logger.error("Cache refresh failed, will retry in 1 hour")
+                await asyncio.sleep(3600)
 
 
 async def scoutnet_init() -> None:
+    global _refresh_task
     await _load_initial_group_map()  # Retrive an initial group map
-    await _update_project_cache()  # Fill cache at start
-    return
+    try:
+        await _update_project_cache()  # Fill cache at start
+    except ScoutnetRequestError:
+        logger.critical("Initial cache load failed, shutting down")
+        os._exit(1)  # Kill app without a stack trace. K8S will eventually restart it.
+    _refresh_task = asyncio.create_task(_scheduled_cache_refresh())
 
 
-# --- Local decorators ...
-
-
-def require_fresh_cache(func):
-    """Decorator that ensures project cache is fresh before calling the function.
-
-    If the cache is stale (older than PROJECT_CACHE_MAX_AGE_H), it will be
-    refreshed automatically before the decorated function runs.
-    """
-
-    @functools.wraps(func)
-    async def wrapper(*args, **kwargs):
-        if _project_cache.is_stale:
-            async with _cache_update_lock:  # Lock to prevent parallel cache updates
-                if _project_cache.is_stale:  # Re-check: another request may have refreshed while we waited
-                    logger.debug("Project cache is stale, refreshing...")
-                    await _update_project_cache()
-        return await func(*args, **kwargs)
-
-    return wrapper
+async def scoutnet_shutdown() -> None:
+    if _refresh_task:
+        _refresh_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await _refresh_task
 
 
 def dev_cache(func):
@@ -157,8 +157,9 @@ async def _scoutnet_get(url) -> dict:
             response.raise_for_status()
             return response.json()
     except Exception as exc:
-        logger.fatal("Failed to fetch %s: %s", url, exc)
-        raise RuntimeError
+        url_path = url.split("?")[0]  # Strip query params (API keys)
+        logger.error("Failed to fetch %s: %s: %s", url_path, type(exc).__name__, exc)
+        raise ScoutnetRequestError(f"Scoutnet request failed: {url_path}") from exc
 
 
 async def _get_all_projectdata_from_scoutnet() -> list[ScoutnetProjectData]:
@@ -220,7 +221,6 @@ async def _update_project_cache() -> None:
     logger.info("Start cache update")
     all_data = await _get_all_projectdata_from_scoutnet()
     scoutnet_forms_decoder(all_data, _project_cache)
-    del all_data  # Force garbage collection (I think)
     logger.info("Finish cache update")
     return
 
@@ -262,7 +262,6 @@ async def get_project_questions(project_id: int) -> dict | None:
     return project.questions
 
 
-@require_fresh_cache
 async def get_project_groups(project_id: int) -> dict | None:
     """Return project groups"""
     if not (project := _project_cache.projects.get(project_id)):
@@ -271,7 +270,6 @@ async def get_project_groups(project_id: int) -> dict | None:
     return groups
 
 
-@require_fresh_cache
 async def get_group_summary(project_id: int, group_id: int | list[int] | None) -> dict | None:
     """
     Aggregate stats across the requested groups and return a summary.
@@ -336,7 +334,6 @@ async def get_group_summary(project_id: int, group_id: int | list[int] | None) -
     return {"total_participants": total_participants, "num_groups": len(group_id), "stats": stats}
 
 
-@require_fresh_cache
 async def get_group_responses(project_id: int, group_id: int | list[int] | None) -> list | None:
     """
     Return one or more group data indictated by the group_id (single id or a list id id's).
@@ -408,7 +405,6 @@ async def get_question_summary(
     return {question_id: res}
 
 
-@require_fresh_cache
 async def get_individual_responses(project_id: int, member_id: int) -> dict | None:
     """
     Returns an individuals response to questions.
@@ -428,7 +424,6 @@ async def get_individual_responses(project_id: int, member_id: int) -> dict | No
     return response
 
 
-@require_fresh_cache
 async def get_individuals_by_group(project_id: int, group_id: int) -> list[dict] | None:
     """
     Return all individuals (with their responses) for a single group.
@@ -460,7 +455,6 @@ async def get_individuals_by_group(project_id: int, group_id: int) -> list[dict]
     return results
 
 
-@require_fresh_cache
 async def find_members(project_id: int, name: str, born: str, group: str) -> list[dict] | None:
     """
     Find and return a list of participants that match the provided criteria.
