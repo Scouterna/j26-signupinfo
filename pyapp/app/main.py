@@ -11,9 +11,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from prometheus_fastapi_instrumentator import Instrumentator, metrics
 
-# from starlette.middleware.cors import CORSMiddleware
-from starlette.middleware.sessions import SessionMiddleware
-
 from .authenctication import AuthUser, require_auth_user
 from .config import get_settings
 from .scoutnet import scoutnet_init, scoutnet_router
@@ -52,11 +49,9 @@ app = FastAPI(
     title="j26-signupinfo-api",
     version="0.4.0",
     lifespan=lifespan,
-    root_path=settings.ROOT_PATH,
     openapi_url=None,
     docs_url=None,
 )
-app.add_middleware(SessionMiddleware, secret_key=settings.SESSION_SECRET_KEY)
 
 
 # --- Add metrics API ---
@@ -92,11 +87,8 @@ async def app_config(user: AuthUser = Depends(require_auth_user)):
 # --- Custom Swagger UI route with configurable root path ---
 @app.get(f"{settings.API_PREFIX}/docs", include_in_schema=False)
 async def custom_swagger_ui_html(request: Request):
-    forwarded_prefix = request.headers.get("x-forwarded-prefix", "").rstrip("/")
-    root_path = forwarded_prefix or settings.ROOT_PATH.rstrip("/")
-    openapi_url = (
-        f"{root_path}{settings.API_PREFIX}/openapi.json" if root_path else f"{settings.API_PREFIX}/openapi.json"
-    )
+    prefix = request.headers.get("x-forwarded-prefix", "").rstrip("/")
+    openapi_url = f"{prefix}{settings.API_PREFIX}/openapi.json"
     return get_swagger_ui_html(
         openapi_url=openapi_url,
         title="j26-signupinfo-api - Swagger UI",
@@ -106,8 +98,7 @@ async def custom_swagger_ui_html(request: Request):
 # --- Custom OpenAPI endpoint to include a root-path server for Swagger "Try it out" ---
 @app.get(f"{settings.API_PREFIX}/openapi.json", include_in_schema=False)
 async def custom_openapi(request: Request):
-    forwarded_prefix = request.headers.get("x-forwarded-prefix", "").rstrip("/")
-    root_path = forwarded_prefix or settings.ROOT_PATH.rstrip("/")
+    prefix = request.headers.get("x-forwarded-prefix", "").rstrip("/")
 
     if app.openapi_schema is None:
         app.openapi_schema = get_openapi(
@@ -117,8 +108,8 @@ async def custom_openapi(request: Request):
         )
 
     schema = copy.deepcopy(app.openapi_schema)
-    if root_path:
-        schema["servers"] = [{"url": root_path}]
+    if prefix:
+        schema["servers"] = [{"url": prefix}]
     else:
         schema.pop("servers", None)
     return JSONResponse(schema)
