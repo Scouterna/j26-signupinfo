@@ -19,6 +19,9 @@ RUN npm run build
 # Use a Python image for the final application
 FROM python:3.12-slim
 
+# Set timezone to local for log improvements
+ENV TZ="Europe/Stockholm"
+
 # Set the working directory in the container
 WORKDIR /app/pyapp
 
