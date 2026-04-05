@@ -28,5 +28,5 @@ jobs:
           commit-message: "chore: update pinned dependencies"
           title: "chore: update pinned dependencies"
           body: "Automated weekly dependency update via `uv lock --upgrade`."
-          branch: deps/update-requirements
+          branch: deps/update-uv-lock
           delete-branch: true
