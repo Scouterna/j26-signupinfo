@@ -19,31 +19,36 @@ RUN npm run build
 # Use a Python image for the final application
 FROM python:3.12-slim
 
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
 # Set timezone to local for log improvements
 ENV TZ="Europe/Stockholm"
 
 # Set the working directory in the container
-WORKDIR /app/pyapp
+WORKDIR /app
 
 # Set environment variables to prevent Python from writing .pyc files
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 # Install Python dependencies
-COPY pyapp/requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
+
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Copy the backend source code into the container
-COPY pyapp/ ./
+COPY pyapp/ ./pyapp
 
 # --- Stage 3: Combine client and Backend ---
 # Copy the built static files from the 'client-builder' stage
 # The destination 'static' folder is what our FastAPI app serves
-COPY --from=client-builder /app/client/dist ./static
+COPY --from=client-builder /app/client/dist ./pyapp/static
 
 # Expose the port the app runs on
 EXPOSE 8000
+
+WORKDIR /app/pyapp
 
 # Use a Python script to start the app
 CMD [ "python", "./start.py" ]
