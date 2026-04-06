@@ -2,12 +2,12 @@ import json
 import os
 
 # Must be set before any app module is imported, since config is cached at import time.
-os.environ.setdefault(
-    "SCOUTNET_PROJECTS",
-    json.dumps([{"id": 1, "name": "Test Project", "member_key": "mk1", "question_key": "qk1"}]),
+# Use explicit assignment (not setdefault) so these always take effect regardless of the environment.
+os.environ["SCOUTNET_PROJECTS"] = json.dumps(
+    [{"id": 1, "name": "Test Project", "member_key": "mk1", "question_key": "qk1"}]
 )
-os.environ.setdefault("AUTH_DISABLED", "true")
-os.environ.setdefault("PERSIST_DIR", "/tmp/j26-signupinfo-test")
+os.environ["AUTH_DISABLED"] = "true"
+os.environ["PERSIST_DIR"] = "/tmp/j26-signupinfo-test"
 
 import pytest
 from fastapi.testclient import TestClient

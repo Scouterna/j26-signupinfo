@@ -10,6 +10,8 @@ on:
 
 jobs:
   test:
+    # Skip pull_request runs for deps/* branches — those are covered by the push trigger.
+    if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'deps/')
     runs-on: ubuntu-latest
 
     steps:
