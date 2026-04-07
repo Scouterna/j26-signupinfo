@@ -28,6 +28,7 @@ export default function QuestionStats({
     questionIdToText,
     sectionIdToText,
     booleanQuestionIds,
+    questionTypes,
   } = useProjectConfig();
   const { selectedGroupIds } = useGroupSelection();
 
@@ -43,9 +44,14 @@ export default function QuestionStats({
   );
 
   const effectiveIdToDisplayText = useMemo(() => {
-    if (!booleanQuestionIds.has(questionId)) return idToDisplayText;
-    return { ...idToDisplayText, checked: questionIdToText[questionId] ?? questionId };
-  }, [booleanQuestionIds, questionId, idToDisplayText, questionIdToText]);
+    if (booleanQuestionIds.has(questionId)) {
+      return { ...idToDisplayText, checked: questionIdToText[questionId] ?? questionId };
+    }
+    if (questionTypes[questionId] === 'text') {
+      return { ...idToDisplayText, responded: questionIdToText[questionId] ?? questionId };
+    }
+    return idToDisplayText;
+  }, [booleanQuestionIds, questionId, idToDisplayText, questionIdToText, questionTypes]);
 
   const groups = useMemo(() => {
     if (!responseData) return null;
@@ -54,7 +60,10 @@ export default function QuestionStats({
     return Object.fromEntries(
       Object.entries(questionData).map(([answerId, groupIds]) => [
         answerId,
-        groupIds.map((id) => ({ id, name: groupIdToName[id] ?? String(id) })),
+        groupIds.map((id) => {
+          const numId = Number(id);
+          return { id: numId, name: groupIdToName[numId] ?? String(id) };
+        }),
       ])
     );
   }, [responseData, questionId, groupIdToName]);
