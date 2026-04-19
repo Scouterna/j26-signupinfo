@@ -112,6 +112,18 @@ export default function App() {
     );
   }
 
+  // No groups configured
+  if (scoutGroups.length === 0) {
+    return (
+      <Box sx={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <CssBaseline />
+        <Typography variant="body1">Inga kårer tillgängliga</Typography>
+      </Box>
+    );
+  }
+
+  const isSingleGroup = scoutGroups.length === 1;
+
   const projectConfig = {
     projectId,
     statistics,
@@ -138,7 +150,7 @@ export default function App() {
           <CssBaseline />
 
           {/* Mobile app bar with drawer toggle */}
-          {!isLargeScreen && (
+          {!isSingleGroup && !isLargeScreen && (
             <AppBar
               position="fixed"
               sx={{
@@ -157,7 +169,7 @@ export default function App() {
           )}
 
           {/* Scout group selector drawer */}
-          <ScoutGroupSelector />
+          {!isSingleGroup && <ScoutGroupSelector />}
 
           {/* Main content area */}
           <Box
@@ -169,8 +181,10 @@ export default function App() {
               flexShrink: 1,
               minWidth: 0,
               p: { xs: 2, lg: 4 },
-              width: { xs: "100%", lg: `calc(100% - ${DRAWER_WIDTH}px)` },
-              mt: { xs: "64px", lg: 0 },
+              width: isSingleGroup
+                ? "100%"
+                : { xs: "100%", lg: `calc(100% - ${DRAWER_WIDTH}px)` },
+              mt: isSingleGroup ? 0 : { xs: "64px", lg: 0 },
               height: { lg: "100vh" },
               boxSizing: "border-box",
               overflow: "auto",
@@ -181,6 +195,7 @@ export default function App() {
               totalParticipants={totalParticipants}
               getStatisticData={getStatisticData}
               selectedScoutGroups={selectedScoutGroups}
+              isSingleGroup={isSingleGroup}
             />
           </Box>
         </Box>

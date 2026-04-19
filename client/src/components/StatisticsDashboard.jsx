@@ -22,12 +22,14 @@ import { useProjectConfig } from "../context/ProjectConfigContext.jsx";
  * @param {number} props.totalParticipants
  * @param {(sectionId: string) => Record<string, Record<string, number> | number>} props.getStatisticData
  * @param {ScoutGroupItem[]} props.selectedScoutGroups
+ * @param {boolean} [props.isSingleGroup]
  */
 export default function StatisticsDashboard({
   numScoutGroupsSelected,
   totalParticipants,
   getStatisticData,
   selectedScoutGroups,
+  isSingleGroup = false,
 }) {
   const { statistics, statisticSubQuestions } = useProjectConfig();
 
@@ -119,12 +121,14 @@ export default function StatisticsDashboard({
 
       {/* Hero Metrics */}
       <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-        <HeroMetric
-          icon={<GroupsIcon fontSize="large" />}
-          label="Valda kårer"
-          value={numScoutGroupsSelected}
-          emphasis="primary"
-        />
+        {!isSingleGroup && (
+          <HeroMetric
+            icon={<GroupsIcon fontSize="large" />}
+            label="Valda kårer"
+            value={numScoutGroupsSelected}
+            emphasis="primary"
+          />
+        )}
         <HeroMetric
           icon={<PeopleIcon fontSize="large" />}
           label="Deltagare"
