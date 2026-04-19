@@ -9,6 +9,7 @@ import HeroMetric from "./HeroMetric.jsx";
 import StatisticChipSelector from "./StatisticChipSelector.jsx";
 import ScoutGroupTable from "./ScoutGroupTable.jsx";
 import StatisticCard from "./StatisticCard.jsx";
+import ProjectSwitcher from "./ProjectSwitcher.jsx";
 import useUrlHashState from "../hooks/useUrlHashState.js";
 import { useProjectConfig } from "../context/ProjectConfigContext.jsx";
 
@@ -23,6 +24,9 @@ import { useProjectConfig } from "../context/ProjectConfigContext.jsx";
  * @param {(sectionId: string) => Record<string, Record<string, number> | number>} props.getStatisticData
  * @param {ScoutGroupItem[]} props.selectedScoutGroups
  * @param {boolean} [props.isSingleGroup]
+ * @param {Array<{ id: number, name: string }>} [props.projects]
+ * @param {number|null} [props.projectId]
+ * @param {(projectId: number) => void} [props.onProjectChange]
  */
 export default function StatisticsDashboard({
   numScoutGroupsSelected,
@@ -30,6 +34,9 @@ export default function StatisticsDashboard({
   getStatisticData,
   selectedScoutGroups,
   isSingleGroup = false,
+  projects = [],
+  projectId = null,
+  onProjectChange,
 }) {
   const { statistics, statisticSubQuestions } = useProjectConfig();
 
@@ -101,22 +108,29 @@ export default function StatisticsDashboard({
         <Typography variant="h5" component="h1" fontWeight="600">
           {viewMode === "statistics" ? "Statistik" : "Kåröversikt"}
         </Typography>
-        <ToggleButtonGroup
-          value={viewMode}
-          exclusive
-          onChange={handleViewModeChange}
-          aria-label="view mode"
-          size="small"
-        >
-          <ToggleButton value="statistics" aria-label="statistics view">
-            <BarChartIcon sx={{ mr: 0.5 }} />
-            Statistik
-          </ToggleButton>
-          <ToggleButton value="table" aria-label="table view">
-            <TableChartIcon sx={{ mr: 0.5 }} />
-            Tabell
-          </ToggleButton>
-        </ToggleButtonGroup>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={handleViewModeChange}
+            aria-label="view mode"
+            size="small"
+          >
+            <ToggleButton value="statistics" aria-label="statistics view">
+              <BarChartIcon sx={{ mr: 0.5 }} />
+              Statistik
+            </ToggleButton>
+            <ToggleButton value="table" aria-label="table view">
+              <TableChartIcon sx={{ mr: 0.5 }} />
+              Tabell
+            </ToggleButton>
+          </ToggleButtonGroup>
+          <ProjectSwitcher
+            projects={projects}
+            value={projectId}
+            onChange={onProjectChange ?? (() => {})}
+          />
+        </Box>
       </Box>
 
       {/* Hero Metrics */}

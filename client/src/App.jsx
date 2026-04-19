@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CssBaseline,
   Box,
@@ -27,8 +27,11 @@ export default function App() {
   const theme = useTheme();
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
 
+  const [selectedProjectId, setSelectedProjectId] = useState(/** @type {number|null} */ (null));
+
   const {
     projectId,
+    projects,
     statistics,
     statisticSubQuestions,
     sectionIdToText,
@@ -41,12 +44,20 @@ export default function App() {
     groupIdToName,
     isLoading: projectLoading,
     error: projectError,
-  } = useProjectQueries();
+  } = useProjectQueries(selectedProjectId);
 
   const { scoutGroups: detailedScoutGroups, loading: dataLoading, error: dataError, refetch } = useApiData(projectId);
 
   const selectorState = useScoutGroupSelector(scoutGroups);
-  const { selectedScoutGroupIds, replaceSelectionWithIds } = selectorState;
+  const { selectedScoutGroupIds, replaceSelectionWithIds, clearSelection } = selectorState;
+
+  const prevProjectIdRef = useRef(/** @type {number|null} */ (null));
+  useEffect(() => {
+    if (prevProjectIdRef.current !== null && prevProjectIdRef.current !== projectId) {
+      clearSelection();
+    }
+    prevProjectIdRef.current = projectId;
+  }, [projectId, clearSelection]);
 
   const {
     totalParticipants,
@@ -196,6 +207,9 @@ export default function App() {
               getStatisticData={getStatisticData}
               selectedScoutGroups={selectedScoutGroups}
               isSingleGroup={isSingleGroup}
+              projects={projects}
+              projectId={projectId}
+              onProjectChange={setSelectedProjectId}
             />
           </Box>
         </Box>
