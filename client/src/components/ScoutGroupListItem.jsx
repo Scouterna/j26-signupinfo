@@ -5,7 +5,6 @@ import {
   ListItemText,
   Checkbox,
 } from "@mui/material";
-import { SELECTION_TYPES } from "../constants/selectionTypes";
 import { useGroupSelection } from "../context/GroupSelectionContext.jsx";
 import { useScoutGroupSelectorContext } from "../context/ScoutGroupSelectorContext.jsx";
 
@@ -15,14 +14,14 @@ import { useScoutGroupSelectorContext } from "../context/ScoutGroupSelectorConte
  */
 export default function ScoutGroupListItem({ scoutGroup }) {
   const { selectedGroupIds } = useGroupSelection();
-  const { handleSelection, selectionChoiceLabel } = useScoutGroupSelectorContext();
+  const { toggleScoutGroup, selectionChoiceLabel } = useScoutGroupSelectorContext();
   const isSelected = selectedGroupIds.has(scoutGroup.id);
   const hasChoiceTint = isSelected && selectionChoiceLabel;
 
   return (
     <ListItem disablePadding>
       <ListItemButton
-        onClick={() => handleSelection(SELECTION_TYPES.SCOUT_GROUP, scoutGroup.id)}
+        onClick={() => toggleScoutGroup(scoutGroup.id)}
         sx={
           hasChoiceTint
             ? { backgroundColor: "rgba(255, 255, 0, 0.25)" }

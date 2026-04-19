@@ -1,9 +1,9 @@
 /**
- * Returns an array of selected scout groups from the villages data.
- * @param {import('../services/api').Village[]} villages
+ * Returns the subset of scout groups whose IDs are in the selected set.
+ * @param {import('../services/api').ScoutGroup[]} scoutGroups
  * @param {Set<number>} selectedIds
  * @returns {import('../services/api').ScoutGroup[]}
  */
-export function getSelectedScoutGroups(villages, selectedIds) {
-	return villages.flatMap((v) => v.ScoutGroups).filter((sg) => selectedIds.has(sg.id));
+export function getSelectedScoutGroups(scoutGroups, selectedIds) {
+	return scoutGroups.filter((sg) => selectedIds.has(sg.id));
 }

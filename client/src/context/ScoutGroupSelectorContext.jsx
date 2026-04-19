@@ -2,16 +2,13 @@ import { createContext, useContext } from "react";
 
 /**
  * @typedef {{ id: number, name: string }} ScoutGroup
- * @typedef {{ id: string | number, name: string, ScoutGroups: ScoutGroup[] }} Village
  *
  * @typedef {{
- *   filteredVillages: Village[],
+ *   filteredScoutGroups: ScoutGroup[],
  *   selectionChoiceLabel: string | string[] | null,
- *   expandedVillageIds: Set<string | number>,
  *   searchTerm: string,
  *   setSearchTerm: (term: string) => void,
- *   handleSelection: (type: "village" | "ScoutGroup", id: string | number) => void,
- *   toggleVillageExpansion: (id: string | number) => void,
+ *   toggleScoutGroup: (id: number) => void,
  *   clearSelection: () => void,
  *   selectAll: () => void,
  *   isDrawerOpen: boolean,
@@ -20,13 +17,11 @@ import { createContext, useContext } from "react";
  */
 
 const ScoutGroupSelectorContext = createContext(/** @type {ScoutGroupSelectorState} */ ({
-  filteredVillages: [],
+  filteredScoutGroups: [],
   selectionChoiceLabel: null,
-  expandedVillageIds: new Set(),
   searchTerm: "",
   setSearchTerm: () => {},
-  handleSelection: () => {},
-  toggleVillageExpansion: () => {},
+  toggleScoutGroup: () => {},
   clearSelection: () => {},
   selectAll: () => {},
   isDrawerOpen: false,

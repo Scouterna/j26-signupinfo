@@ -23,8 +23,6 @@ import ProjectConfigContext from "./context/ProjectConfigContext.jsx";
 import GroupSelectionContext from "./context/GroupSelectionContext.jsx";
 import ScoutGroupSelectorContext from "./context/ScoutGroupSelectorContext.jsx";
 
-const EMPTY_DATA = { villages: [] };
-
 export default function App() {
   const theme = useTheme();
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
@@ -39,15 +37,15 @@ export default function App() {
     sectionQuestions,
     questionChoices,
     questionTypes,
-    villagesData,
+    scoutGroups,
     groupIdToName,
     isLoading: projectLoading,
     error: projectError,
   } = useProjectQueries();
 
-  const { data, loading: dataLoading, error: dataError, refetch } = useApiData(projectId);
+  const { scoutGroups: detailedScoutGroups, loading: dataLoading, error: dataError, refetch } = useApiData(projectId);
 
-  const selectorState = useScoutGroupSelector(villagesData);
+  const selectorState = useScoutGroupSelector(scoutGroups);
   const { selectedScoutGroupIds, replaceSelectionWithIds } = selectorState;
 
   const {
@@ -56,10 +54,9 @@ export default function App() {
     error: summaryError,
   } = useGroupSummary(projectId, selectedScoutGroupIds);
 
-  const statsData = data || EMPTY_DATA;
   const selectedScoutGroups = useMemo(
-    () => getSelectedScoutGroups(statsData.villages, selectedScoutGroupIds),
-    [statsData.villages, selectedScoutGroupIds],
+    () => getSelectedScoutGroups(detailedScoutGroups || [], selectedScoutGroupIds),
+    [detailedScoutGroups, selectedScoutGroupIds],
   );
 
   const loading = projectLoading || dataLoading;
@@ -106,7 +103,7 @@ export default function App() {
   }
 
   // No data state (shouldn't happen but handle gracefully)
-  if (!data) {
+  if (!detailedScoutGroups) {
     return (
       <Box sx={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <CssBaseline />
