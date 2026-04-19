@@ -87,31 +87,10 @@ function buildChipData(questionsData) {
 }
 
 /**
- * Transforms the groups endpoint response ({id: name} dict) into the
- * villages structure expected by the selector components.
- *
- * @param {Record<number, string> | undefined} groupsData
- * @returns {{ villages: Array<{ id: string, name: string, ScoutGroups: Array<{ id: number, name: string }> }> }}
- */
-function buildVillagesData(groupsData) {
-  if (!groupsData) return { villages: [] };
-
-  const scoutGroups = Object.entries(groupsData).map(([id, name]) => ({ id: Number(id), name }));
-
-  return {
-    villages: [{
-      id: 'all',
-      name: 'Alla kårer',
-      ScoutGroups: scoutGroups,
-    }],
-  };
-}
-
-/**
  * TanStack Query hook that fetches project list, question metadata, and group list.
  * Uses dependent queries: questions and groups are only fetched once the project ID is known.
  *
- * @returns {{ projectId: number|null, statistics: string[], statisticSubQuestions: Record<string, string[]>, sectionIdToText: Record<string, string>, questionIdToText: Record<string, string>, booleanQuestionIds: Set<string>, sectionQuestions: Record<string, string[]>, questionChoices: Record<string, string[]>, questionTypes: Record<string, string>, villagesData: { villages: Array<{ id: string, name: string, ScoutGroups: Array<{ id: number, name: string }> }> }, groupIdToName: Record<number, string>, isLoading: boolean, error: Error|null }}
+ * @returns {{ projectId: number|null, statistics: string[], statisticSubQuestions: Record<string, string[]>, sectionIdToText: Record<string, string>, questionIdToText: Record<string, string>, booleanQuestionIds: Set<string>, sectionQuestions: Record<string, string[]>, questionChoices: Record<string, string[]>, questionTypes: Record<string, string>, scoutGroups: Array<{ id: number, name: string }>, groupIdToName: Record<number, string>, isLoading: boolean, error: Error|null }}
  */
 export default function useProjectQueries() {
   const {
@@ -157,10 +136,13 @@ export default function useProjectQueries() {
     [questionsData],
   );
 
-  const villagesData = useMemo(
-    () => buildVillagesData(/** @type {any} */ (groupsData)),
-    [groupsData],
-  );
+  const scoutGroups = useMemo(() => {
+    if (!groupsData) return [];
+    return Object.entries(/** @type {any} */ (groupsData)).map(([id, name]) => ({
+      id: Number(id),
+      name: /** @type {string} */ (name),
+    }));
+  }, [groupsData]);
 
   /** @type {Record<number, string>} */
   const groupIdToName = useMemo(() => {
@@ -180,7 +162,7 @@ export default function useProjectQueries() {
     sectionQuestions,
     questionChoices,
     questionTypes,
-    villagesData,
+    scoutGroups,
     groupIdToName,
     isLoading: projectsLoading || questionsLoading || groupsLoading,
     error: projectsError || questionsError || groupsError,

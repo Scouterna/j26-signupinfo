@@ -1,4 +1,4 @@
-import { useRef, useMemo } from "react";
+import { useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   Typography,
@@ -11,7 +11,6 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import SearchField from "./SearchField.jsx";
-import VillageListItem from "./VillageListItem.jsx";
 import ScoutGroupListItem from "./ScoutGroupListItem.jsx";
 import { DRAWER_WIDTH } from "../constants/layout.js";
 import { useGroupSelection } from "../context/GroupSelectionContext.jsx";
@@ -22,9 +21,8 @@ import { useScoutGroupSelectorContext } from "../context/ScoutGroupSelectorConte
  */
 function DrawerContent({ showCloseButton }) {
   const {
-    filteredVillages,
+    filteredScoutGroups,
     selectionChoiceLabel,
-    expandedVillageIds,
     searchTerm,
     setSearchTerm,
     clearSelection,
@@ -38,44 +36,10 @@ function DrawerContent({ showCloseButton }) {
     ? (Array.isArray(selectionChoiceLabel) ? selectionChoiceLabel : [selectionChoiceLabel]).join(" → ")
     : null;
 
-  const flattenedItems = useMemo(() => {
-    /** @type {Array<{ type: 'village', id: string, village: import('../context/ScoutGroupSelectorContext.jsx').Village, isAllSelected: boolean, isPartiallySelected: boolean, isExpanded: boolean } | { type: 'scoutGroup', id: string, scoutGroup: import('../context/ScoutGroupSelectorContext.jsx').ScoutGroup, villageId: string | number }>} */
-    const items = [];
-    filteredVillages.forEach((village) => {
-      const scoutGroupIds = village.ScoutGroups.map((sg) => sg.id);
-      const selectedInVillage = scoutGroupIds.filter((id) => selectedGroupIds.has(id));
-      const isAllSelected =
-        scoutGroupIds.length > 0 && selectedInVillage.length === scoutGroupIds.length;
-      const isPartiallySelected = selectedInVillage.length > 0 && !isAllSelected;
-      const isExpanded = expandedVillageIds.has(village.id);
-
-      items.push({
-        type: /** @type {const} */ ("village"),
-        id: `village-${village.id}`,
-        village,
-        isAllSelected,
-        isPartiallySelected,
-        isExpanded,
-      });
-
-      if (isExpanded) {
-        village.ScoutGroups.forEach((scoutGroup) => {
-          items.push({
-            type: /** @type {const} */ ("scoutGroup"),
-            id: `scoutGroup-${scoutGroup.id}`,
-            scoutGroup,
-            villageId: village.id,
-          });
-        });
-      }
-    });
-    return items;
-  }, [filteredVillages, expandedVillageIds, selectedGroupIds]);
-
   const rowVirtualizer = useVirtualizer({
-    count: flattenedItems.length,
+    count: filteredScoutGroups.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: (index) => (flattenedItems[index].type === "village" ? 64 : 48),
+    estimateSize: () => 48,
     overscan: 10,
   });
 
@@ -85,7 +49,7 @@ function DrawerContent({ showCloseButton }) {
         sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}
       >
         <Typography variant="h5" component="h2" fontWeight="600">
-          Byar och kårer
+          Kårer
         </Typography>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Button size="small" onClick={selectedGroupIds.size > 0 ? clearSelection : selectAll}>
@@ -121,7 +85,7 @@ function DrawerContent({ showCloseButton }) {
       )}
 
       <SearchField
-        placeholder="Sök efter by eller kår..."
+        placeholder="Sök efter kår..."
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
       />
@@ -134,10 +98,10 @@ function DrawerContent({ showCloseButton }) {
           style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: "100%", position: "relative" }}
         >
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-            const item = flattenedItems[virtualRow.index];
+            const scoutGroup = filteredScoutGroups[virtualRow.index];
             return (
               <div
-                key={item.id}
+                key={scoutGroup.id}
                 data-index={virtualRow.index}
                 ref={rowVirtualizer.measureElement}
                 style={{
@@ -148,19 +112,7 @@ function DrawerContent({ showCloseButton }) {
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
-                {item.type === "village" ? (
-                  <VillageListItem
-                    village={item.village}
-                    isAllSelected={item.isAllSelected}
-                    isPartiallySelected={item.isPartiallySelected}
-                    isExpanded={item.isExpanded}
-                    renderChildrenExternally={true}
-                  />
-                ) : (
-                  <div style={{ paddingLeft: "32px" }}>
-                    <ScoutGroupListItem scoutGroup={item.scoutGroup} />
-                  </div>
-                )}
+                <ScoutGroupListItem scoutGroup={scoutGroup} />
               </div>
             );
           })}
