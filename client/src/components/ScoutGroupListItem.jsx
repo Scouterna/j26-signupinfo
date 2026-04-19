@@ -7,19 +7,15 @@ import {
 } from "@mui/material";
 import { SELECTION_TYPES } from "../constants/selectionTypes";
 import { useGroupSelection } from "../context/GroupSelectionContext.jsx";
+import { useScoutGroupSelectorContext } from "../context/ScoutGroupSelectorContext.jsx";
 
 /**
  * @param {object} props
- * @param {{ id: string | number, name: string }} props.scoutGroup
- * @param {(type: "village" | "ScoutGroup", id: string | number) => void} props.handleSelection
- * @param {string | string[]} [props.selectionChoiceLabel]
+ * @param {{ id: number, name: string }} props.scoutGroup
  */
-export default function ScoutGroupListItem({
-  scoutGroup,
-  handleSelection,
-  selectionChoiceLabel,
-}) {
+export default function ScoutGroupListItem({ scoutGroup }) {
   const { selectedGroupIds } = useGroupSelection();
+  const { handleSelection, selectionChoiceLabel } = useScoutGroupSelectorContext();
   const isSelected = selectedGroupIds.has(scoutGroup.id);
   const hasChoiceTint = isSelected && selectionChoiceLabel;
 

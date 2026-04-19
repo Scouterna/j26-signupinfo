@@ -10,9 +10,10 @@ import {
 import ExpandCollapseButton from "./ExpandCollapseButton";
 import ScoutGroupListItem from "./ScoutGroupListItem";
 import { SELECTION_TYPES } from "../constants/selectionTypes";
+import { useScoutGroupSelectorContext } from "../context/ScoutGroupSelectorContext.jsx";
 
 /**
- * @typedef {{ id: string | number, name: string }} ScoutGroup
+ * @typedef {{ id: number, name: string }} ScoutGroup
  * @typedef {{ id: string | number, name: string, ScoutGroups: ScoutGroup[] }} Village
  */
 
@@ -22,21 +23,16 @@ import { SELECTION_TYPES } from "../constants/selectionTypes";
  * @param {boolean} props.isAllSelected
  * @param {boolean} props.isPartiallySelected
  * @param {boolean} props.isExpanded
- * @param {(id: string | number) => void} props.toggleVillageExpansion
- * @param {(type: "village" | "ScoutGroup", id: string | number) => void} props.handleSelection
  * @param {boolean} [props.renderChildrenExternally]
- * @param {string | string[]} [props.selectionChoiceLabel]
  */
 export default function VillageListItem({
   village,
   isAllSelected,
   isPartiallySelected,
   isExpanded,
-  toggleVillageExpansion,
-  handleSelection,
   renderChildrenExternally = false,
-  selectionChoiceLabel,
 }) {
+  const { handleSelection, toggleVillageExpansion, selectionChoiceLabel } = useScoutGroupSelectorContext();
   const hasChoiceTint =
     selectionChoiceLabel && (isAllSelected || isPartiallySelected);
 
@@ -91,8 +87,6 @@ export default function VillageListItem({
               <ScoutGroupListItem
                 key={scoutGroup.id}
                 scoutGroup={scoutGroup}
-                handleSelection={handleSelection}
-                selectionChoiceLabel={selectionChoiceLabel}
               />
             ))}
           </List>

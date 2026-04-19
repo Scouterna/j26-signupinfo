@@ -9,69 +9,48 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import MenuIcon from "@mui/icons-material/Menu";
 import CloseIcon from "@mui/icons-material/Close";
 import SearchField from "./SearchField.jsx";
 import VillageListItem from "./VillageListItem.jsx";
 import ScoutGroupListItem from "./ScoutGroupListItem.jsx";
 import { DRAWER_WIDTH } from "../constants/layout.js";
 import { useGroupSelection } from "../context/GroupSelectionContext.jsx";
+import { useScoutGroupSelectorContext } from "../context/ScoutGroupSelectorContext.jsx";
 
 /**
- * @typedef {{ id: string | number, name: string }} ScoutGroup
- * @typedef {{ id: string | number, name: string, ScoutGroups: ScoutGroup[] }} Village
+ * @param {{ showCloseButton: boolean }} props
  */
-
-/**
- * Content displayed inside the drawer.
- * @param {object} props
- * @param {Village[]} props.filteredVillages
- * @param {string | string[] | null} [props.selectionChoiceLabel]
- * @param {Set<string | number>} props.expandedVillageIds
- * @param {string} props.searchTerm
- * @param {(term: string) => void} props.setSearchTerm
- * @param {(type: "village" | "ScoutGroup", id: string | number) => void} props.handleSelection
- * @param {(id: string | number) => void} props.toggleVillageExpansion
- * @param {() => void} props.clearSelection
- * @param {() => void} props.selectAll
- * @param {() => void} [props.onClose]
- * @param {boolean} [props.showCloseButton]
- */
-function DrawerContent({
-  filteredVillages,
-  selectionChoiceLabel,
-  expandedVillageIds,
-  searchTerm,
-  setSearchTerm,
-  handleSelection,
-  toggleVillageExpansion,
-  clearSelection,
-  selectAll,
-  onClose,
-  showCloseButton,
-}) {
+function DrawerContent({ showCloseButton }) {
+  const {
+    filteredVillages,
+    selectionChoiceLabel,
+    expandedVillageIds,
+    searchTerm,
+    setSearchTerm,
+    clearSelection,
+    selectAll,
+    toggleDrawer,
+  } = useScoutGroupSelectorContext();
   const { selectedGroupIds } = useGroupSelection();
+
   const parentRef = useRef(null);
+  const choiceLabelDisplay = selectionChoiceLabel
+    ? (Array.isArray(selectionChoiceLabel) ? selectionChoiceLabel : [selectionChoiceLabel]).join(" → ")
+    : null;
 
-  /** @type {Array<{ type: 'village', id: string, village: Village, isAllSelected: boolean, isPartiallySelected: boolean, isExpanded: boolean } | { type: 'scoutGroup', id: string, scoutGroup: ScoutGroup, villageId: string | number }>} */
   const flattenedItems = useMemo(() => {
-    /** @type {Array<{ type: 'village', id: string, village: Village, isAllSelected: boolean, isPartiallySelected: boolean, isExpanded: boolean } | { type: 'scoutGroup', id: string, scoutGroup: ScoutGroup, villageId: string | number }>} */
+    /** @type {Array<{ type: 'village', id: string, village: import('../context/ScoutGroupSelectorContext.jsx').Village, isAllSelected: boolean, isPartiallySelected: boolean, isExpanded: boolean } | { type: 'scoutGroup', id: string, scoutGroup: import('../context/ScoutGroupSelectorContext.jsx').ScoutGroup, villageId: string | number }>} */
     const items = [];
-
     filteredVillages.forEach((village) => {
       const scoutGroupIds = village.ScoutGroups.map((sg) => sg.id);
-      const selectedInVillage = scoutGroupIds.filter((id) =>
-        selectedGroupIds.has(id)
-      );
+      const selectedInVillage = scoutGroupIds.filter((id) => selectedGroupIds.has(id));
       const isAllSelected =
-        scoutGroupIds.length > 0 &&
-        selectedInVillage.length === scoutGroupIds.length;
-      const isPartiallySelected =
-        selectedInVillage.length > 0 && !isAllSelected;
+        scoutGroupIds.length > 0 && selectedInVillage.length === scoutGroupIds.length;
+      const isPartiallySelected = selectedInVillage.length > 0 && !isAllSelected;
       const isExpanded = expandedVillageIds.has(village.id);
 
       items.push({
-        type: /** @type {const} */ ('village'),
+        type: /** @type {const} */ ("village"),
         id: `village-${village.id}`,
         village,
         isAllSelected,
@@ -82,7 +61,7 @@ function DrawerContent({
       if (isExpanded) {
         village.ScoutGroups.forEach((scoutGroup) => {
           items.push({
-            type: /** @type {const} */ ('scoutGroup'),
+            type: /** @type {const} */ ("scoutGroup"),
             id: `scoutGroup-${scoutGroup.id}`,
             scoutGroup,
             villageId: village.id,
@@ -90,112 +69,72 @@ function DrawerContent({
         });
       }
     });
-
     return items;
   }, [filteredVillages, expandedVillageIds, selectedGroupIds]);
 
   const rowVirtualizer = useVirtualizer({
     count: flattenedItems.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: (index) => {
-      return flattenedItems[index].type === 'village' ? 64 : 48;
-    },
+    estimateSize: (index) => (flattenedItems[index].type === "village" ? 64 : 48),
     overscan: 10,
   });
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        p: 3,
-        pb: 0
-      }}
-    >
-      {/* Header */}
+    <Box sx={{ display: "flex", flexDirection: "column", height: "100%", p: 3, pb: 0 }}>
       <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 2,
-        }}
+        sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}
       >
         <Typography variant="h5" component="h2" fontWeight="600">
           Byar och kårer
         </Typography>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Button
-            size="small"
-            onClick={selectedGroupIds.size > 0 ? clearSelection : selectAll}
-          >
+          <Button size="small" onClick={selectedGroupIds.size > 0 ? clearSelection : selectAll}>
             {selectedGroupIds.size > 0 ? "Rensa" : "Välj alla"}
           </Button>
           {showCloseButton && (
-            <IconButton onClick={onClose} aria-label="Stäng meny">
+            <IconButton onClick={toggleDrawer} aria-label="Stäng meny">
               <CloseIcon />
             </IconButton>
           )}
         </Box>
       </Box>
 
-      {/* Selection choice label */}
-      {selectionChoiceLabel && (() => {
-        const labels = Array.isArray(selectionChoiceLabel)
-          ? selectionChoiceLabel
-          : [selectionChoiceLabel];
-        const displayText = labels.join(" → ");
-        return (
-          <Typography
-            variant="caption"
-            sx={{
-              mb: 1.5,
-              fontStyle: "italic",
-              wordBreak: "break-word",
-              overflowWrap: "anywhere",
-              display: "inline-block",
-              px: 1,
-              py: 0.5,
-              borderRadius: 1,
-              backgroundColor: "rgba(255, 255, 0, 0.25)",
-              color: "text.secondary",
-            }}
-            title={`Valt utifrån: ${displayText}`}
-          >
-            Valt utifrån: {displayText}
-          </Typography>
-        );
-      })()}
+      {choiceLabelDisplay && (
+        <Typography
+          variant="caption"
+          sx={{
+            mb: 1.5,
+            fontStyle: "italic",
+            wordBreak: "break-word",
+            overflowWrap: "anywhere",
+            display: "inline-block",
+            px: 1,
+            py: 0.5,
+            borderRadius: 1,
+            backgroundColor: "rgba(255, 255, 0, 0.25)",
+            color: "text.secondary",
+          }}
+          title={`Valt utifrån: ${choiceLabelDisplay}`}
+        >
+          Valt utifrån: {choiceLabelDisplay}
+        </Typography>
+      )}
 
-      {/* Search */}
       <SearchField
         placeholder="Sök efter by eller kår..."
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
       />
 
-      {/* Village list */}
       <Box
         ref={parentRef}
-        sx={{ 
-          flexGrow: 1, 
-          overflowY: "auto", 
-          pr: 1, 
-          minHeight: 0,
-          position: "relative"
-        }}
+        sx={{ flexGrow: 1, overflowY: "auto", pr: 1, minHeight: 0, position: "relative" }}
       >
         <div
-          style={{
-            height: `${rowVirtualizer.getTotalSize()}px`,
-            width: "100%",
-            position: "relative",
-          }}
+          style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: "100%", position: "relative" }}
         >
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const item = flattenedItems[virtualRow.index];
-            
             return (
               <div
                 key={item.id}
@@ -209,24 +148,17 @@ function DrawerContent({
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
-                {item.type === 'village' ? (
+                {item.type === "village" ? (
                   <VillageListItem
                     village={item.village}
                     isAllSelected={item.isAllSelected}
                     isPartiallySelected={item.isPartiallySelected}
                     isExpanded={item.isExpanded}
-                    toggleVillageExpansion={toggleVillageExpansion}
-                    handleSelection={handleSelection}
                     renderChildrenExternally={true}
-                    selectionChoiceLabel={selectionChoiceLabel ?? undefined}
                   />
                 ) : (
                   <div style={{ paddingLeft: "32px" }}>
-                    <ScoutGroupListItem
-                      scoutGroup={item.scoutGroup}
-                      handleSelection={handleSelection}
-                      selectionChoiceLabel={selectionChoiceLabel ?? undefined}
-                    />
+                    <ScoutGroupListItem scoutGroup={item.scoutGroup} />
                   </div>
                 )}
               </div>
@@ -238,55 +170,12 @@ function DrawerContent({
   );
 }
 
-/**
- * Responsive drawer for selecting scout groups.
- * - Persistent on large screens (lg and up)
- * - Temporary (overlay) on smaller screens
- *
- * @param {object} props
- * @param {Village[]} [props.filteredVillages]
- * @param {string | string[] | null} [props.selectionChoiceLabel]
- * @param {Set<string | number>} [props.expandedVillageIds]
- * @param {string} [props.searchTerm]
- * @param {(term: string) => void} [props.setSearchTerm]
- * @param {(type: "village" | "ScoutGroup", id: string | number) => void} [props.handleSelection]
- * @param {(id: string | number) => void} [props.toggleVillageExpansion]
- * @param {() => void} [props.clearSelection]
- * @param {() => void} [props.selectAll]
- * @param {boolean} [props.isDrawerOpen]
- * @param {() => void} [props.toggleDrawer]
- */
-export default function ScoutGroupSelector({
-  filteredVillages = [],
-  selectionChoiceLabel = null,
-  expandedVillageIds = new Set(),
-  searchTerm = "",
-  setSearchTerm = () => {},
-  handleSelection = () => {},
-  toggleVillageExpansion = () => {},
-  clearSelection = () => {},
-  selectAll = () => {},
-  isDrawerOpen = false,
-  toggleDrawer = () => {},
-}) {
+export default function ScoutGroupSelector() {
   const theme = useTheme();
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
+  const { isDrawerOpen, toggleDrawer } = useScoutGroupSelectorContext();
 
-  const drawerContent = (
-    <DrawerContent
-      filteredVillages={filteredVillages}
-      selectionChoiceLabel={selectionChoiceLabel}
-      expandedVillageIds={expandedVillageIds}
-      searchTerm={searchTerm}
-      setSearchTerm={setSearchTerm}
-      handleSelection={handleSelection}
-      toggleVillageExpansion={toggleVillageExpansion}
-      clearSelection={clearSelection}
-      selectAll={selectAll}
-      onClose={toggleDrawer}
-      showCloseButton={!isLargeScreen}
-    />
-  );
+  const drawerContent = <DrawerContent showCloseButton={!isLargeScreen} />;
 
   if (isLargeScreen) {
     return (
@@ -316,60 +205,10 @@ export default function ScoutGroupSelector({
       onClose={toggleDrawer}
       ModalProps={{ keepMounted: true }}
       sx={{
-        "& .MuiDrawer-paper": {
-          width: DRAWER_WIDTH,
-          boxSizing: "border-box",
-        },
+        "& .MuiDrawer-paper": { width: DRAWER_WIDTH, boxSizing: "border-box" },
       }}
     >
       {drawerContent}
     </Drawer>
-  );
-}
-
-/**
- * Button to open the drawer on mobile screens.
- * @param {object} props
- * @param {() => void} props.onClick
- * @param {number} [props.selectedCount]
- */
-export function DrawerToggleButton({ onClick, selectedCount = 0 }) {
-  const theme = useTheme();
-  const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
-
-  if (isLargeScreen) {
-    return null;
-  }
-
-  return (
-    <IconButton
-      color="inherit"
-      aria-label="Öppna meny"
-      onClick={onClick}
-      sx={{ mr: 2, position: "relative" }}
-    >
-      <MenuIcon />
-      {selectedCount > 0 && (
-        <Box
-          component="span"
-          sx={{
-            position: "absolute",
-            top: 4,
-            right: 4,
-            bgcolor: "primary.main",
-            color: "primary.contrastText",
-            borderRadius: "50%",
-            width: 18,
-            height: 18,
-            fontSize: 12,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {selectedCount > 9 ? "9+" : selectedCount}
-        </Box>
-      )}
-    </IconButton>
   );
 }

@@ -22,6 +22,8 @@ import { SmartTable } from "./smart-table/SmartTable";
 import { useProjectConfig } from "../context/ProjectConfigContext.jsx";
 
 const PATH_SEPARATOR = "§";
+/** @param {...string} parts */
+const joinPath = (...parts) => parts.join(PATH_SEPARATOR);
 
 /**
  * @typedef {{ id: number | string, name: string, num_participants?: number, stats?: Record<string, any> }} ScoutGroupItem
@@ -29,12 +31,34 @@ const PATH_SEPARATOR = "§";
  */
 
 /**
- * Derives the set of column IDs from the chip selection and the questions schema.
- * Uses sectionQuestions for section→question mapping, but inspects actual stats
- * values to determine per-choice vs scalar column structure.
- * For sections not in sectionQuestions (manual stats like Kön/Avgift), falls back
- * to scanning the stats data of the provided scout groups.
- *
+ * Scans stats data for a manual section (not in the questions schema) and returns
+ * its column IDs. Values that are objects become one column per key (choice counts);
+ * scalar values become a single column.
+ * @param {string} sectionId
+ * @param {ScoutGroupItem[]} scoutGroups
+ * @returns {Set<string>}
+ */
+function getManualSectionColumnIds(sectionId, scoutGroups) {
+  /** @type {Set<string>} */
+  const ids = new Set();
+  for (const group of scoutGroups) {
+    const sectionData = group.stats?.[sectionId];
+    if (!sectionData || typeof sectionData !== "object") continue;
+    for (const [key, value] of Object.entries(sectionData)) {
+      if (value == null) continue;
+      if (typeof value === "object" && !Array.isArray(value)) {
+        for (const answerKey of Object.keys(value)) {
+          ids.add(joinPath(sectionId, key, answerKey));
+        }
+      } else {
+        ids.add(joinPath(sectionId, key));
+      }
+    }
+  }
+  return ids;
+}
+
+/**
  * @param {string[]} selectedStatistics
  * @param {Record<string, string[] | null>} selectedSubQuestions
  * @param {Record<string, string[]>} sectionQuestions
@@ -42,85 +66,52 @@ const PATH_SEPARATOR = "§";
  * @returns {Set<string>}
  */
 function getColumnIds(selectedStatistics, selectedSubQuestions, sectionQuestions, scoutGroups) {
-  const ids = new Set(/** @type {string[]} */ (["name"]));
+  const ids = new Set(["name"]);
 
   if (selectedStatistics.includes("num_participants")) {
     ids.add("num_participants");
   }
 
-  /**
-   * Adds column IDs for a section, optionally filtered to specific question IDs.
-   * Uses the questions schema for section→question mapping, but inspects actual
-   * stats values to determine whether a question stores aggregated choice counts
-   * (object → one column per choice key) or a scalar (one column per question).
-   * Falls back to a full stats scan for manual sections not in the questions schema.
-   * @param {string} sectionId
-   * @param {string[] | null | undefined} activeSubQs - null = all, array = filtered, undefined = all
-   */
+  /** @param {string} sectionId @param {string[] | null | undefined} activeSubQs */
   const addSectionColumns = (sectionId, activeSubQs) => {
-    const allQIds = sectionQuestions[sectionId];
-
-    if (!allQIds) {
-      // Manual stat not in questions endpoint — scan stats data for this section only
-      scoutGroups.forEach((group) => {
-        const sectionData = group.stats?.[sectionId];
-        if (!sectionData || typeof sectionData !== "object") return;
-        Object.entries(sectionData).forEach(([key, value]) => {
-          if (value === null || value === undefined) return;
-          if (typeof value === "object" && !Array.isArray(value)) {
-            Object.keys(value).forEach((answerKey) => {
-              ids.add([sectionId, key, answerKey].join(PATH_SEPARATOR));
-            });
-          } else {
-            ids.add([sectionId, key].join(PATH_SEPARATOR));
-          }
-        });
-      });
+    if (!sectionQuestions[sectionId]) {
+      for (const id of getManualSectionColumnIds(sectionId, scoutGroups)) ids.add(id);
       return;
     }
 
-    const qIds = Array.isArray(activeSubQs)
-      ? allQIds.filter((q) => activeSubQs.includes(q))
-      : allQIds;
+    const qIds = Array.isArray(activeSubQs) ? activeSubQs : (sectionQuestions[sectionId] ?? []);
 
-    for (const qId of qIds) {
-      // Inspect actual stats data to determine value shape: object = per-choice counts,
-      // scalar = single answer. Only collect choice keys that appear in the data.
-      /** @type {Set<string> | null} */
-      let choiceKeysInData = null;
-      for (const group of scoutGroups) {
-        const val = group.stats?.[sectionId]?.[qId];
-        if (val !== null && val !== undefined) {
-          if (typeof val === "object" && !Array.isArray(val)) {
-            choiceKeysInData = choiceKeysInData ?? new Set();
-            Object.keys(val).forEach((k) => /** @type {Set<string>} */ (choiceKeysInData).add(k));
-          }
-          break;
+    // Single pass over groups: collect choice keys for all questions at once
+    /** @type {Map<string, Set<string>>} */
+    const choiceKeysMap = new Map();
+    for (const group of scoutGroups) {
+      const sectionData = group.stats?.[sectionId];
+      if (!sectionData) continue;
+      for (const qId of qIds) {
+        const val = sectionData[qId];
+        if (val != null && typeof val === "object" && !Array.isArray(val)) {
+          let keys = choiceKeysMap.get(qId);
+          if (!keys) { keys = new Set(); choiceKeysMap.set(qId, keys); }
+          for (const k of Object.keys(val)) keys.add(k);
         }
       }
+    }
 
-      if (choiceKeysInData !== null) {
-        // Collect any additional choice keys from all groups (not just the first)
-        scoutGroups.forEach((group) => {
-          const val = group.stats?.[sectionId]?.[qId];
-          if (val && typeof val === "object" && !Array.isArray(val)) {
-            Object.keys(val).forEach((k) => /** @type {Set<string>} */ (choiceKeysInData).add(k));
-          }
-        });
-        choiceKeysInData.forEach((cId) => ids.add([sectionId, qId, cId].join(PATH_SEPARATOR)));
+    for (const qId of qIds) {
+      const choiceKeys = choiceKeysMap.get(qId);
+      if (choiceKeys != null && choiceKeys.size > 0) {
+        for (const cId of choiceKeys) ids.add(joinPath(sectionId, qId, cId));
       } else {
-        ids.add([sectionId, qId].join(PATH_SEPARATOR));
+        ids.add(joinPath(sectionId, qId));
       }
     }
   };
 
-  // Simple stats: sections without sub-questions, selected via selectedStatistics
   for (const sectionId of selectedStatistics) {
     if (sectionId === "num_participants") continue;
     addSectionColumns(sectionId, undefined);
   }
 
-  // Sub-question stats: sections with sub-questions, selected via selectedSubQuestions
   for (const [sectionId, activeSubQs] of Object.entries(selectedSubQuestions)) {
     addSectionColumns(sectionId, activeSubQs);
   }
@@ -129,34 +120,25 @@ function getColumnIds(selectedStatistics, selectedSubQuestions, sectionQuestions
 }
 
 /**
- * Gets the value from a scout group's stats using a column ID path.
- * Resolves string IDs to display names via questionIdToText when provided.
+ * Resolves a value from a scout group's stats using pre-split path segments.
  * @param {Record<string, any> | undefined} stats
- * @param {string} columnId
+ * @param {string[]} parts
  * @param {Record<string, string>} [questionIdToText]
  * @returns {string | number}
  */
-function getValueFromPath(stats, columnId, questionIdToText) {
+function resolveValue(stats, parts, questionIdToText) {
   if (!stats) return "";
-  const parts = columnId.split(PATH_SEPARATOR);
 
-  /** @type {any} */
   let current = stats;
   for (const part of parts) {
-    if (current === null || current === undefined) return "";
-    if (typeof current !== "object") return "";
+    if (current == null || typeof current !== "object") return "";
     current = current[part];
   }
 
-  if (current === null || current === undefined) return "";
+  if (current == null) return "";
   if (typeof current === "boolean") return current ? 1 : 0;
-  if (typeof current === "number") {
-    const resolved = questionIdToText?.[String(current)];
-    return resolved !== undefined ? resolved : current;
-  }
-  if (typeof current === "string") {
-    return questionIdToText?.[current] ?? current;
-  }
+  if (typeof current === "number") return questionIdToText?.[String(current)] ?? current;
+  if (typeof current === "string") return questionIdToText?.[current] ?? current;
   if (Array.isArray(current)) return current.join("\n");
   return "";
 }
@@ -166,12 +148,11 @@ function getValueFromPath(stats, columnId, questionIdToText) {
  * using the questions schema rather than scanning actual data values.
  *
  * Rules:
- * - 3-segment path (sectionId§questionId§choiceId): participant choice question aggregated
- *   as counts per choice option by the stats endpoint — always numeric
+ * - 3-segment path (sectionId§questionId§choiceId): always numeric
  * - 2-segment path (sectionId§questionId):
  *   - type "number" / "boolean" / no type (manual stat) → numeric
  *   - type "choice" → string with filter options from questionChoices + questionIdToText
- *   - type "text" / "leader_select" / "other_unsupported_by_api" → string, no filter
+ *   - type "text" / "leader_select" / other → string, no filter
  *
  * @param {Set<string>} columnIds
  * @param {Record<string, string>} questionTypes
@@ -183,33 +164,30 @@ function getColumnMeta(columnIds, questionTypes, questionChoices, questionIdToTe
   /** @type {Map<string, ColumnMeta>} */
   const meta = new Map();
 
-  columnIds.forEach((columnId) => {
-    if (columnId === "name" || columnId === "num_participants") return;
+  for (const columnId of columnIds) {
+    if (columnId === "name" || columnId === "num_participants") continue;
 
     const parts = columnId.split(PATH_SEPARATOR);
 
     if (parts.length === 3) {
       meta.set(columnId, { type: "number" });
-      return;
+      continue;
     }
 
     const qId = parts[1];
     const qType = questionTypes[qId];
 
-    if (qType === "number" || qType === "boolean" || !qType) {
-      // boolean → stored as 1/0 by getValueFromPath
-      // no qType → manual stat column (Kön, Avgift, etc.), always numeric
-      meta.set(columnId, { type: "number" });
-    } else if (qType === "choice") {
+    if (qType === "choice") {
       const uniqueValues = (questionChoices[qId] ?? [])
         .map((id) => questionIdToText[id] ?? id)
         .sort((a, b) => a.localeCompare(b, "sv"));
       meta.set(columnId, { type: "string", uniqueValues });
+    } else if (!qType || qType === "number" || qType === "boolean") {
+      meta.set(columnId, { type: "number" });
     } else {
-      // text, leader_select, other_unsupported_by_api → free-form string, no filter
       meta.set(columnId, { type: "string", uniqueValues: [] });
     }
-  });
+  }
 
   return meta;
 }
@@ -224,6 +202,18 @@ function getColumnMeta(columnIds, questionTypes, questionChoices, questionIdToTe
  * @param {Record<string, string>} [questionIdToText]
  */
 function transformToRows(scoutGroups, selectedColumns, columnMeta, questionIdToText) {
+  // Pre-compute column accessors once, outside the per-row loop
+  /** @type {{ columnId: string, parts: string[], isNumeric: boolean | undefined }[]} */
+  const statColumns = [];
+  for (const columnId of selectedColumns) {
+    if (columnId === "name" || columnId === "num_participants") continue;
+    statColumns.push({
+      columnId,
+      parts: columnId.split(PATH_SEPARATOR),
+      isNumeric: columnMeta.get(columnId)?.type === "number",
+    });
+  }
+
   return scoutGroups.map((group) => {
     /** @type {Record<string, any>} */
     const row = {
@@ -232,16 +222,14 @@ function transformToRows(scoutGroups, selectedColumns, columnMeta, questionIdToT
       num_participants: group.num_participants || 0,
     };
 
-    selectedColumns.forEach((columnId) => {
-      if (columnId !== "name" && columnId !== "num_participants") {
-        let value = getValueFromPath(group.stats, columnId, questionIdToText);
-        if (columnMeta.get(columnId)?.type === "number" && typeof value === "string" && value !== "") {
-          const parsed = Number(value);
-          if (!isNaN(parsed)) value = parsed;
-        }
-        row[columnId] = value;
+    for (const { columnId, parts, isNumeric } of statColumns) {
+      let value = resolveValue(group.stats, parts, questionIdToText);
+      if (isNumeric && typeof value === "string" && value !== "") {
+        const num = Number(value);
+        if (!isNaN(num)) value = num;
       }
-    });
+      row[columnId] = value;
+    }
 
     return row;
   });
@@ -259,13 +247,9 @@ function multiSelectFilterFn(row, columnId, filterValue) {
   }
 
   const value = row.getValue(columnId);
-  const strValue = value === null || value === undefined ? "" : String(value);
+  const strValue = value == null ? "" : String(value);
 
-  if (!Array.isArray(filterValue)) {
-    return strValue === filterValue;
-  }
-
-  return filterValue.includes(strValue);
+  return Array.isArray(filterValue) ? filterValue.includes(strValue) : strValue === filterValue;
 }
 
 /**
@@ -277,33 +261,24 @@ function multiSelectFilterFn(row, columnId, filterValue) {
 function createColumns(selectedColumns, columnMeta, questionIdToText) {
   /** @type {any[]} */
   const columns = [
-    {
-      accessorKey: "name",
-      header: "Kår",
-      size: 200,
-      minSize: 150,
-    },
+    { accessorKey: "name", header: "Kår", size: 200, minSize: 150 },
   ];
 
-  if (selectedColumns.has("num_participants")) {
-    columns.push({
-      accessorKey: "num_participants",
-      header: "Deltagare",
-      size: 200,
-    });
-  }
+  for (const columnId of selectedColumns) {
+    if (columnId === "name") continue;
 
-  selectedColumns.forEach((columnId) => {
-    if (columnId === "name" || columnId === "num_participants") return;
+    if (columnId === "num_participants") {
+      columns.push({ accessorKey: "num_participants", header: "Deltagare", size: 200 });
+      continue;
+    }
 
     const lastSegment = columnId.split(PATH_SEPARATOR).pop() ?? columnId;
-    const headerName = questionIdToText[lastSegment] ?? lastSegment;
     const colMeta = columnMeta.get(columnId);
 
     /** @type {any} */
     const colDef = {
       accessorKey: columnId,
-      header: headerName,
+      header: questionIdToText[lastSegment] ?? lastSegment,
       size: 200,
       ...(colMeta?.type === "number" && { sortingFn: "basic" }),
     };
@@ -319,7 +294,7 @@ function createColumns(selectedColumns, columnMeta, questionIdToText) {
     }
 
     columns.push(colDef);
-  });
+  }
 
   return columns;
 }
@@ -343,19 +318,8 @@ export default function ScoutGroupTable({
     useProjectConfig();
 
   const chipDrivenColumns = useMemo(
-    () =>
-      getColumnIds(
-        selectedStatistics,
-        selectedSubQuestions,
-        sectionQuestions,
-        scoutGroups
-      ),
-    [
-      selectedStatistics,
-      selectedSubQuestions,
-      sectionQuestions,
-      scoutGroups,
-    ]
+    () => getColumnIds(selectedStatistics, selectedSubQuestions, sectionQuestions, scoutGroups),
+    [selectedStatistics, selectedSubQuestions, sectionQuestions, scoutGroups]
   );
 
   const columnMeta = useMemo(
@@ -379,10 +343,7 @@ export default function ScoutGroupTable({
   const table = useReactTable({
     data: rows,
     columns,
-    state: {
-      columnFilters,
-      sorting,
-    },
+    state: { columnFilters, sorting },
     onColumnFiltersChange: setColumnFilters,
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
@@ -390,38 +351,18 @@ export default function ScoutGroupTable({
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     initialState: {
-      pagination: {
-        pageSize: 25,
-      },
+      pagination: { pageSize: 25 },
     },
   });
 
   const tableContent = (
-    <Box
-      sx={{
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        minHeight: 0,
-        overflow: "hidden",
-      }}
-    >
+    <Box sx={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
       <SmartTable table={table} />
     </Box>
   );
 
   return (
-    <Box
-      sx={{
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        gap: 2,
-        height: "100%",
-        minHeight: 0,
-      }}
-    >
+    <Box sx={{ flex: 1, display: "flex", flexDirection: "column", gap: 2, height: "100%", minHeight: 0 }}>
       <Box
         sx={{
           flex: 1,
@@ -462,20 +403,9 @@ export default function ScoutGroupTable({
         fullScreen
         open={isFullscreen}
         onClose={() => setIsFullscreen(false)}
-        sx={{
-          "& .MuiDialog-paper": {
-            display: "flex",
-            flexDirection: "column",
-          },
-        }}
+        sx={{ "& .MuiDialog-paper": { display: "flex", flexDirection: "column" } }}
       >
-        <AppBar
-          position="static"
-          sx={{
-            flexShrink: 0,
-            bgcolor: "#546e7a",
-          }}
-        >
+        <AppBar position="static" sx={{ flexShrink: 0, bgcolor: "#546e7a" }}>
           <Toolbar>
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
               Tabell – kårer och statistik
@@ -501,17 +431,7 @@ export default function ScoutGroupTable({
             overflow: "hidden",
           }}
         >
-          <Box
-            sx={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              minHeight: 0,
-              overflow: "hidden",
-            }}
-          >
-            {tableContent}
-          </Box>
+          {tableContent}
         </DialogContent>
       </Dialog>
     </Box>
