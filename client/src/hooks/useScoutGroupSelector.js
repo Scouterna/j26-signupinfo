@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 
 /**
  * Hook that encapsulates all the sidebar's selection and UI logic.
@@ -12,6 +12,13 @@ export default function useScoutGroupSelector(scoutGroups) {
 	const [selectionChoiceLabel, setSelectionChoiceLabel] = useState(/** @type {string[] | null} */ (null));
 	const [searchTerm, setSearchTerm] = useState('');
 	const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+	const soleGroupId = groups.length === 1 ? groups[0].id : null;
+	useEffect(() => {
+		if (soleGroupId !== null && selectedScoutGroupIds.size === 0) {
+			setSelectedScoutGroupIds(new Set([soleGroupId]));
+		}
+	}, [soleGroupId, selectedScoutGroupIds]);
 
 	/**
 	 * Memoized list of scout groups filtered by the search term.
