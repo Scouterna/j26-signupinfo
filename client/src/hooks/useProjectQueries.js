@@ -90,9 +90,10 @@ function buildChipData(questionsData) {
  * TanStack Query hook that fetches project list, question metadata, and group list.
  * Uses dependent queries: questions and groups are only fetched once the project ID is known.
  *
- * @returns {{ projectId: number|null, statistics: string[], statisticSubQuestions: Record<string, string[]>, sectionIdToText: Record<string, string>, questionIdToText: Record<string, string>, booleanQuestionIds: Set<string>, sectionQuestions: Record<string, string[]>, questionChoices: Record<string, string[]>, questionTypes: Record<string, string>, scoutGroups: Array<{ id: number, name: string }>, groupIdToName: Record<number, string>, isLoading: boolean, error: Error|null }}
+ * @param {number|null} [selectedProjectId] - Optional user-selected project id. Falls back to the first available project.
+ * @returns {{ projectId: number|null, projects: Array<{ id: number, name: string }>, statistics: string[], statisticSubQuestions: Record<string, string[]>, sectionIdToText: Record<string, string>, questionIdToText: Record<string, string>, booleanQuestionIds: Set<string>, sectionQuestions: Record<string, string[]>, questionChoices: Record<string, string[]>, questionTypes: Record<string, string>, scoutGroups: Array<{ id: number, name: string }>, groupIdToName: Record<number, string>, isLoading: boolean, error: Error|null }}
  */
-export default function useProjectQueries() {
+export default function useProjectQueries(selectedProjectId) {
   const {
     data: projectsData,
     isLoading: projectsLoading,
@@ -103,11 +104,21 @@ export default function useProjectQueries() {
     staleTime: Infinity,
   });
 
-  const projectId = useMemo(() => {
-    if (!projectsData) return null;
-    const ids = Object.keys(projectsData);
-    return ids.length > 0 ? Number(ids[0]) : null;
+  const projects = useMemo(() => {
+    if (!projectsData) return [];
+    return Object.entries(projectsData).map(([id, name]) => ({
+      id: Number(id),
+      name: /** @type {string} */ (name),
+    }));
   }, [projectsData]);
+
+  const projectId = useMemo(() => {
+    if (projects.length === 0) return null;
+    if (selectedProjectId != null && projects.some((p) => p.id === selectedProjectId)) {
+      return selectedProjectId;
+    }
+    return projects[0].id;
+  }, [projects, selectedProjectId]);
 
   const {
     data: questionsData,
@@ -154,6 +165,7 @@ export default function useProjectQueries() {
 
   return {
     projectId,
+    projects,
     statistics,
     statisticSubQuestions,
     sectionIdToText,
