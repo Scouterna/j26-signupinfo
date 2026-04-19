@@ -35,11 +35,12 @@ export default function QuestionRow({ questionId, questionData, qIndex, numericT
             return acc;
           }, {})
         : questionData,
-    [isTextAnswers, questionData]
+    [questionData]
   );
 
   const hasNoAnswers =
     showHeader &&
+    !isNumeric &&
     !isBooleanQuestion &&
     Object.keys(effectiveAnswerCounts).length === 0;
 
@@ -70,8 +71,6 @@ export default function QuestionRow({ questionId, questionData, qIndex, numericT
         <SubQuestionValues
           answerCounts={questionData.counts}
           groups={questionData.groups}
-          isLoadingGroups={false}
-          onRequestGroups={() => {}}
           onSelectByAnswer={onReplaceSelection}
           idToDisplayText={questionIdToText}
         />

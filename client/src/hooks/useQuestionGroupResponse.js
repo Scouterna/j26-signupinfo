@@ -9,7 +9,7 @@ import { fetchQuestionGroupResponse } from '../services/api';
  * @param {number|null} projectId
  * @param {number|string} questionId
  * @param {Set<number>} selectedGroupIds
- * @returns {{ data: Record<string, Record<string, number[]>>|undefined, isLoading: boolean, refetch: function }}
+ * @returns {{ data: Record<string, Record<string, number[]>>|undefined, isLoading: boolean, refetch: () => void }}
  */
 export default function useQuestionGroupResponse(projectId, questionId, selectedGroupIds) {
   const sortedIds = useMemo(

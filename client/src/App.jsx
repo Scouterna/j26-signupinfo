@@ -15,13 +15,13 @@ import useScoutGroupSelector from "./hooks/useScoutGroupSelector.js";
 import useApiData from "./hooks/useApiData.js";
 import useGroupSummary from "./hooks/useGroupSummary.js";
 import { getSelectedScoutGroups } from "./utils/scoutGroupUtils.js";
-import ScoutGroupSelector, {
-  DrawerToggleButton,
-} from "./components/ScoutGroupSelector.jsx";
+import ScoutGroupSelector from "./components/ScoutGroupSelector.jsx";
+import DrawerToggleButton from "./components/DrawerToggleButton.jsx";
 import StatisticsDashboard from "./components/StatisticsDashboard.jsx";
 import { DRAWER_WIDTH } from "./constants/layout.js";
 import ProjectConfigContext from "./context/ProjectConfigContext.jsx";
 import GroupSelectionContext from "./context/GroupSelectionContext.jsx";
+import ScoutGroupSelectorContext from "./context/ScoutGroupSelectorContext.jsx";
 
 const EMPTY_DATA = { villages: [] };
 
@@ -48,8 +48,7 @@ export default function App() {
   const { data, loading: dataLoading, error: dataError, refetch } = useApiData(projectId);
 
   const selectorState = useScoutGroupSelector(villagesData);
-  const { selectedScoutGroupIds, replaceSelectionWithIds, toggleDrawer } =
-    selectorState;
+  const { selectedScoutGroupIds, replaceSelectionWithIds } = selectorState;
 
   const {
     totalParticipants,
@@ -137,6 +136,7 @@ export default function App() {
   return (
     <ProjectConfigContext.Provider value={projectConfig}>
       <GroupSelectionContext.Provider value={groupSelection}>
+        <ScoutGroupSelectorContext.Provider value={selectorState}>
         <Box sx={{ display: "flex", height: "100%" }}>
           <CssBaseline />
 
@@ -151,10 +151,7 @@ export default function App() {
               elevation={1}
             >
               <Toolbar>
-                <DrawerToggleButton
-                  onClick={toggleDrawer}
-                  selectedCount={selectedScoutGroupIds.size}
-                />
+                <DrawerToggleButton />
                 <Typography variant="h6" noWrap component="div">
                   Anmälningsstatistik
                 </Typography>
@@ -163,7 +160,7 @@ export default function App() {
           )}
 
           {/* Scout group selector drawer */}
-          <ScoutGroupSelector {...selectorState} />
+          <ScoutGroupSelector />
 
           {/* Main content area */}
           <Box
@@ -190,6 +187,7 @@ export default function App() {
             />
           </Box>
         </Box>
+        </ScoutGroupSelectorContext.Provider>
       </GroupSelectionContext.Provider>
     </ProjectConfigContext.Provider>
   );

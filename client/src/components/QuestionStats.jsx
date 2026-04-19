@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo } from 'react';
 import useQuestionGroupResponse from '../hooks/useQuestionGroupResponse.js';
 import { SubQuestionValues } from './QuestionAnswerValues.jsx';
 import { useProjectConfig } from '../context/ProjectConfigContext.jsx';
@@ -15,7 +15,7 @@ import { useGroupSelection } from '../context/GroupSelectionContext.jsx';
  * @param {object} props
  * @param {string} props.questionId
  * @param {Record<string, number> | number} props.answerCounts
- * @param {((ids: number[], answerName: string) => void) | undefined} [props.onSelectByAnswer]
+ * @param {(ids: number[], answerName: string) => void} [props.onSelectByAnswer]
  */
 export default function QuestionStats({
   questionId,
@@ -38,20 +38,16 @@ export default function QuestionStats({
     selectedGroupIds,
   );
 
-  const idToDisplayText = useMemo(
-    () => ({ ...sectionIdToText, ...questionIdToText }),
-    [sectionIdToText, questionIdToText]
-  );
-
   const effectiveIdToDisplayText = useMemo(() => {
+    const base = { ...sectionIdToText, ...questionIdToText };
     if (booleanQuestionIds.has(questionId)) {
-      return { ...idToDisplayText, checked: questionIdToText[questionId] ?? questionId };
+      return { ...base, checked: questionIdToText[questionId] ?? questionId };
     }
     if (questionTypes[questionId] === 'text') {
-      return { ...idToDisplayText, responded: questionIdToText[questionId] ?? questionId };
+      return { ...base, responded: questionIdToText[questionId] ?? questionId };
     }
-    return idToDisplayText;
-  }, [booleanQuestionIds, questionId, idToDisplayText, questionIdToText, questionTypes]);
+    return base;
+  }, [booleanQuestionIds, questionId, sectionIdToText, questionIdToText, questionTypes]);
 
   const groups = useMemo(() => {
     if (!responseData) return null;
@@ -68,16 +64,12 @@ export default function QuestionStats({
     );
   }, [responseData, questionId, groupIdToName]);
 
-  const onRequestGroups = useCallback(() => {
-    refetch();
-  }, [refetch]);
-
   return (
     <SubQuestionValues
       answerCounts={answerCounts}
       groups={groups}
       isLoadingGroups={isLoading}
-      onRequestGroups={onRequestGroups}
+      onRequestGroups={refetch}
       onSelectByAnswer={onSelectByAnswer}
       idToDisplayText={effectiveIdToDisplayText}
     />

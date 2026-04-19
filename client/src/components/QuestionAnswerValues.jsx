@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Box,
   CircularProgress,
@@ -15,13 +15,13 @@ import StatRow from "./StatRow.jsx";
  */
 
 /**
- * Renders grouped answer counts with expandable scout group lists (lazily loaded).
+ * Renders grouped answer counts with a filter button per answer (groups lazily loaded on demand).
  *
  * @param {object} props
  * @param {Record<string, number>} props.counts - answer label -> count
  * @param {Record<string, GroupRef[]> | null} props.groups - null until lazily loaded
  * @param {boolean} props.isLoadingGroups
- * @param {() => void} props.onRequestGroups - called on first expand when groups are null
+ * @param {() => void} props.onRequestGroups - called when filter is clicked and groups are not yet loaded
  * @param {((ids: number[], answerName: string) => void)} [props.onSelectByAnswer]
  * @param {Record<string, string>} [props.idToDisplayText]
  */
@@ -55,13 +55,19 @@ function GroupedAnswerValues({
     }
   }, [groups, pendingAnswer, onSelectByAnswer]);
 
-  const sortedEntries = Object.entries(counts).sort((a, b) => {
-    const countDiff = b[1] - a[1];
-    if (countDiff !== 0) return countDiff;
-    return a[0].localeCompare(b[0], "sv");
-  });
+  const sortedEntries = useMemo(() =>
+    Object.entries(counts).sort((a, b) => {
+      const countDiff = b[1] - a[1];
+      if (countDiff !== 0) return countDiff;
+      return a[0].localeCompare(b[0], "sv");
+    }),
+    [counts]
+  );
 
-  const total = sortedEntries.reduce((sum, [, count]) => sum + count, 0);
+  const total = useMemo(() =>
+    sortedEntries.reduce((sum, [, count]) => sum + count, 0),
+    [sortedEntries]
+  );
 
   return (
     <>
