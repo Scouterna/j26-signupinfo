@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   Box,
   IconButton,
@@ -11,23 +11,18 @@ import {
 } from "@mui/material";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
-import {
-  getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
 import { SmartTable } from "./smart-table/SmartTable";
+import {
+  PATH_SEPARATOR,
+  joinPath,
+  getColumnMeta,
+  createColumns,
+  useChipTable,
+} from "./smart-table/chipTable.js";
 import { useProjectConfig } from "../context/ProjectConfigContext.jsx";
-
-const PATH_SEPARATOR = "§";
-/** @param {...string} parts */
-const joinPath = (...parts) => parts.join(PATH_SEPARATOR);
 
 /**
  * @typedef {{ id: number | string, name: string, num_participants?: number, stats?: Record<string, any> }} ScoutGroupItem
- * @typedef {{ type: "number" } | { type: "string", uniqueValues: string[] }} ColumnMeta
  */
 
 /**
@@ -144,61 +139,12 @@ function resolveValue(stats, parts, questionIdToText) {
 }
 
 /**
- * For each stat column, determines type (number vs string) and filter options
- * using the questions schema rather than scanning actual data values.
- *
- * Rules:
- * - 3-segment path (sectionId§questionId§choiceId): always numeric
- * - 2-segment path (sectionId§questionId):
- *   - type "number" / "boolean" / no type (manual stat) → numeric
- *   - type "choice" → string with filter options from questionChoices + questionIdToText
- *   - type "text" / "leader_select" / other → string, no filter
- *
- * @param {Set<string>} columnIds
- * @param {Record<string, string>} questionTypes
- * @param {Record<string, string[]>} questionChoices
- * @param {Record<string, string>} questionIdToText
- * @returns {Map<string, ColumnMeta>}
- */
-function getColumnMeta(columnIds, questionTypes, questionChoices, questionIdToText) {
-  /** @type {Map<string, ColumnMeta>} */
-  const meta = new Map();
-
-  for (const columnId of columnIds) {
-    if (columnId === "name" || columnId === "num_participants") continue;
-
-    const parts = columnId.split(PATH_SEPARATOR);
-
-    if (parts.length === 3) {
-      meta.set(columnId, { type: "number" });
-      continue;
-    }
-
-    const qId = parts[1];
-    const qType = questionTypes[qId];
-
-    if (qType === "choice") {
-      const uniqueValues = (questionChoices[qId] ?? [])
-        .map((id) => questionIdToText[id] ?? id)
-        .sort((a, b) => a.localeCompare(b, "sv"));
-      meta.set(columnId, { type: "string", uniqueValues });
-    } else if (!qType || qType === "number" || qType === "boolean") {
-      meta.set(columnId, { type: "number" });
-    } else {
-      meta.set(columnId, { type: "string", uniqueValues: [] });
-    }
-  }
-
-  return meta;
-}
-
-/**
  * Transforms scout groups into row data for the table.
  * Coerces string values to numbers for columns that are known to be numeric,
  * so TanStack Table sorts them correctly.
  * @param {ScoutGroupItem[]} scoutGroups
  * @param {Set<string>} selectedColumns
- * @param {Map<string, ColumnMeta>} columnMeta
+ * @param {Map<string, import('./smart-table/chipTable.js').ColumnMeta>} columnMeta
  * @param {Record<string, string>} [questionIdToText]
  */
 function transformToRows(scoutGroups, selectedColumns, columnMeta, questionIdToText) {
@@ -235,69 +181,10 @@ function transformToRows(scoutGroups, selectedColumns, columnMeta, questionIdToT
   });
 }
 
-/**
- * Custom filter function for multi-select filtering.
- * @param {import('@tanstack/react-table').Row<any>} row
- * @param {string} columnId
- * @param {any} filterValue
- */
-function multiSelectFilterFn(row, columnId, filterValue) {
-  if (!filterValue || (Array.isArray(filterValue) && filterValue.length === 0)) {
-    return true;
-  }
-
-  const value = row.getValue(columnId);
-  const strValue = value == null ? "" : String(value);
-
-  return Array.isArray(filterValue) ? filterValue.includes(strValue) : strValue === filterValue;
-}
-
-/**
- * Creates column definitions for TanStack Table.
- * @param {Set<string>} selectedColumns
- * @param {Map<string, ColumnMeta>} columnMeta
- * @param {Record<string, string>} questionIdToText
- */
-function createColumns(selectedColumns, columnMeta, questionIdToText) {
-  /** @type {any[]} */
-  const columns = [
-    { accessorKey: "name", header: "Kår", size: 200, minSize: 150 },
-  ];
-
-  for (const columnId of selectedColumns) {
-    if (columnId === "name") continue;
-
-    if (columnId === "num_participants") {
-      columns.push({ accessorKey: "num_participants", header: "Deltagare", size: 200 });
-      continue;
-    }
-
-    const lastSegment = columnId.split(PATH_SEPARATOR).pop() ?? columnId;
-    const colMeta = columnMeta.get(columnId);
-
-    /** @type {any} */
-    const colDef = {
-      accessorKey: columnId,
-      header: questionIdToText[lastSegment] ?? lastSegment,
-      size: 200,
-      ...(colMeta?.type === "number" && { sortingFn: "basic" }),
-    };
-
-    if (colMeta && "uniqueValues" in colMeta && colMeta.uniqueValues?.length) {
-      colDef.meta = {
-        dataType: {
-          type: "choice",
-          options: colMeta.uniqueValues.map((v) => ({ value: v, label: v })),
-        },
-      };
-      colDef.filterFn = multiSelectFilterFn;
-    }
-
-    columns.push(colDef);
-  }
-
-  return columns;
-}
+const FIRST_COLUMN = { accessorKey: "name", header: "Kår", size: 200, minSize: 150 };
+const SPECIAL_COLUMNS = {
+  num_participants: { accessorKey: "num_participants", header: "Deltagare", size: 200 },
+};
 
 /**
  * @param {object} props
@@ -333,27 +220,15 @@ export default function ScoutGroupTable({
   );
 
   const columns = useMemo(
-    () => createColumns(chipDrivenColumns, columnMeta, questionIdToText),
-    [chipDrivenColumns, columnMeta, questionIdToText]
+    () =>
+      createColumns(chipDrivenColumns, columnMeta, questionIdToText, {
+        firstColumn: FIRST_COLUMN,
+        specialColumns: SPECIAL_COLUMNS,
+      }),
+    [chipDrivenColumns, columnMeta, questionIdToText],
   );
 
-  const [columnFilters, setColumnFilters] = useState(/** @type {import('@tanstack/react-table').ColumnFiltersState} */ ([]));
-  const [sorting, setSorting] = useState([{ id: "name", desc: false }]);
-
-  const table = useReactTable({
-    data: rows,
-    columns,
-    state: { columnFilters, sorting },
-    onColumnFiltersChange: setColumnFilters,
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: {
-      pagination: { pageSize: 25 },
-    },
-  });
+  const table = useChipTable(rows, columns);
 
   const tableContent = (
     <Box sx={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>

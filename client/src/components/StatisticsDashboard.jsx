@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { Box, Typography, ToggleButtonGroup, ToggleButton } from "@mui/material";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PeopleIcon from "@mui/icons-material/People";
+import PersonIcon from "@mui/icons-material/Person";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import BarChartIcon from "@mui/icons-material/BarChart";
 
@@ -10,6 +11,7 @@ import StatisticChipSelector from "./StatisticChipSelector.jsx";
 import ScoutGroupTable from "./ScoutGroupTable.jsx";
 import StatisticCard from "./StatisticCard.jsx";
 import ProjectSwitcher from "./ProjectSwitcher.jsx";
+import PeopleView from "./PeopleView.jsx";
 import useUrlHashState from "../hooks/useUrlHashState.js";
 import { useProjectConfig } from "../context/ProjectConfigContext.jsx";
 
@@ -38,9 +40,21 @@ export default function StatisticsDashboard({
   projectId = null,
   onProjectChange,
 }) {
-  const { statistics, statisticSubQuestions } = useProjectConfig();
+  const { statistics, statisticSubQuestions, groupIdToName, projectId: configProjectId } = useProjectConfig();
 
-  const { viewMode, isFullscreen, setViewMode, setIsFullscreen } = useUrlHashState();
+  const scoutGroupsForPicker = useMemo(
+    () =>
+      Object.entries(groupIdToName)
+        .map(([id, name]) => ({ id: Number(id), name }))
+        .sort((a, b) => a.name.localeCompare(b.name, "sv")),
+    [groupIdToName]
+  );
+
+  const { viewMode: rawViewMode, isFullscreen, setViewMode, setIsFullscreen } = useUrlHashState();
+  // Single-group projects drop the Tabell view (no cross-group comparison to
+  // make). Fall back to Statistik if the URL hash from a prior multi-group
+  // session resolves to "table".
+  const viewMode = isSingleGroup && rawViewMode === "table" ? "statistics" : rawViewMode;
 
   const [selectedStatistics, setSelectedStatistics] = useState(
     /** @type {string[]} */ ([])
@@ -81,7 +95,7 @@ export default function StatisticsDashboard({
     /** @type {string | null} */ newMode
   ) => {
     if (newMode !== null) {
-      setViewMode(/** @type {"statistics"|"table"} */ (newMode));
+      setViewMode(/** @type {"statistics"|"table"|"people"} */ (newMode));
     }
   };
 
@@ -106,7 +120,11 @@ export default function StatisticsDashboard({
         }}
       >
         <Typography variant="h5" component="h1" fontWeight="600">
-          {viewMode === "statistics" ? "Statistik" : "Kåröversikt"}
+          {viewMode === "statistics"
+            ? "Statistik"
+            : viewMode === "people"
+            ? "Personer"
+            : "Kåröversikt"}
         </Typography>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
           <ToggleButtonGroup
@@ -120,9 +138,15 @@ export default function StatisticsDashboard({
               <BarChartIcon sx={{ mr: 0.5 }} />
               Statistik
             </ToggleButton>
-            <ToggleButton value="table" aria-label="table view">
-              <TableChartIcon sx={{ mr: 0.5 }} />
-              Tabell
+            {!isSingleGroup && (
+              <ToggleButton value="table" aria-label="table view">
+                <TableChartIcon sx={{ mr: 0.5 }} />
+                Tabell
+              </ToggleButton>
+            )}
+            <ToggleButton value="people" aria-label="people view">
+              <PersonIcon sx={{ mr: 0.5 }} />
+              Personer
             </ToggleButton>
           </ToggleButtonGroup>
           <ProjectSwitcher
@@ -133,25 +157,26 @@ export default function StatisticsDashboard({
         </Box>
       </Box>
 
-      {/* Hero Metrics */}
-      <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-        {!isSingleGroup && (
+      {viewMode !== "people" && (
+        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+          {!isSingleGroup && (
+            <HeroMetric
+              icon={<GroupsIcon fontSize="large" />}
+              label="Valda kårer"
+              value={numScoutGroupsSelected}
+              emphasis="primary"
+            />
+          )}
           <HeroMetric
-            icon={<GroupsIcon fontSize="large" />}
-            label="Valda kårer"
-            value={numScoutGroupsSelected}
-            emphasis="primary"
+            icon={<PeopleIcon fontSize="large" />}
+            label="Deltagare"
+            value={totalParticipants}
+            emphasis="secondary"
           />
-        )}
-        <HeroMetric
-          icon={<PeopleIcon fontSize="large" />}
-          label="Deltagare"
-          value={totalParticipants}
-          emphasis="secondary"
-        />
-      </Box>
+        </Box>
+      )}
 
-      {/* Statistic Chip Selector */}
+      {/* Statistic Chip Selector — shared across all views */}
       <Box
         sx={{
           padding: "16px 20px",
@@ -168,6 +193,17 @@ export default function StatisticsDashboard({
           onClearAllSubQuestions={handleClearAllSubQuestions}
         />
       </Box>
+
+      {/* People view */}
+      {viewMode === "people" && (
+        <PeopleView
+          scoutGroups={scoutGroupsForPicker}
+          projectId={configProjectId}
+          selectedStatistics={selectedStatistics}
+          selectedSubQuestions={selectedSubQuestions}
+          isSingleGroup={isSingleGroup}
+        />
+      )}
 
       {/* Statistics view */}
       {viewMode === "statistics" && (
