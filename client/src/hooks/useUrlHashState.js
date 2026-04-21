@@ -1,33 +1,43 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 
 /**
- * @returns {{ viewMode: "statistics"|"table", isFullscreen: boolean }}
+ * @returns {{ viewMode: "statistics"|"table"|"people", isFullscreen: boolean }}
  */
 function parseHash(/** @type {string} */ hash) {
   if (hash === "#table-fullscreen") return { viewMode: "table", isFullscreen: true };
   if (hash === "#table") return { viewMode: "table", isFullscreen: false };
+  if (hash === "#people") return { viewMode: "people", isFullscreen: false };
   return { viewMode: "statistics", isFullscreen: false };
 }
 
 /**
- * @param {{ viewMode: "statistics"|"table", isFullscreen: boolean }} state
+ * @param {{ viewMode: "statistics"|"table"|"people", isFullscreen: boolean }} state
  * @returns {string}
  */
 function serializeHash({ viewMode, isFullscreen }) {
   if (viewMode === "table" && isFullscreen) return "#table-fullscreen";
   if (viewMode === "table") return "#table";
+  if (viewMode === "people") return "#people";
   return "#statistics";
 }
+
+// history.pushState doesn't fire popstate or hashchange, so separate instances
+// of the hook wouldn't notice each other's updates. A custom event dispatched
+// right after pushState lets every subscribed instance re-read the hash.
+const SYNC_EVENT = "urlhashstate:change";
 
 /**
  * Syncs viewMode and isFullscreen to the URL hash using the History API.
  * Each state change pushes a new history entry so the browser back/forward
  * buttons navigate between view mode and fullscreen transitions.
  *
+ * Safe to call from multiple components — all instances stay in sync via the
+ * SYNC_EVENT fired from the setters.
+ *
  * @returns {{
- *   viewMode: "statistics"|"table",
+ *   viewMode: "statistics"|"table"|"people",
  *   isFullscreen: boolean,
- *   setViewMode: (mode: "statistics"|"table") => void,
+ *   setViewMode: (mode: "statistics"|"table"|"people") => void,
  *   setIsFullscreen: (value: boolean) => void,
  * }}
  */
@@ -38,12 +48,13 @@ export default function useUrlHashState() {
   const [isFullscreen, setIsFullscreenRaw] = useState(stateRef.current.isFullscreen);
 
   /** Switch view mode — adds a browser history entry. */
-  const setViewMode = useCallback((/** @type {"statistics"|"table"} */ mode) => {
+  const setViewMode = useCallback((/** @type {"statistics"|"table"|"people"} */ mode) => {
     const next = { ...stateRef.current, viewMode: mode, isFullscreen: false };
     stateRef.current = next;
     history.pushState(null, "", serializeHash(next));
     setViewModeRaw(mode);
     setIsFullscreenRaw(false);
+    window.dispatchEvent(new Event(SYNC_EVENT));
   }, []);
 
   /** Toggle fullscreen — adds a browser history entry. */
@@ -52,6 +63,7 @@ export default function useUrlHashState() {
     stateRef.current = next;
     history.pushState(null, "", serializeHash(next));
     setIsFullscreenRaw(value);
+    window.dispatchEvent(new Event(SYNC_EVENT));
   }, []);
 
   useEffect(() => {
@@ -62,7 +74,11 @@ export default function useUrlHashState() {
       setIsFullscreenRaw(parsed.isFullscreen);
     };
     window.addEventListener("popstate", handler);
-    return () => window.removeEventListener("popstate", handler);
+    window.addEventListener(SYNC_EVENT, handler);
+    return () => {
+      window.removeEventListener("popstate", handler);
+      window.removeEventListener(SYNC_EVENT, handler);
+    };
   }, []);
 
   return { viewMode, isFullscreen, setViewMode, setIsFullscreen };

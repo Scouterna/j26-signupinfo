@@ -14,6 +14,7 @@ import useProjectQueries from "./hooks/useProjectQueries.js";
 import useScoutGroupSelector from "./hooks/useScoutGroupSelector.js";
 import useApiData from "./hooks/useApiData.js";
 import useGroupSummary from "./hooks/useGroupSummary.js";
+import useUrlHashState from "./hooks/useUrlHashState.js";
 import { getSelectedScoutGroups } from "./utils/scoutGroupUtils.js";
 import ScoutGroupSelector from "./components/ScoutGroupSelector.jsx";
 import DrawerToggleButton from "./components/DrawerToggleButton.jsx";
@@ -50,6 +51,8 @@ export default function App() {
 
   const selectorState = useScoutGroupSelector(scoutGroups);
   const { selectedScoutGroupIds, replaceSelectionWithIds, clearSelection } = selectorState;
+
+  const { viewMode } = useUrlHashState();
 
   const prevProjectIdRef = useRef(/** @type {number|null} */ (null));
   useEffect(() => {
@@ -134,6 +137,7 @@ export default function App() {
   }
 
   const isSingleGroup = scoutGroups.length === 1;
+  const hideGroupSelector = isSingleGroup || viewMode === "people";
 
   const projectConfig = {
     projectId,
@@ -150,7 +154,10 @@ export default function App() {
 
   const groupSelection = {
     selectedGroupIds: selectedScoutGroupIds,
-    onReplaceSelection: replaceSelectionWithIds,
+    // With a single group there's nothing to filter down to, so we drop the
+    // "Välj kårer" drill-down callback — QuestionAnswerValues only renders the
+    // filter button when this is defined.
+    onReplaceSelection: isSingleGroup ? undefined : replaceSelectionWithIds,
   };
 
   return (
@@ -161,7 +168,7 @@ export default function App() {
           <CssBaseline />
 
           {/* Mobile app bar with drawer toggle */}
-          {!isSingleGroup && !isLargeScreen && (
+          {!hideGroupSelector && !isLargeScreen && (
             <AppBar
               position="fixed"
               sx={{
@@ -180,7 +187,7 @@ export default function App() {
           )}
 
           {/* Scout group selector drawer */}
-          {!isSingleGroup && <ScoutGroupSelector />}
+          {!hideGroupSelector && <ScoutGroupSelector />}
 
           {/* Main content area */}
           <Box
@@ -192,10 +199,10 @@ export default function App() {
               flexShrink: 1,
               minWidth: 0,
               p: { xs: 2, lg: 4 },
-              width: isSingleGroup
+              width: hideGroupSelector
                 ? "100%"
                 : { xs: "100%", lg: `calc(100% - ${DRAWER_WIDTH}px)` },
-              mt: isSingleGroup ? 0 : { xs: "64px", lg: 0 },
+              mt: hideGroupSelector ? 0 : { xs: "64px", lg: 0 },
               height: { lg: "100vh" },
               boxSizing: "border-box",
               overflow: "auto",

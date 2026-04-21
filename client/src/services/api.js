@@ -101,6 +101,50 @@ export async function fetchQuestionGroupResponse(projectId, questionId, groupIds
 }
 
 /**
+ * Fetches all individuals (with their responses) for a single group.
+ *
+ * @param {number|string} projectId
+ * @param {number|string} groupId
+ * @returns {Promise<Array<{ member_no: number, name: string, born: string, group_id: number, group_name: string, responses: Record<string, any>, email?: string, mobile?: string }>>}
+ * @throws {Error} If the request fails
+ */
+export async function fetchIndividualsByGroup(projectId, groupId) {
+  return apiFetch(`/stats/${projectId}/individualinfo/group/${groupId}`);
+}
+
+/**
+ * Fetches a single participant's responses. Returns just the raw responses
+ * dict ({ questionId: value, ... }) — not wrapped with member_no/name.
+ *
+ * @param {number|string} projectId
+ * @param {number|string} memberId
+ * @returns {Promise<Record<string, any>>}
+ * @throws {Error} If the request fails
+ */
+export async function fetchIndividualResponse(projectId, memberId) {
+  return apiFetch(`/stats/${projectId}/individualinfo/${memberId}`);
+}
+
+/**
+ * Searches for participants matching the given criteria. The endpoint returns
+ * 404 when nothing matches and 422 when the hit count exceeds `maxHits` — the
+ * caller is responsible for handling those cases (e.g. via `err.status`).
+ *
+ * @param {number|string} projectId
+ * @param {{ name?: string, born?: string, group?: string, maxHits?: number }} params
+ * @returns {Promise<Array<{ member_no: number, name: string, born: string, registration_group: string, member_group: string, email?: string, mobile?: string }>>}
+ * @throws {Error & { status: number }} If the request fails
+ */
+export async function fetchSearchMembers(projectId, { name = "", born = "", group = "", maxHits = 50 } = {}) {
+  const params = new URLSearchParams();
+  if (name) params.set("name", name);
+  if (born) params.set("born", born);
+  if (group) params.set("group", group);
+  params.set("max_hits", String(maxHits));
+  return apiFetch(`/stats/${projectId}/search_member?${params.toString()}`);
+}
+
+/**
  * Fetches all scout groups from the backend, handling pagination.
  * Requests the first page, then fetches any remaining pages in parallel.
  *
