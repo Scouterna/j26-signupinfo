@@ -73,8 +73,8 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
     logger.debug("Processing %s participants for project %s", len(pdata), project.project_name)
 
     for p in pdata.values():
-        if not p["confirmed"]:
-            continue  # Only handle confirmed participatns
+        if not p["confirmed"] or p['cancelled']:
+            continue  # Only handle confirmed participants
 
         group_id = p["group_registration_info"]["group_id"] if grouped_project else 0
 
@@ -109,10 +109,12 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
         fee = fee_values.get(str(p["fee_id"]), "Okänd")  # Fee key is a string the values?
         group.aggregated["Avgift"][fee] = group.aggregated["Avgift"].get(fee, 0) + 1
 
+        # Save raw individual responses
+        group.raw_individual_answers[p["member_no"]] = p["questions"]
+
         # Aggregate question responses
         if p["questions"]:
             _j26_question_hack_individual(p["questions"])  # Hack for error in J26 question forms
-            group.raw_individual_answers[p["member_no"]] = p["questions"]  # Store raw individual responses
             for qnum, qval in p["questions"].items():
                 q = qdata[qnum]
                 qnum = int(qnum)
