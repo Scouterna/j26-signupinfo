@@ -456,7 +456,7 @@ async def get_individual_responses(project_id: int, member_id: int) -> dict | No
     if not (participant := project.participants.get(member_id)):
         return None  # Participant not found
     if (
-        not (group_id := participant.get("registration_group"))
+        (group_id := participant.get("registration_group")) is None
         or not (group := project.groups.get(group_id))
         or not (response := group.raw_individual_answers.get(member_id))
     ):
