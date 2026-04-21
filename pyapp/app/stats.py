@@ -289,18 +289,21 @@ async def individual_responses(project_id: int, member_id: int, user: AuthUser =
 
 @stats_router.get(
     "/{project_id}/individualinfo/group/{group_id}",
-    response_model=list[dict],
+    response_model=Page,
     status_code=status.HTTP_200_OK,
     response_description="Individual info for a single group",
 )
 async def individuals_by_group(
     project_id: int,
     group_id: int,
+    page: int = Query(default=1, ge=1, description="Page number"),
+    size: int = Query(default=50, ge=1, le=100, description="Page size"),
     user: AuthUser = Depends(require_auth_user),
 ):
     """
     Return all individuals (with their responses) for a single group.
-    Requires the j26-signupinfo:all:read permission
+    Requires the j26-signupinfo:all:read permission.
+    Response is paginated.
     """
     if "j26-signupinfo:all:read" not in user.permissions:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient privileges")
@@ -311,7 +314,18 @@ async def individuals_by_group(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project or group not found.",
         )
-    return individuals
+
+    total = len(individuals)
+    skip = (page - 1) * size
+    items = individuals[skip : skip + size]
+
+    return Page(
+        items=items,
+        total=total,
+        page=page,
+        size=size,
+        pages=math.ceil(total / size) if total > 0 else 0,
+    )
 
 
 # --- API route to search for a participant ---
