@@ -67,13 +67,13 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
     grouped_project = bool("group_member" in project.questions["sections"])
 
     # Build section id -> title mapping for group_member sections
-    sections = {s["id"]: s["title"] for qs in project.questions["sections"].values() for s in qs.values()}
+    sections = {s["id"]: (qst, s["title"]) for qst, qsq in project.questions["sections"].items() for s in qsq.values()}
 
     pdata = project.participants["participants"]
     logger.debug("Processing %s participants for project %s", len(pdata), project.project_name)
 
     for p in pdata.values():
-        if not p["confirmed"] or p['cancelled']:
+        if not p["confirmed"] or p["cancelled"]:
             continue  # Only handle confirmed participants
 
         group_id = p["group_registration_info"]["group_id"] if grouped_project else 0
@@ -123,7 +123,9 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
                 section_id = q["section_id"]
 
                 # Save all questions separately
-                secq = questions.setdefault(section_id, {"text": sections[section_id], "questions": {}})["questions"]
+                secq = questions.setdefault(
+                    section_id, {"text": sections[section_id][1], "form_type": sections[section_id][0], "questions": {}}
+                )["questions"]
                 if qnum not in secq:
                     secq[qnum] = {"text": q["question"], "type": q["type"]}
                     if q["type"] == "choice":
@@ -194,9 +196,10 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
                     qnum = int(qnum)  # Always store question numbers as ints
 
                     section_id = q["section_id"]
-                    secq = questions.setdefault(section_id, {"text": sections[section_id], "questions": {}})[
-                        "questions"
-                    ]
+                    secq = questions.setdefault(
+                        section_id,
+                        {"text": sections[section_id][1], "form_type": sections[section_id][0], "questions": {}},
+                    )["questions"]
                     if qnum not in secq:  # Save questions
                         secq[qnum] = {"text": q["question"], "type": q["type"]}
                         # if choices := q.get("choices"):
