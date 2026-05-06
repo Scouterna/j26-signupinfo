@@ -41,6 +41,7 @@ async def lifespan(app: FastAPI):
     """
 
     await scoutnet_init()  # Do some init
+    logger.info("Server ready to accept requests!")
     yield  # Run FastAPI!
     await scoutnet_shutdown()
 
