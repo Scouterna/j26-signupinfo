@@ -58,6 +58,14 @@ export default function useSearchMembers(projectId, query) {
 		},
 		enabled,
 		staleTime: 30_000,
+		// 4xx (including 422 "too many matches") means the request itself is wrong
+		// — retrying just delays the user-visible outcome. Keep default retry for
+		// 5xx / network blips.
+		retry: (failureCount, /** @type {any} */ err) => {
+			const status = err?.status;
+			if (typeof status === 'number' && status >= 400 && status < 500) return false;
+			return failureCount < 3;
+		},
 	});
 
 	const err = /** @type {(Error & { status?: number }) | null} */ (error);

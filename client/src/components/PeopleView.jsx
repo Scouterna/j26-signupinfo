@@ -113,31 +113,44 @@ function coerceResponseValue(raw, questionType, questionIdToText) {
  * @param {Set<string>} columnIds
  * @param {Record<string, string>} questionTypes
  * @param {Record<string, string>} questionIdToText
+ * @param {Map<string, import('./smart-table/chipTable.js').ColumnMeta>} columnMeta
  */
 function transformToRows(
   individuals,
   columnIds,
   questionTypes,
   questionIdToText,
+  columnMeta,
 ) {
-  /** @type {{ columnId: string, questionId: string }[]} */
+  /** @type {{ columnId: string, questionId: string, isNumeric: boolean }[]} */
   const statColumns = [];
   for (const columnId of columnIds) {
     if (columnId === "name") continue;
     const qId = columnId.split(PATH_SEPARATOR).pop();
-    if (qId) statColumns.push({ columnId, questionId: qId });
+    if (qId) {
+      statColumns.push({
+        columnId,
+        questionId: qId,
+        isNumeric: columnMeta.get(columnId)?.type === "number",
+      });
+    }
   }
 
   return individuals.map((person) => {
     /** @type {Record<string, any>} */
     const row = { id: person.member_no, name: person.name };
     const responses = person.responses ?? {};
-    for (const { columnId, questionId } of statColumns) {
-      row[columnId] = coerceResponseValue(
+    for (const { columnId, questionId, isNumeric } of statColumns) {
+      let value = coerceResponseValue(
         responses[questionId],
         questionTypes[questionId],
         questionIdToText,
       );
+      if (isNumeric && typeof value === "string" && value !== "") {
+        const num = Number(value);
+        if (!isNaN(num)) value = num;
+      }
+      row[columnId] = value;
     }
     return row;
   });
@@ -155,6 +168,26 @@ function buildGroupNameToId(scoutGroups) {
   const map = {};
   for (const g of scoutGroups) map[g.name] = g.id;
   return map;
+}
+
+/**
+ * Translates an apiFetch error into user-facing Swedish. Falls back to the
+ * provided generic message so the panel never shows "undefined" or a raw
+ * "API request failed: …" string.
+ *
+ * @param {(Error & { status?: number }) | null | undefined} error
+ * @param {string} fallback
+ */
+function formatApiError(error, fallback) {
+  const status = error?.status;
+  if (status === 401 || status === 403) {
+    return "Du är inte inloggad eller saknar behörighet. Logga in igen och försök på nytt.";
+  }
+  if (status === 404) return "Hittades inte.";
+  if (typeof status === "number" && status >= 500) {
+    return "Servern svarar inte just nu. Försök igen om en stund.";
+  }
+  return fallback;
 }
 
 /**
@@ -276,8 +309,8 @@ export default function PeopleView({
   );
 
   const rows = useMemo(
-    () => transformToRows(individualList, columnIds, questionTypes, questionIdToText),
-    [individualList, columnIds, questionTypes, questionIdToText],
+    () => transformToRows(individualList, columnIds, questionTypes, questionIdToText, columnMeta),
+    [individualList, columnIds, questionTypes, questionIdToText, columnMeta],
   );
 
   const columns = useMemo(
@@ -414,7 +447,7 @@ export default function PeopleView({
         detailLoading ? (
           <LoadingPanel />
         ) : detailError ? (
-          <ErrorPanel message={detailError.message || "Kunde inte hämta personen."} />
+          <ErrorPanel message={formatApiError(detailError, "Kunde inte hämta personen.")} />
         ) : (
           <Box
             sx={{
@@ -434,7 +467,7 @@ export default function PeopleView({
       ) : !hasGroup ? (
         <EmptyPanel message="Välj en kår eller sök efter en person" />
       ) : groupError ? (
-        <ErrorPanel message={groupError.message || "Kunde inte hämta personer."} />
+        <ErrorPanel message={formatApiError(groupError, "Kunde inte hämta personer.")} />
       ) : groupLoading || individuals === null ? (
         // Guard against the "no individuals" empty state rendering while the
         // request is still inflight — groupList derives from `individuals ?? []`
@@ -492,7 +525,7 @@ function SearchResultsPanel({
     );
   }
   if (error) {
-    return <ErrorPanel message={error.message || "Sökningen misslyckades."} />;
+    return <ErrorPanel message={formatApiError(error, "Sökningen misslyckades.")} />;
   }
   if (results.length === 0) {
     return <EmptyPanel message="Inga personer matchar sökningen" />;

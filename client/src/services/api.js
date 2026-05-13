@@ -101,7 +101,9 @@ export async function fetchQuestionGroupResponse(projectId, questionId, groupIds
 }
 
 /**
- * Fetches all individuals (with their responses) for a single group.
+ * Fetches all individuals (with their responses) for a single group. The
+ * backend paginates at 100/page; fetch page 1, then remaining pages in
+ * parallel, and flatten to a single array for callers.
  *
  * @param {number|string} projectId
  * @param {number|string} groupId
@@ -109,7 +111,18 @@ export async function fetchQuestionGroupResponse(projectId, questionId, groupIds
  * @throws {Error} If the request fails
  */
 export async function fetchIndividualsByGroup(projectId, groupId) {
-  return apiFetch(`/stats/${projectId}/individualinfo/group/${groupId}`);
+  const firstPage = await apiFetch(`/stats/${projectId}/individualinfo/group/${groupId}?page=1&size=100`);
+  let allItems = [...firstPage.items];
+
+  if (firstPage.pages > 1) {
+    const remaining = Array.from({ length: firstPage.pages - 1 }, (_, i) =>
+      apiFetch(`/stats/${projectId}/individualinfo/group/${groupId}?page=${i + 2}&size=100`)
+    );
+    const pages = await Promise.all(remaining);
+    pages.forEach(p => allItems.push(...p.items));
+  }
+
+  return allItems;
 }
 
 /**
