@@ -273,9 +273,13 @@ async def groupinfo_response_question_id(
 async def individual_responses(project_id: int, member_id: int, user: AuthUser = Depends(require_auth_user)):
     """
     Return an individuals responses.
-    Requires the j26-signupinfo:all:read permission
+    Users with only j26-signupinfo:summaries:read see the same response-filtering
+    applied to the aggregated endpoints: section 21334 "Hälsa" and question 88206
+    "Annan relevant kostinformation" are stripped from the response.
     """
-    if "j26-signupinfo:all:read" not in user.permissions:
+    if not any(
+        permission in user.permissions for permission in ["j26-signupinfo:summaries:read", "j26-signupinfo:all:read"]
+    ):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient privileges")
 
     responses = await get_individual_responses(project_id, member_id)
@@ -284,6 +288,15 @@ async def individual_responses(project_id: int, member_id: int, user: AuthUser =
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Participant not found in project.",
         )
+
+    if "j26-signupinfo:all:read" not in user.permissions:
+        project_questions = await get_project_questions(project_id) or {}
+        restricted_qids = {"88206"}  # "Annan relevant kostinformation"
+        health_section = project_questions.get(21334) or project_questions.get("21334") or {}
+        for qid in (health_section.get("questions") or {}):
+            restricted_qids.add(str(qid))
+        responses = {k: v for k, v in responses.items() if str(k) not in restricted_qids}
+
     return responses
 
 

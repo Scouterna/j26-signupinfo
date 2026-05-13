@@ -251,6 +251,7 @@ function SmartTableBody<TData>({ table }: { table: TanstackTable<TData> }) {
 							style={{
 								width: `calc(var(--col-${slugify(cell.column.id)}-size) * 1px)`,
 								whiteSpace: "pre-line",
+								overflowWrap: "anywhere",
 							}}
 						>
 							{flexRender(cell.column.columnDef.cell, cell.getContext())}

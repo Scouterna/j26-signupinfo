@@ -112,8 +112,8 @@ async def require_auth_user(request: Request) -> AuthUser:
                 name="Fake User",
                 preferred_username="scoutnet|1234567",
                 email="fake.user@scouterna.se",
-                permissions=["j26-signupinfo:summaries:read"],
-                # permissions=["j26-signupinfo:all:read"],
+                # permissions=["j26-signupinfo:summaries:read"],
+                permissions=["j26-signupinfo:all:read"],
             )
 
     claims = await decode_access_token(token, request)
