@@ -112,15 +112,17 @@ async def require_auth_user(request: Request) -> AuthUser:
                 name="Fake User",
                 preferred_username="scoutnet|1234567",
                 email="fake.user@scouterna.se",
-                permissions=["j26-signupinfo:summaries:read"],
+                # permissions=["j26-signupinfo:summaries:read"],
                 # permissions=["j26-signupinfo:all:read"],
+                permissions=["j26-photography"],
             )
 
     claims = await decode_access_token(token, request)
     permissions = _extract_permissions(claims)
-    if "j26-planning-staff" in permissions and "j26-signupinfo:summaries:read" not in permissions:
-        permissions.append("j26-signupinfo:summaries:read")  # TODO: remove when not needed anymore
-    if not any(permission.startswith("j26-signupinfo:") for permission in permissions):
+    if not any(
+        permission.startswith("j26-signupinfo:") or permission == "j26-photography"
+        for permission in permissions
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="No suitable permissions"
         )  # No suitable permissions
