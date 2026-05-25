@@ -273,9 +273,9 @@ async def groupinfo_response_question_id(
 async def individual_responses(project_id: int, member_id: int, user: AuthUser = Depends(require_auth_user)):
     """
     Return an individuals responses.
-    Requires the j26-signupinfo:all:read permission
+    Requires the j26-signupinfo:all:read or j26-photography permission
     """
-    if "j26-signupinfo:all:read" not in user.permissions:
+    if "j26-signupinfo:all:read" not in user.permissions and "j26-photography" not in user.permissions:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient privileges")
 
     responses = await get_individual_responses(project_id, member_id)
@@ -284,7 +284,10 @@ async def individual_responses(project_id: int, member_id: int, user: AuthUser =
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Participant not found in project.",
         )
-    return responses
+    if "j26-signupinfo:all:read" in user.permissions:
+        return responses  # Return everything
+    else:
+        return {"90426": responses["90426"]} if "90426" in responses else {}  # Return only photo permission
 
 
 @stats_router.get(
@@ -357,7 +360,7 @@ async def search_member(
         )
     if len(responses) > max_hits:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail=f"More then {max_hits} participants match the criteria.",
         )
     return responses
