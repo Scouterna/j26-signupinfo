@@ -11,7 +11,9 @@ import {
 } from "@mui/material";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import { SmartTable } from "./smart-table/SmartTable";
+import { exportTableToCsv } from "../utils/exportTableToCsv.js";
 import {
   PATH_SEPARATOR,
   joinPath,
@@ -230,6 +232,11 @@ export default function ScoutGroupTable({
 
   const table = useChipTable(rows, columns);
 
+  const handleExportCsv = () => {
+    const date = new Date().toISOString().slice(0, 10);
+    exportTableToCsv(table, `karoversikt-${date}.csv`);
+  };
+
   const tableContent = (
     <Box sx={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
       <SmartTable table={table} />
@@ -254,6 +261,7 @@ export default function ScoutGroupTable({
             display: "flex",
             justifyContent: "flex-end",
             alignItems: "center",
+            gap: 0.5,
             px: 1,
             py: 0.5,
             borderBottom: 1,
@@ -261,6 +269,15 @@ export default function ScoutGroupTable({
             backgroundColor: "action.hover",
           }}
         >
+          <Tooltip title="Ladda ner som Excel (CSV)">
+            <IconButton
+              size="small"
+              onClick={handleExportCsv}
+              aria-label="Ladda ner tabell som CSV"
+            >
+              <FileDownloadIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
           <Tooltip title="Visa tabell i helskärm">
             <IconButton
               size="small"
@@ -285,6 +302,15 @@ export default function ScoutGroupTable({
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
               Tabell – kårer och statistik
             </Typography>
+            <Tooltip title="Ladda ner som Excel (CSV)">
+              <IconButton
+                color="inherit"
+                onClick={handleExportCsv}
+                aria-label="Ladda ner tabell som CSV"
+              >
+                <FileDownloadIcon />
+              </IconButton>
+            </Tooltip>
             <Tooltip title="Avsluta helskärm">
               <IconButton
                 color="inherit"
