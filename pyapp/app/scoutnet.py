@@ -466,7 +466,9 @@ async def get_individual_responses(project_id: int, member_id: int) -> dict | No
     return response
 
 
-async def get_individuals_by_group(project_id: int, group_id: int) -> list[dict] | None:
+async def get_individuals_by_group(
+    project_id: int, group_id: int, remove_health_and_food: bool = False
+) -> list[dict] | None:
     """
     Return all individuals (with their responses) for a single group.
     """
@@ -475,11 +477,20 @@ async def get_individuals_by_group(project_id: int, group_id: int) -> list[dict]
     if not (group := project.groups.get(group_id)):
         return None
 
+    rq = []  # Create a list of all food and health related questions
+    if remove_health_and_food:
+        for qsec in project.questions.values():
+            if any(hfq in qsec["text"] for hfq in ["Allergier", "Allergener", "Hälsa", "Kost", "Mat"]):
+                rq.extend(list(qsec["questions"].keys()))
+
     results = []
     for member_no, response in group.raw_individual_answers.items():
         participant = project.participants.get(member_no)
         if not participant:
             continue
+        if remove_health_and_food and response:
+            for q in rq:
+                response.pop(str(q), None)  # Remove food and health related questions
         entry = {
             "member_no": member_no,
             "name": participant.get("name", ""),

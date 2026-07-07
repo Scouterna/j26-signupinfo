@@ -306,7 +306,7 @@ async def individual_responses(project_id: int, member_id: int, user: AuthUser =
     project_questions = await get_project_questions(project_id) or {}
     restricted_qids = {"88206"}  # "Annan relevant kostinformation"
     health_section = project_questions.get(21334) or project_questions.get("21334") or {}
-    for qid in (health_section.get("questions") or {}):
+    for qid in health_section.get("questions") or {}:
         restricted_qids.add(str(qid))
     responses = {k: v for k, v in responses.items() if str(k) not in restricted_qids}
 
@@ -328,13 +328,15 @@ async def individuals_by_group(
 ):
     """
     Return all individuals (with their responses) for a single group.
-    Requires the j26-signupinfo:all:read permission.
+    Requires the j26-signupinfo:all:read permission or
+    j26-signupinfo:summaries:read if project project_id == 52716 (funktionär) minus health info
     Response is paginated.
     """
-    if "j26-signupinfo:all:read" not in user.permissions:
+    has_all_read = "j26-signupinfo:all:read" in user.permissions
+    if not (has_all_read or ("j26-signupinfo:summaries:read" in user.permissions and project_id == 52716)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient privileges")
 
-    individuals = await get_individuals_by_group(project_id, group_id)
+    individuals = await get_individuals_by_group(project_id, group_id, not has_all_read)
     if individuals is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
