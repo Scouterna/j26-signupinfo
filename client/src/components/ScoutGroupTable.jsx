@@ -9,11 +9,10 @@ import {
   Toolbar,
   Typography,
 } from "@mui/material";
-import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import { SmartTable } from "./smart-table/SmartTable";
-import { exportTableToCsv } from "../utils/exportTableToCsv.js";
+import SmartTablePanel from "./SmartTablePanel.jsx";
+import TableDownloadButton from "./TableDownloadButton.jsx";
 import {
   PATH_SEPARATOR,
   joinPath,
@@ -193,6 +192,7 @@ const SPECIAL_COLUMNS = {
  * @param {ScoutGroupItem[]} props.scoutGroups
  * @param {string[]} [props.selectedStatistics]
  * @param {Record<string, string[] | null>} [props.selectedSubQuestions]
+ * @param {string} [props.projectName]
  * @param {boolean} props.isFullscreen
  * @param {(value: boolean) => void} props.setIsFullscreen
  */
@@ -200,6 +200,7 @@ export default function ScoutGroupTable({
   scoutGroups,
   selectedStatistics = [],
   selectedSubQuestions = {},
+  projectName,
   isFullscreen,
   setIsFullscreen,
 }) {
@@ -232,11 +233,6 @@ export default function ScoutGroupTable({
 
   const table = useChipTable(rows, columns);
 
-  const handleExportCsv = () => {
-    const date = new Date().toISOString().slice(0, 10);
-    exportTableToCsv(table, `karoversikt-${date}.csv`);
-  };
-
   const tableContent = (
     <Box sx={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
       <SmartTable table={table} />
@@ -245,51 +241,12 @@ export default function ScoutGroupTable({
 
   return (
     <Box sx={{ flex: 1, display: "flex", flexDirection: "column", gap: 2, height: "100%", minHeight: 0 }}>
-      <Box
-        sx={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          border: 1,
-          borderColor: "grey.300",
-          borderRadius: 1,
-          overflow: "hidden",
-        }}
-      >
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "flex-end",
-            alignItems: "center",
-            gap: 0.5,
-            px: 1,
-            py: 0.5,
-            borderBottom: 1,
-            borderColor: "grey.200",
-            backgroundColor: "action.hover",
-          }}
-        >
-          <Tooltip title="Ladda ner som Excel (CSV)">
-            <IconButton
-              size="small"
-              onClick={handleExportCsv}
-              aria-label="Ladda ner tabell som CSV"
-            >
-              <FileDownloadIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Visa tabell i helskärm">
-            <IconButton
-              size="small"
-              onClick={() => setIsFullscreen(true)}
-              aria-label="Visa tabell i helskärm"
-            >
-              <FullscreenIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
-        {tableContent}
-      </Box>
+      <SmartTablePanel
+        table={table}
+        filenamePrefix="karoversikt"
+        projectName={projectName}
+        onFullscreen={() => setIsFullscreen(true)}
+      />
 
       <Dialog
         fullScreen
@@ -302,15 +259,13 @@ export default function ScoutGroupTable({
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
               Tabell – kårer och statistik
             </Typography>
-            <Tooltip title="Ladda ner som Excel (CSV)">
-              <IconButton
-                color="inherit"
-                onClick={handleExportCsv}
-                aria-label="Ladda ner tabell som CSV"
-              >
-                <FileDownloadIcon />
-              </IconButton>
-            </Tooltip>
+            <TableDownloadButton
+              table={table}
+              filenamePrefix="karoversikt"
+              projectName={projectName}
+              size="medium"
+              color="inherit"
+            />
             <Tooltip title="Avsluta helskärm">
               <IconButton
                 color="inherit"

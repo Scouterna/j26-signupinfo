@@ -22,7 +22,7 @@ import {
 import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Clear";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { SmartTable } from "./smart-table/SmartTable";
+import SmartTablePanel from "./SmartTablePanel.jsx";
 import {
   PATH_SEPARATOR,
   joinPath,
@@ -205,6 +205,7 @@ function formatApiError(error, fallback) {
  * @param {object} props
  * @param {Array<{ id: number, name: string }>} props.scoutGroups
  * @param {number|null} props.projectId
+ * @param {string} [props.projectName]
  * @param {string[]} props.selectedStatistics
  * @param {Record<string, string[] | null>} props.selectedSubQuestions
  * @param {boolean} [props.isSingleGroup]
@@ -212,6 +213,7 @@ function formatApiError(error, fallback) {
 export default function PeopleView({
   scoutGroups,
   projectId,
+  projectName,
   selectedStatistics,
   selectedSubQuestions,
   isSingleGroup = false,
@@ -449,20 +451,12 @@ export default function PeopleView({
         ) : detailError ? (
           <ErrorPanel message={formatApiError(detailError, "Kunde inte hämta personen.")} />
         ) : (
-          <Box
-            sx={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              border: 1,
-              borderColor: "grey.300",
-              borderRadius: 1,
-              overflow: "hidden",
-              minHeight: 360,
-            }}
-          >
-            <SmartTable table={table} />
-          </Box>
+          <SmartTablePanel
+            table={table}
+            filenamePrefix="person"
+            projectName={projectName}
+            sx={{ minHeight: 360 }}
+          />
         )
       ) : !hasGroup ? (
         <EmptyPanel message="Välj en kår eller sök efter en person" />
@@ -477,20 +471,12 @@ export default function PeopleView({
       ) : groupList.length === 0 ? (
         <EmptyPanel message="Inga personer i vald kår" />
       ) : (
-        <Box
-          sx={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            border: 1,
-            borderColor: "grey.300",
-            borderRadius: 1,
-            overflow: "hidden",
-            minHeight: 360,
-          }}
-        >
-          <SmartTable table={table} />
-        </Box>
+        <SmartTablePanel
+          table={table}
+          filenamePrefix="personer"
+          projectName={projectName}
+          sx={{ minHeight: 360 }}
+        />
       )}
     </Box>
   );

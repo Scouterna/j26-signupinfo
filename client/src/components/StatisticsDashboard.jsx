@@ -50,6 +50,13 @@ export default function StatisticsDashboard({
     [groupIdToName]
   );
 
+  // Name of the project currently being viewed — folded into CSV download
+  // filenames so exports from different projects don't collide.
+  const currentProjectName = useMemo(
+    () => projects.find((p) => p.id === projectId)?.name ?? "",
+    [projects, projectId]
+  );
+
   const { viewMode: rawViewMode, isFullscreen, setViewMode, setIsFullscreen } = useUrlHashState();
   // Single-group projects drop the Tabell view (no cross-group comparison to
   // make). Fall back to Statistik if the URL hash from a prior multi-group
@@ -199,6 +206,7 @@ export default function StatisticsDashboard({
         <PeopleView
           scoutGroups={scoutGroupsForPicker}
           projectId={configProjectId}
+          projectName={currentProjectName}
           selectedStatistics={selectedStatistics}
           selectedSubQuestions={selectedSubQuestions}
           isSingleGroup={isSingleGroup}
@@ -254,6 +262,7 @@ export default function StatisticsDashboard({
             scoutGroups={selectedScoutGroups}
             selectedStatistics={selectedStatistics}
             selectedSubQuestions={selectedSubQuestions}
+            projectName={currentProjectName}
             isFullscreen={isFullscreen}
             setIsFullscreen={setIsFullscreen}
           />
