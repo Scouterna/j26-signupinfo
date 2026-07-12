@@ -1,3 +1,4 @@
+import json
 import logging
 
 from .scoutnet import CachedGroup, CachedProject, ProjectCache, ScoutnetProjectData
@@ -46,6 +47,15 @@ def _j26_question_hack_individual(q: dict) -> None:
         for key in ("89293", "89294", "89295", "89296", "89297", "89298"):
             q.pop(key, None)  # If not, remove related responses
 
+    for qpatch in ["91453", "91454", "91458", "91455", "91456", "91459", "91457", "91460"]:
+        # Decode and patch some of the "other_unsupported_by_api" types
+        if qpatch in q:
+            try:
+                decoded = json.loads(q[qpatch])
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if isinstance(decoded, dict) and "value" in decoded:
+                q[qpatch] = decoded["value"]
     return
 
 
@@ -171,7 +181,7 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
 
                 elif q["type"] == "other_unsupported_by_api":
                     pass
-                    # logger.info('Unhandled question "%s" of type: %s', qtext, q["type"])
+                    # logger.info('Unhandled question "%s" of type: %s', qval, q["type"])
                 else:
                     logger.info("Unhandled question type: %s", q["type"])
 
