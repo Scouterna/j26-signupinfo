@@ -84,7 +84,7 @@ async def decode_access_token(token: str, request: Request) -> dict[str, Any]:
 def _extract_permissions(claims: dict[str, Any]) -> list[str]:
     permissions = set()
 
-    # Extract resource_access permissions prefixed with resource name, e.g. "j26-j26-signupinfo:stats:read"
+    # Extract resource_access permissions prefixed with resource name, e.g. "j26-signupinfo:stats:read"
     resource_access = claims.get("resource_access") or {}
     for resource_name, resource in resource_access.items():
         resource_roles = (resource.get("roles") or []) if isinstance(resource, dict) else []
@@ -94,6 +94,18 @@ def _extract_permissions(claims: dict[str, Any]) -> list[str]:
     realm_access = claims.get("realm_access") or {}
     realm_roles = realm_access.get("roles") or []
     permissions.update(role for role in realm_roles if isinstance(role, str) and role.startswith("j26-"))
+
+    # The j26-signupinfo roles are mutually exclusive; keep only the highest access one.
+    # Order from lowest to highest access.
+    signupinfo_role_hierarchy = [
+        "j26-signupinfo:basic:read",
+        "j26-signupinfo:summaries:read",
+        "j26-signupinfo:all:read",
+    ]
+    held_signupinfo_roles = [role for role in signupinfo_role_hierarchy if role in permissions]
+    if held_signupinfo_roles:
+        permissions.difference_update(held_signupinfo_roles)
+        permissions.add(held_signupinfo_roles[-1])
 
     return sorted(permissions)
 
@@ -112,16 +124,15 @@ async def require_auth_user(request: Request) -> AuthUser:
                 name="Fake User",
                 preferred_username="scoutnet|1234567",
                 email="fake.user@scouterna.se",
-                # permissions=["j26-signupinfo:summaries:read"],
+                permissions=["j26-signupinfo:summaries:read"],
                 # permissions=["j26-photography"],
-                permissions=["j26-signupinfo:all:read"],
+                # permissions=["j26-signupinfo:all:read"],
             )
 
     claims = await decode_access_token(token, request)
     permissions = _extract_permissions(claims)
     if not any(
-        permission.startswith("j26-signupinfo:") or permission == "j26-photography"
-        for permission in permissions
+        permission.startswith("j26-signupinfo:") or permission == "j26-photography" for permission in permissions
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="No suitable permissions"
