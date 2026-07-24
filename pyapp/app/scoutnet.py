@@ -238,7 +238,11 @@ async def _get_all_projectdata_from_scoutnet() -> list[ScoutnetProjectData]:
 
         questions = {"sections": {}, "questions": {}}
         for forms_data in form_results:
-            questions["sections"][forms_data["form"]["type"]] = forms_data["sections"]
+            # Merge (don't overwrite) sections: a project can have multiple forms
+            # sharing the same form type (e.g. two "individual" forms). Overwriting
+            # would drop one form's sections while its questions still get merged in
+            # below, leaving questions pointing at missing sections (KeyError on decode).
+            questions["sections"].setdefault(forms_data["form"]["type"], {}).update(forms_data["sections"])
             questions["questions"].update(forms_data["questions"])
 
         return ScoutnetProjectData(
