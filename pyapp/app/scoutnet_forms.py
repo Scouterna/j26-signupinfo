@@ -211,7 +211,8 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
                         {"text": sections[section_id][1], "form_type": sections[section_id][0], "questions": {}},
                     )["questions"]
                     if qnum not in secq:  # Save questions
-                        secq[qnum] = {"text": q["question"], "type": q["type"]}
+                        qtype = q["type"] if q["type"] not in ["other_unsupported_by_api", "leader_select"] else "text"
+                        secq[qnum] = {"text": q["question"], "type": qtype}
                         # if choices := q.get("choices"):
                         if q["type"] == "choice":
                             secq[qnum]["choices"] = {c["value"]: c["option"] for c in q.get("choices", {}).values()}
