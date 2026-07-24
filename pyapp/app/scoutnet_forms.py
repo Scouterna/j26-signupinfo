@@ -231,13 +231,22 @@ def _decode_project(project: ScoutnetProjectData) -> CachedProject:
                     elif q["type"] == "number":
                         group_section[qnum] = int(qval) if qval else 0
                     else:
-                        group_section[qnum] = qval
+                        if qval:
+                            if (qnum == 88195 or qnum == 88203) and int(
+                                qval
+                            ) in participants:  # Hack for 'Ansvariga från kåren'
+                                contact = participants[int(qval)]
+                                group_section[qnum] = ", ".join(
+                                    [str(contact.get(v, "")) for v in ["name", "mobile", "email"] if contact.get(v)]
+                                )
+                            else:
+                                group_section[qnum] = qval
 
     # Resolve group contacts
-    for g in groups.values():
-        contact = g.aggregated.get("Ansvariga från kåren", {}).get("Ansvarig ledare på plats")
-        if contact and int(contact) in participants:
-            g.contact = participants[int(contact)]
+    # for g in groups.values():
+    #     contact = g.aggregated.get("Ansvariga från kåren", {}).get("Ansvarig ledare på plats")
+    #     if contact and int(contact) in participants:
+    #         g.contact = participants[int(contact)]
 
     return CachedProject(
         project_id=project.project_id,
