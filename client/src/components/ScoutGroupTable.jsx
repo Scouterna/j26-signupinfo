@@ -240,7 +240,7 @@ export default function ScoutGroupTable({
   );
 
   return (
-    <Box sx={{ flex: 1, display: "flex", flexDirection: "column", gap: 2, height: "100%", minHeight: 0 }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       <SmartTablePanel
         table={table}
         filenamePrefix="karoversikt"

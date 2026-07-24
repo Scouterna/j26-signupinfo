@@ -351,8 +351,6 @@ export default function PeopleView({
         display: "flex",
         flexDirection: "column",
         gap: 2.5,
-        minHeight: 0,
-        flex: 1,
       }}
     >
       <Box

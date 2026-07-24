@@ -95,6 +95,7 @@ export function SmartTable<TData extends RowData>({ table }: Props<TData>) {
 			<TableContainer
 				sx={{
 					flex: 1,
+					overflow: "auto",
 				}}
 			>
 				<Table
